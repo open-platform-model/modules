@@ -1,0 +1,257 @@
+version: "3"
+
+silent: true
+
+vars:
+  LOCAL_REGISTRY: "opmodel.dev=localhost:5000+insecure,registry.cue.works"
+  CUE_CACHE_DIR: "{{.TASKFILE_DIR}}/../.cue-cache"
+  VERSION_FILE: "{{.TASKFILE_DIR}}/versions.yml"
+
+env:
+  CUE_REGISTRY: "{{.LOCAL_REGISTRY}}"
+  CUE_CACHE_DIR: "{{.CUE_CACHE_DIR}}"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  versions:
+    desc: Show current version and change status for all modules
+    preconditions:
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required. Install: brew install yq"
+    cmds:
+      - |
+        set -euo pipefail
+        printf "%-20s %-12s %s\n" "MODULE" "VERSION" "STATUS"
+        printf "%-20s %-12s %s\n" "------" "-------" "------"
+        for dir in "{{.TASKFILE_DIR}}"/*/; do
+          module=$(basename "$dir")
+          # Skip non-module dirs (no cue.mod)
+          [ -d "$dir/cue.mod" ] || continue
+          version=$(yq ".$module.version // \"(unset)\"" "{{.VERSION_FILE}}")
+          stored=$(yq ".$module.checksum // \"\"" "{{.VERSION_FILE}}")
+          current=$(find "$dir" -name '*.cue' -not -path '*/cue.mod/*' | sort | xargs sha256sum 2>/dev/null | sha256sum | awk '{print $1}')
+          if [ -z "$stored" ]; then
+            status="NEW (never published)"
+          elif [ "$stored" != "$current" ]; then
+            status="CHANGED"
+          else
+            status="unchanged"
+          fi
+          printf "%-20s %-12s %s\n" "$module" "$version" "$status"
+        done
+
+  publish:
+    desc: Publish all changed modules to the registry
+    vars:
+      DRY_RUN: '{{.DRY_RUN | default "false"}}'
+      TYPE: '{{.TYPE | default "patch"}}'
+    preconditions:
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required. Install: brew install yq"
+      - sh: command -v cue >/dev/null 2>&1
+        msg: "cue is required."
+      - sh: command -v git >/dev/null 2>&1
+        msg: "git is required."
+    cmds:
+      - |
+        set -euo pipefail
+        DRY_RUN="{{.DRY_RUN}}"
+        BUMP_TYPE="{{.TYPE}}"
+        VERSION_FILE="{{.VERSION_FILE}}"
+        TASKFILE_DIR="{{.TASKFILE_DIR}}"
+
+        BOLD='\033[1m'
+        GREEN='\033[0;32m'
+        YELLOW='\033[0;33m'
+        RED='\033[0;31m'
+        DIM='\033[2m'
+        RESET='\033[0m'
+
+        bump_version() {
+          local ver="$1" type="$2"
+          local stripped="${ver#v}"
+          IFS='.' read -r major minor patch <<< "$stripped"
+          case "$type" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          echo "v${major}.${minor}.${patch}"
+        }
+
+        compute_checksum() {
+          local dir="$1"
+          find "$dir" -name '*.cue' -not -path '*/cue.mod/*' | sort | xargs sha256sum | sha256sum | awk '{print $1}'
+        }
+
+        echo -e "${BOLD}Phase 1: Detecting changes...${RESET}"
+        changed=()
+
+        for dir in "$TASKFILE_DIR"/*/; do
+          module=$(basename "$dir")
+          [ -d "$dir/cue.mod" ] || continue
+
+          stored=$(yq ".$module.checksum // \"\"" "$VERSION_FILE")
+          current=$(compute_checksum "$dir")
+
+          if [ -z "$stored" ]; then
+            echo -e "  ${YELLOW}${module}${RESET}: changed (no stored checksum)"
+            changed+=("$module")
+          elif [ "$stored" != "$current" ]; then
+            echo -e "  ${YELLOW}${module}${RESET}: changed"
+            changed+=("$module")
+          else
+            echo -e "  ${module}: unchanged"
+          fi
+        done
+
+        if [ ${#changed[@]} -eq 0 ]; then
+          echo ""
+          echo -e "${GREEN}No changes detected. Nothing to publish.${RESET}"
+          exit 0
+        fi
+
+        if [ "$DRY_RUN" = "true" ]; then
+          echo ""
+          echo -e "${BOLD}Dry run — planned actions:${RESET}"
+          for module in "${changed[@]}"; do
+            version=$(yq ".$module.version" "$VERSION_FILE")
+            new_version=$(bump_version "$version" "$BUMP_TYPE")
+            echo -e "  ${YELLOW}${module}${RESET}: $version -> ${GREEN}${new_version}${RESET} (bump + publish)"
+          done
+          echo ""
+          echo -e "${DIM}No changes made (dry run).${RESET}"
+          exit 0
+        fi
+
+        echo ""
+        echo -e "${BOLD}Phase 2: Publishing...${RESET}"
+
+        for module in "${changed[@]}"; do
+          dir="$TASKFILE_DIR/$module"
+          version=$(yq ".$module.version" "$VERSION_FILE")
+          new_version=$(bump_version "$version" "$BUMP_TYPE")
+
+          echo ""
+          echo -e "${BOLD}${GREEN}[${module}]${RESET} $version -> ${GREEN}${new_version}${RESET}"
+
+          # 1. Bump version
+          yq -i ".$module.version = \"${new_version}\"" "$VERSION_FILE"
+
+          # 2. Tidy
+          echo "  Tidying..."
+          (cd "$dir" && cue mod tidy)
+
+          # 3. Publish
+          echo "  Publishing ${module}@${new_version}..."
+          if ! (cd "$dir" && cue mod publish "$new_version"); then
+            echo -e "  ${RED}Failed to publish ${module}${RESET}"
+            exit 1
+          fi
+
+          # 4. Tag
+          git -C "$TASKFILE_DIR/.." tag "modules/${module}/${new_version}"
+          echo "  Tagged modules/${module}/${new_version}"
+
+          # 5. Store checksum
+          new_checksum=$(compute_checksum "$dir")
+          yq -i ".$module.checksum = \"${new_checksum}\"" "$VERSION_FILE"
+          echo -e "  Checksum: ${DIM}${new_checksum:0:12}...${RESET}"
+        done
+
+        echo ""
+        echo -e "${BOLD}${GREEN}Done.${RESET} Published ${#changed[@]} module(s)."
+
+  publish:one:
+    desc: Publish a single module (MODULE=<name>)
+    vars:
+      MODULE: '{{.MODULE}}'
+      DRY_RUN: '{{.DRY_RUN | default "false"}}'
+      TYPE: '{{.TYPE | default "patch"}}'
+    preconditions:
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required."
+      - sh: command -v cue >/dev/null 2>&1
+        msg: "cue is required."
+      - sh: '[ -n "{{.MODULE}}" ]'
+        msg: "MODULE variable is required. Example: task publish:one MODULE=wolf"
+      - sh: '[ -d "{{.TASKFILE_DIR}}/{{.MODULE}}/cue.mod" ]'
+        msg: "Module {{.MODULE}} not found or has no cue.mod directory"
+    cmds:
+      - |
+        set -euo pipefail
+        MODULE="{{.MODULE}}"
+        DRY_RUN="{{.DRY_RUN}}"
+        BUMP_TYPE="{{.TYPE}}"
+        VERSION_FILE="{{.VERSION_FILE}}"
+        dir="{{.TASKFILE_DIR}}/$MODULE"
+
+        BOLD='\033[1m'
+        GREEN='\033[0;32m'
+        YELLOW='\033[0;33m'
+        RED='\033[0;31m'
+        DIM='\033[2m'
+        RESET='\033[0m'
+
+        bump_version() {
+          local ver="$1" type="$2"
+          local stripped="${ver#v}"
+          IFS='.' read -r major minor patch <<< "$stripped"
+          case "$type" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          echo "v${major}.${minor}.${patch}"
+        }
+
+        compute_checksum() {
+          find "$dir" -name '*.cue' -not -path '*/cue.mod/*' | sort | xargs sha256sum | sha256sum | awk '{print $1}'
+        }
+
+        stored=$(yq ".$MODULE.checksum // \"\"" "$VERSION_FILE")
+        current=$(compute_checksum)
+
+        if [ -z "$stored" ]; then
+          echo -e "${YELLOW}${MODULE}${RESET}: changed (no stored checksum)"
+        elif [ "$stored" != "$current" ]; then
+          echo -e "${YELLOW}${MODULE}${RESET}: changed"
+        else
+          echo -e "${MODULE}: unchanged — nothing to publish"
+          exit 0
+        fi
+
+        version=$(yq ".$MODULE.version" "$VERSION_FILE")
+        new_version=$(bump_version "$version" "$BUMP_TYPE")
+
+        if [ "$DRY_RUN" = "true" ]; then
+          echo -e "Dry run: ${MODULE} $version -> ${GREEN}${new_version}${RESET}"
+          exit 0
+        fi
+
+        echo -e "${BOLD}${GREEN}[${MODULE}]${RESET} $version -> ${GREEN}${new_version}${RESET}"
+
+        yq -i ".$MODULE.version = \"${new_version}\"" "$VERSION_FILE"
+        echo "  Tidying..."
+        (cd "$dir" && cue mod tidy)
+        echo "  Publishing ${MODULE}@${new_version}..."
+        if ! (cd "$dir" && cue mod publish "$new_version"); then
+          echo -e "  ${RED}Failed to publish ${MODULE}${RESET}"
+          exit 1
+        fi
+        git -C "{{.TASKFILE_DIR}}/.." tag "modules/${MODULE}/${new_version}"
+        echo "  Tagged modules/${MODULE}/${new_version}"
+        new_checksum=$(compute_checksum)
+        yq -i ".$MODULE.checksum = \"${new_checksum}\"" "$VERSION_FILE"
+        echo -e "  ${BOLD}${GREEN}Done.${RESET} Published ${MODULE}@${new_version}"
+
+  publish:dry:
+    desc: Dry run — show what publish would do without making changes
+    cmds:
+      - task: publish
+        vars:
+          DRY_RUN: "true"

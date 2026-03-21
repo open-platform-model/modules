@@ -1,0 +1,13 @@
+# Module Version Registry
+# Format: {version: vMAJOR.MINOR.PATCH, checksum: sha256}
+# Checksum covers .cue files excluding cue.mod/ — used by publish:smart
+
+wolf:
+  version: v0.0.2
+  checksum: "88f1952999ad594f4e02d088ff8f07cb2e38e1a18bf2d414d96661343ea9744e"
+metallb:
+  version: v0.0.2
+  checksum: "db3aeadad2fa2cffcead62858d51b8844d9804bd5b3891415cc06d5c85e97e1c"
+zot_registry_ttl:
+  version: v0.0.2
+  checksum: "92571a14ca0264335b1ddaee32fffb93441547a83c54ac6572ecbf6a9c6c92f2"
