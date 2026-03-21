@@ -2,10 +2,11 @@
 //
 // A single StatefulSet (`wolf`) is deployed containing:
 //
-//   initContainer: config-seed
-//     Writes /etc/wolf/cfg/config.toml on first start (skips if already present).
-//     Wolf reads this file at startup and writes paired_clients back into it,
-//     so it must be on the persistent config PVC, not a read-only ConfigMap.
+//   initContainer: config-init
+//     Merges the immutable ConfigMap-provided config.toml with existing
+//     paired_clients data on disk. On first start: copies the ConfigMap
+//     config directly. On subsequent starts: appends paired_clients blocks
+//     from the existing on-disk config to preserve paired devices.
 //
 //   sidecar: dind
 //     Docker-in-Docker daemon providing the Docker API Wolf uses to spawn
@@ -26,6 +27,7 @@
 //   dev           hostPath /dev      → /dev             (wolf + dind)
 //   udev          hostPath /run/udev → /run/udev        (wolf + dind)
 //   nvidia-driver hostPath (nvidia)  → /usr/nvidia      (wolf only, nvidia only)
+//   wolf-config-toml configMap       → /etc/wolf-init/cfg  (config-init only) ← immutable config
 //
 // Security note:
 //   DinD requires privileged: true at the pod level.
@@ -37,12 +39,14 @@
 package wolf
 
 import (
+	"encoding/toml"
 	"list"
 
+	resources_config "opmodel.dev/resources/config@v1"
 	resources_workload "opmodel.dev/resources/workload@v1"
-	resources_storage  "opmodel.dev/resources/storage@v1"
-	traits_workload    "opmodel.dev/traits/workload@v1"
-	traits_network     "opmodel.dev/traits/network@v1"
+	resources_storage "opmodel.dev/resources/storage@v1"
+	traits_workload "opmodel.dev/traits/workload@v1"
+	traits_network "opmodel.dev/traits/network@v1"
 )
 
 // #components contains component definitions resolved at build time.
@@ -50,6 +54,7 @@ import (
 	wolf: {
 		resources_workload.#Container
 		resources_storage.#Volumes
+		resources_config.#ConfigMaps
 		traits_workload.#InitContainers
 		traits_workload.#SidecarContainers
 		traits_workload.#Scaling
@@ -81,44 +86,31 @@ import (
 			// Allow in-flight streams and DinD containers to wind down gracefully
 			gracefulShutdown: terminationGracePeriodSeconds: 60
 
-			// ── Init Container: config-seed ────────────────────────────────────
-			// Seeds /etc/wolf/cfg/config.toml on first start only.
-			// Wolf writes paired_clients back to this file, so we must not
-			// overwrite it on subsequent starts.
+			// ── Init Container: config-init ────────────────────────────────────
+			// Merges the immutable ConfigMap config.toml with existing paired_clients
+			// data on disk. This preserves Moonlight device pairings across restarts
+			// and config updates.
+			//
+			// First start:      touches an empty on-disk config, then runs the CUE
+			//                   merge tool — no paired_clients → writes incoming only.
+			// Subsequent starts: CUE merge tool strips existing to paired_clients only,
+			//                   unifies with incoming, validates, and writes atomically.
+			//
+			// The init container image contains Alpine + CUE and the wolfinit module.
+			// Build from modules/wolf/Dockerfile.init and publish to ttl.sh.
+			// ENTRYPOINT runs /init-entrypoint.sh which calls: cue cmd merge
 			initContainers: [{
-				name: "config-seed"
-				image: {
-					repository: "busybox"
-					tag:        "latest"
-					digest:     ""
-				}
-				command: ["sh", "-c"]
-				args: ["""
-					CONFIG_DIR="/etc/wolf/cfg"
-					CONFIG_FILE="$CONFIG_DIR/config.toml"
+				name:  "config-init"
+				image: #config.initImage
 
-					if [ -f "$CONFIG_FILE" ]; then
-					  echo "config-seed: $CONFIG_FILE already exists, skipping."
-					  exit 0
-					fi
-
-					mkdir -p "$CONFIG_DIR"
-					cat > "$CONFIG_FILE" << TOML
-					hostname = "\(#config.wolf.hostname)"
-					support_hevc = \(#config.wolf.supportHevc)
-					config_version = 2
-
-					paired_clients = []
-					profiles = []
-					gstreamer = {}
-					TOML
-
-					echo "config-seed: wrote $CONFIG_FILE"
-					"""]
-
-				// Reference volumes from spec.volumes so the source type is included,
-				// satisfying the #VolumeMountSchema matchN(1, [...]) constraint.
+				// Reference volumes so the source type satisfies the matchN(1, [...]) constraint
 				volumeMounts: {
+					// Incoming config from the immutable ConfigMap (read-only)
+					"wolf-config-toml": volumes["wolf-config-toml"] & {
+						mountPath: "/etc/wolf-init/cfg"
+						readOnly:  true
+					}
+					// Persistent config PVC — init writes merged result here
 					"wolf-config": volumes["wolf-config"] & {
 						mountPath: "/etc/wolf"
 					}
@@ -148,18 +140,22 @@ import (
 			let _dindSidecar = [{
 				name:  "dind"
 				image: #config.dind.image
-				args: [
-					"--host", "unix:///run/dind/docker.sock",
-					"--tls=false",
-					// Use traditional overlay2 storage driver instead of the default
-					// containerd-snapshotter (io.containerd.snapshotter.v1.overlayfs).
-					// In containerd-snapshotter mode, Docker 29+ backs child container
-					// bind mounts with a fresh tmpfs instead of real kernel bind mounts,
-					// so sockets written by PA/Wolf-UI into /tmp/wolf-sockets land in that
-					// tmpfs and are invisible to the wolf K8s container. overlay2 uses
-					// standard kernel bind mounts, correctly sharing the K8s emptyDir.
-					"--storage-driver", "overlay2",
-				]
+			args: [
+				"--host", "unix:///run/dind/docker.sock",
+				"--tls=false",
+				// Use traditional overlay2 storage driver instead of the default
+				// containerd-snapshotter (io.containerd.snapshotter.v1.overlayfs).
+				// In containerd-snapshotter mode, Docker 29+ backs child container
+				// bind mounts with a fresh tmpfs instead of real kernel bind mounts,
+				// so sockets written by PA/Wolf-UI into /tmp/wolf-sockets land in that
+				// tmpfs and are invisible to the wolf K8s container. overlay2 uses
+				// standard kernel bind mounts, correctly sharing the K8s emptyDir.
+				"--storage-driver", "overlay2",
+				// Log level for the dockerd daemon. Defaults to "info".
+				// Set dind.logLevel to "debug" in the release to diagnose container
+				// launch failures (e.g. bind-mount errors, cgroup issues).
+				"--log-level", #config.dind.logLevel,
+			]
 				// DinD requires privileged: true — Docker-in-Docker needs full
 				// kernel access to create network namespaces, cgroups, and mounts.
 				securityContext: {
@@ -330,29 +326,29 @@ import (
 						name:  "HOST_APPS_STATE_FOLDER"
 						value: "/etc/wolf"
 					}
-				// XDG_RUNTIME_DIR is used by Wolf for PulseAudio and Wayland
-				// compositor Unix sockets shared with app containers.
-				// IMPORTANT: must be outside /tmp — DinD mounts /tmp as a tmpfs,
-				// so bind mounts from /tmp paths in DinD child containers resolve
-				// to DinD's tmpfs overlay rather than the K8s emptyDir, making
-				// sockets invisible to the wolf K8s container. /run is NOT tmpfs.
-				XDG_RUNTIME_DIR: {
-					name:  "XDG_RUNTIME_DIR"
-					value: "/run/wolf-sockets"
-				}
+					// XDG_RUNTIME_DIR is used by Wolf for PulseAudio and Wayland
+					// compositor Unix sockets shared with app containers.
+					// IMPORTANT: must be outside /tmp — DinD mounts /tmp as a tmpfs,
+					// so bind mounts from /tmp paths in DinD child containers resolve
+					// to DinD's tmpfs overlay rather than the K8s emptyDir, making
+					// sockets invisible to the wolf K8s container. /run is NOT tmpfs.
+					XDG_RUNTIME_DIR: {
+						name:  "XDG_RUNTIME_DIR"
+						value: "/run/wolf-sockets"
+					}
 					// Wolf REST API Unix socket path (used by Wolf UI internally)
 					WOLF_SOCKET_PATH: {
 						name:  "WOLF_SOCKET_PATH"
 						value: "/run/wolf/wolf.sock"
 					}
-				// PulseAudio socket path. The GOW pulseaudio image creates its socket
-				// at $XDG_RUNTIME_DIR/pulse-socket, not the libpulse default
-				// $XDG_RUNTIME_DIR/pulse/native. Setting PULSE_SERVER here ensures
-				// Wolf's own GStreamer pulsesrc pipeline connects to the right socket.
-				PULSE_SERVER: {
-					name:  "PULSE_SERVER"
-					value: "/run/wolf-sockets/pulse-socket"
-				}
+					// PulseAudio socket path. The GOW pulseaudio image creates its socket
+					// at $XDG_RUNTIME_DIR/pulse-socket, not the libpulse default
+					// $XDG_RUNTIME_DIR/pulse/native. Setting PULSE_SERVER here ensures
+					// Wolf's own GStreamer pulsesrc pipeline connects to the right socket.
+					PULSE_SERVER: {
+						name:  "PULSE_SERVER"
+						value: "/run/wolf-sockets/pulse-socket"
+					}
 
 					// ── Port overrides (only emit when non-default) ────────────
 					if #config.networking.httpsPort != 47984 {
@@ -432,11 +428,11 @@ import (
 					"wolf-api": volumes["wolf-api"] & {
 						mountPath: "/run/wolf"
 					}
-				// PulseAudio and Wayland compositor sockets — mounted at /run, not /tmp,
-				// because DinD mounts /tmp as tmpfs which shadows K8s emptyDir bind mounts.
-				"xdg-sockets": volumes["xdg-sockets"] & {
-					mountPath: "/run/wolf-sockets"
-				}
+					// PulseAudio and Wayland compositor sockets — mounted at /run, not /tmp,
+					// because DinD mounts /tmp as tmpfs which shadows K8s emptyDir bind mounts.
+					"xdg-sockets": volumes["xdg-sockets"] & {
+						mountPath: "/run/wolf-sockets"
+					}
 					// Host /dev — GPU, uinput, uhid device access
 					dev: volumes.dev & {
 						mountPath: "/dev"
@@ -515,6 +511,30 @@ import (
 				type: #config.networking.serviceType
 			}
 
+			// ── ConfigMap: wolf-config-toml ────────────────────────────────────
+			// Immutable ConfigMap containing the rendered config.toml (all sections
+			// except paired_clients, which Wolf manages at runtime). Marked immutable
+			// so any config change produces a new ConfigMap name (via content hash),
+			// triggering a pod restart to pick up the new configuration.
+			configMaps: {
+				"wolf-config-toml": {
+					immutable: true
+					data: {
+						// CUE renders the complete config.toml at build time via toml.Marshal.
+						// paired_clients is intentionally omitted — Wolf writes that section.
+						"config.toml": "\(toml.Marshal(#WolfTomlConfig & {
+							config_version: #config.configVersion
+							hostname:       #config.wolf.hostname
+							uuid:           #config.uuid
+							profiles:       #config.profiles
+							if #config.gstreamer != _|_ {
+								gstreamer: #config.gstreamer
+							}
+						}))"
+					}
+				}
+			}
+
 			// ── Volumes ────────────────────────────────────────────────────────
 			volumes: {
 				// Wolf configuration, paired clients, and per-user app state
@@ -568,14 +588,14 @@ import (
 				// DinD writes: /run/dind/docker.sock
 				// Wolf reads:  /run/dind/docker.sock (via WOLF_DOCKER_SOCKET)
 				"docker-socket": {
-					name:     "docker-socket"
+					name: "docker-socket"
 					emptyDir: {}
 				}
 
 				// Wolf REST API Unix socket (wolf.sock)
 				// Consumed by Wolf UI and optional nginx API proxy sidecar
 				"wolf-api": {
-					name:     "wolf-api"
+					name: "wolf-api"
 					emptyDir: {}
 				}
 
@@ -583,7 +603,7 @@ import (
 				// Wolf creates sockets here; app containers spawned by DinD bind-mount
 				// this same path to access the audio and display streams.
 				"xdg-sockets": {
-					name:     "xdg-sockets"
+					name: "xdg-sockets"
 					emptyDir: {}
 				}
 
@@ -608,6 +628,14 @@ import (
 						path: "/run/udev"
 						type: "Directory"
 					}
+				}
+
+				// ConfigMap volume: immutable config.toml rendered by CUE.
+				// Mounted read-only by config-init at /etc/wolf-init/cfg.
+				// Wolf reads the merged result from the wolf-config PVC, not here.
+				"wolf-config-toml": {
+					name:      "wolf-config-toml"
+					configMap: spec.configMaps["wolf-config-toml"]
 				}
 
 				// NVIDIA driver libraries (mounted at /usr/nvidia inside Wolf)

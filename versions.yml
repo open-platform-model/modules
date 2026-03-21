@@ -3,8 +3,8 @@
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
 wolf:
-  version: v0.0.2
-  checksum: "88f1952999ad594f4e02d088ff8f07cb2e38e1a18bf2d414d96661343ea9744e"
+  version: v0.0.3
+  checksum: "dd4db8e049071e49719c99834abb8ece5ddd4286ad1deccb4527e4d0251162fc"
 metallb:
   version: v0.0.2
   checksum: "db3aeadad2fa2cffcead62858d51b8844d9804bd5b3891415cc06d5c85e97e1c"

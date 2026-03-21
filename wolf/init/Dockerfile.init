@@ -1,0 +1,41 @@
+# Dockerfile.init — Wolf config-init init container.
+#
+# Installs the CUE binary and the wolfinit CUE module, which merges the
+# ConfigMap-provided config.toml with paired_clients preserved from the
+# persistent on-disk config.
+#
+# Build from workspace root:
+#   docker build -f modules/wolf/init/Dockerfile.init \
+#     -t ttl.sh/<name>/wolf-init:1h .
+#
+# The init container runs: cue cmd merge
+# which reads /etc/wolf-init/cfg/config.toml (ConfigMap, read-only)
+# and writes /etc/wolf/cfg/config.toml (PVC, read-write).
+
+# ── Stage 1: download the CUE binary ──────────────────────────────────────────
+FROM alpine:3.21 AS cue-downloader
+
+ARG CUE_VERSION=v0.12.1
+RUN apk add --no-cache curl tar && \
+    ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') && \
+    curl -fsSL \
+      "https://github.com/cue-lang/cue/releases/download/${CUE_VERSION}/cue_${CUE_VERSION}_linux_${ARCH}.tar.gz" \
+      | tar -xz -C /usr/local/bin cue && \
+    cue version
+
+# ── Stage 2: runtime image ────────────────────────────────────────────────────
+FROM alpine:3.21
+
+# Copy the CUE binary from the downloader stage
+COPY --from=cue-downloader /usr/local/bin/cue /usr/local/bin/cue
+
+# Copy the wolfinit CUE module (schema + merge tool)
+COPY modules/wolf/init/ /app/
+
+# Copy the entrypoint script
+COPY modules/wolf/init/init-entrypoint.sh /init-entrypoint.sh
+RUN chmod +x /init-entrypoint.sh
+
+WORKDIR /app
+
+ENTRYPOINT ["/init-entrypoint.sh"]

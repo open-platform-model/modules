@@ -1,0 +1,47 @@
+version: "3"
+
+silent: true
+
+vars:
+  # Override with: task build IMAGE=ttl.sh/myname/wolf-init:24h
+  IMAGE: '{{.IMAGE | default "ttl.sh/wolf-init:24h"}}'
+  DOCKERFILE: "modules/wolf/init/Dockerfile.init"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  build:
+    desc: "Build the wolf-init init container image (IMAGE=ttl.sh/<name>/wolf-init:<ttl>)"
+    # Run from workspace root so COPY paths in the Dockerfile resolve correctly.
+    dir: "{{.TASKFILE_DIR}}/../.."
+    preconditions:
+      - sh: command -v docker >/dev/null 2>&1
+        msg: "docker is required."
+    cmds:
+      - |
+        IMAGE="{{.IMAGE}}"
+        printf "==> Building \033[1;36m%s\033[0m\n" "$IMAGE"
+        docker build \
+          -f {{.DOCKERFILE}} \
+          -t "$IMAGE" \
+          .
+        printf "    \033[0;32mimage ready:\033[0m %s\n" "$IMAGE"
+
+  publish:
+    desc: "Build and push the wolf-init image to ttl.sh (IMAGE=ttl.sh/<name>/wolf-init:<ttl>)"
+    preconditions:
+      - sh: command -v docker >/dev/null 2>&1
+        msg: "docker is required."
+    cmds:
+      - task: build
+        vars:
+          IMAGE: "{{.IMAGE}}"
+      - |
+        IMAGE="{{.IMAGE}}"
+        printf "==> Pushing  \033[1;36m%s\033[0m\n" "$IMAGE"
+        docker push "$IMAGE"
+        printf "    \033[0;32mpushed:\033[0m %s\n" "$IMAGE"
+        printf "    \033[2mImage expires according to its ttl.sh TTL tag.\033[0m\n"

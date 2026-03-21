@@ -72,7 +72,7 @@
 package wolf
 
 import (
-	m      "opmodel.dev/core/module@v1"
+	m "opmodel.dev/core/module@v1"
 	schemas "opmodel.dev/schemas@v1"
 )
 
@@ -97,6 +97,18 @@ _#portSchema: uint & >0 & <=65535
 	image: schemas.#Image & {
 		repository: string | *"ghcr.io/games-on-whales/wolf"
 		tag:        string | *"stable"
+		digest:     string | *""
+	}
+
+	// === Init container image ===
+	// Alpine + CUE image used by the config-init init container to merge the
+	// ConfigMap-provided config.toml with existing paired_clients data on disk.
+	// Build with: docker build -f modules/wolf/Dockerfile.init -t ttl.sh/<name>/wolf-init:1h .
+	// Publish with: docker push ttl.sh/<name>/wolf-init:1h
+	// Then set this to the pushed image reference in the release.
+	initImage: schemas.#Image & {
+		repository: string | *"ttl.sh/wolf-init"
+		tag:        string | *"latest"
 		digest:     string | *""
 	}
 
@@ -196,6 +208,11 @@ _#portSchema: uint & >0 & <=65535
 		}
 
 		resources?: schemas.#ResourceRequirementsSchema
+
+		// dockerd log level. Set to "debug" when troubleshooting DinD container
+		// launch failures (e.g. Steam grey screen, mount issues, socket errors).
+		// Valid values mirror dockerd --log-level: debug, info, warn, error, fatal.
+		logLevel: *"info" | "debug" | "warn" | "error" | "fatal"
 	}
 
 	// === Networking ===
@@ -301,6 +318,31 @@ _#portSchema: uint & >0 & <=65535
 		// Number of GPUs to claim. Defaults to 1.
 		count: int & >=1 | *1
 	}
+
+	// === Wolf config file version ===
+	// Wolf config.toml format version. Increment if Wolf introduces breaking changes.
+	configVersion: int | *6
+
+	// === Stable instance UUID ===
+	// Required for consistent Moonlight pairing. Wolf embeds this UUID in its TLS
+	// certificate and advertises it during host discovery. Changing this UUID breaks
+	// all existing paired clients — they will need to re-pair.
+	// Generate once with: uuidgen
+	uuid: string
+
+	// === GStreamer pipeline overrides (optional) ===
+	// Override Wolf's built-in GStreamer audio/video pipelines. Only needed when
+	// the defaults don't work well with your GPU hardware (e.g. custom VA-API nodes,
+	// non-standard NVENC configurations, or specific codec tuning requirements).
+	// When absent, Wolf uses its compiled-in default pipelines.
+	gstreamer?: #GstreamerConfig
+
+	// === Streaming profiles ===
+	// Each profile groups a set of apps that Moonlight clients can launch.
+	// At least one profile is required. Profiles are referenced by paired_clients
+	// at runtime (managed by Wolf). The first profile is used for new pairings
+	// unless a specific profile is assigned.
+	profiles: [...#ProfileConfig]
 }
 
 // debugValues exercises the full #config surface for `cue vet` / `cue eval`.
@@ -363,4 +405,27 @@ debugValues: {
 		resource: "nvidia.com/gpu"
 		count:    1
 	}
+
+	initImage: {
+		repository: "ttl.sh/wolf-init"
+		tag:        "latest"
+		digest:     ""
+	}
+
+	uuid:          "00000000-0000-0000-0000-000000000001"
+	configVersion: 6
+
+	profiles: [{
+		id:   "debug-profile"
+		name: "Debug"
+		apps: [{
+			title:                    "Desktop"
+			start_virtual_compositor: true
+			start_audio_server:       true
+			runner: {
+				type:    "process"
+				run_cmd: "bash"
+			}
+		}]
+	}]
 }

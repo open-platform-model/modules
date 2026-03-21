@@ -28,6 +28,7 @@ modules/
 - Follow CUE style from `catalog/`: `#` definitions, `_` hidden fields, `*` defaults, `?` optional fields.
 - Validate with: `cue vet -c ./modules/<name>/...`
 - Do not put build artifacts, binaries, or generated Kubernetes YAML here — those belong in the cluster or CI.
+- To update CUE deps for all workspace modules at once, run `task update-deps` from the workspace root. Do not manually edit version pins in `cue.mod/module.cue` — use the task instead.
 
 ## Adding a New Module
 
