@@ -38,7 +38,7 @@
 //
 // ## Pairing
 //
-// When WolfManager is enabled, use its web UI (default port 5000) to pair
+// When WolfManager is enabled, use its web UI (default port 9971) to pair
 // Moonlight clients. It provides a PIN-entry form, user accounts, and device
 // tracking. Without WolfManager, Wolf logs a PIN entry URL to stdout.
 //
@@ -72,8 +72,8 @@
 package wolf
 
 import (
-	m "opmodel.dev/core/module@v1"
-	schemas "opmodel.dev/schemas@v1"
+	m "opmodel.dev/core/v1alpha1/module@v1"
+	schemas "opmodel.dev/opm/v1alpha1/schemas@v1"
 )
 
 // Module definition
@@ -250,7 +250,7 @@ _#portSchema: uint & >0 & <=65535
 		enabled: bool | *false
 
 		// TCP port for the WolfManager web UI
-		port: _#portSchema | *5000
+		port: _#portSchema | *9971
 
 		// WolfManager container image
 		image: schemas.#Image & {
@@ -260,12 +260,20 @@ _#portSchema: uint & >0 & <=65535
 		}
 
 		// Default admin account password (created on first start).
-		// Change this before exposing WolfManager outside the cluster.
-		adminPassword: string | *"Admin123!"
+		// Injected as a K8s Secret — set value: or secretKeyRef: in the release.
+		adminPassword: schemas.#Secret & {
+			$secretName:  "wolfmanager"
+			$dataKey:     "admin-password"
+			$description: "WolfManager admin account password"
+		}
 
 		// JWT signing key for API token authentication (min 32 characters).
-		// Change this before exposing WolfManager outside the cluster.
-		jwtSecretKey: string | *"wolf-manager-default-jwt-secret-key-change-me"
+		// Injected as a K8s Secret — set value: or secretKeyRef: in the release.
+		jwtSecretKey: schemas.#Secret & {
+			$secretName:  "wolfmanager"
+			$dataKey:     "jwt-secret-key"
+			$description: "JWT signing key for API token auth (min 32 chars)"
+		}
 
 		resources?: schemas.#ResourceRequirementsSchema
 	}
@@ -387,7 +395,9 @@ debugValues: {
 
 	manager: {
 		enabled: true
-		port:    5000
+		port:    9971
+		adminPassword: {value: "Debug@dmin99!"}
+		jwtSecretKey: {value: "debug-wolf-jwt-secret-key-32chars-x"}
 	}
 
 	storage: config: {

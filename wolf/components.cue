@@ -42,11 +42,11 @@ import (
 	"encoding/toml"
 	"list"
 
-	resources_config "opmodel.dev/resources/config@v1"
-	resources_workload "opmodel.dev/resources/workload@v1"
-	resources_storage "opmodel.dev/resources/storage@v1"
-	traits_workload "opmodel.dev/traits/workload@v1"
-	traits_network "opmodel.dev/traits/network@v1"
+	resources_config "opmodel.dev/opm/v1alpha1/resources/config@v1"
+	resources_workload "opmodel.dev/opm/v1alpha1/resources/workload@v1"
+	resources_storage "opmodel.dev/opm/v1alpha1/resources/storage@v1"
+	traits_workload "opmodel.dev/opm/v1alpha1/traits/workload@v1"
+	traits_network "opmodel.dev/opm/v1alpha1/traits/network@v1"
 )
 
 // #components contains component definitions resolved at build time.
@@ -140,22 +140,34 @@ import (
 			let _dindSidecar = [{
 				name:  "dind"
 				image: #config.dind.image
-			args: [
-				"--host", "unix:///run/dind/docker.sock",
-				"--tls=false",
-				// Use traditional overlay2 storage driver instead of the default
-				// containerd-snapshotter (io.containerd.snapshotter.v1.overlayfs).
-				// In containerd-snapshotter mode, Docker 29+ backs child container
-				// bind mounts with a fresh tmpfs instead of real kernel bind mounts,
-				// so sockets written by PA/Wolf-UI into /tmp/wolf-sockets land in that
-				// tmpfs and are invisible to the wolf K8s container. overlay2 uses
-				// standard kernel bind mounts, correctly sharing the K8s emptyDir.
-				"--storage-driver", "overlay2",
-				// Log level for the dockerd daemon. Defaults to "info".
-				// Set dind.logLevel to "debug" in the release to diagnose container
-				// launch failures (e.g. bind-mount errors, cgroup issues).
-				"--log-level", #config.dind.logLevel,
-			]
+				args: [
+					"--host", "unix:///run/dind/docker.sock",
+					"--tls=false",
+					// Use traditional overlay2 storage driver instead of the default
+					// containerd-snapshotter (io.containerd.snapshotter.v1.overlayfs).
+					// In containerd-snapshotter mode, Docker 29+ backs child container
+					// bind mounts with a fresh tmpfs instead of real kernel bind mounts,
+					// so sockets written by PA/Wolf-UI into /tmp/wolf-sockets land in that
+					// tmpfs and are invisible to the wolf K8s container. overlay2 uses
+					// standard kernel bind mounts, correctly sharing the K8s emptyDir.
+					"--storage-driver", "overlay2",
+					// Log level for the dockerd daemon. Defaults to "info".
+					// Set dind.logLevel to "debug" in the release to diagnose container
+					// launch failures (e.g. bind-mount errors, cgroup issues).
+					"--log-level", #config.dind.logLevel,
+					// ── NVIDIA: register nvidia-container-runtime in dockerd ──────────
+					// When gpu.type is "nvidia", runner containers (Steam, games) spawned
+					// by Wolf need GPU access via device file passthrough. Registering
+					// nvidia-container-runtime as a named runtime and making it the default
+					// causes dockerd to use it when creating those containers.
+					// The binary is bind-mounted from the host Talos extension at
+					// /usr/bin/nvidia-container-runtime (nvidia-container-toolkit-lts)
+					// into /usr/local/bin/ inside DinD (/usr/bin/ is read-only in docker:dind).
+					if #config.gpu.type == "nvidia" {"--add-runtime"},
+					if #config.gpu.type == "nvidia" {"nvidia=/usr/local/bin/nvidia-container-runtime"},
+					if #config.gpu.type == "nvidia" {"--default-runtime"},
+					if #config.gpu.type == "nvidia" {"nvidia"},
+				]
 				// DinD requires privileged: true — Docker-in-Docker needs full
 				// kernel access to create network namespaces, cgroups, and mounts.
 				securityContext: {
@@ -198,6 +210,14 @@ import (
 					udev: volumes.udev & {
 						mountPath: "/run/udev"
 					}
+					// NVIDIA container runtime binary — bind-mounted from the host Talos
+					// nvidia-container-toolkit-lts extension into DinD so dockerd can
+					// register it as a custom runtime for GPU-accelerated runner containers.
+					if #config.gpu.type == "nvidia" {
+						"nvidia-container-runtime": volumes["nvidia-container-runtime"] & {
+							mountPath: "/usr/local/bin/nvidia-container-runtime"
+						}
+					}
 				}
 
 				if #config.dind.resources != _|_ {
@@ -221,11 +241,6 @@ import (
 						}
 					}
 					env: {
-						// ASP.NET Core port binding
-						ASPNETCORE_URLS: {
-							name:  "ASPNETCORE_URLS"
-							value: "http://+:\(#config.manager.port)"
-						}
 						// SQLite database on the persistent wolf-config volume
 						ConnectionStrings__Default: {
 							name:  "ConnectionStrings__Default"
@@ -240,22 +255,22 @@ import (
 							name:  "Wolf__UnixSocketPath"
 							value: "/run/wolf/wolf.sock"
 						}
-						// Admin account password (created on first start)
+						// Admin account password — injected from K8s Secret via secretKeyRef
 						Admin__Password: {
-							name:  "Admin__Password"
-							value: #config.manager.adminPassword
+							name: "Admin__Password"
+							from: #config.manager.adminPassword
 						}
-						// JWT signing key for API token authentication
+						// JWT signing key for API token authentication — injected from K8s Secret
 						Jwt__SecretKey: {
-							name:  "Jwt__SecretKey"
-							value: #config.manager.jwtSecretKey
+							name: "Jwt__SecretKey"
+							from: #config.manager.jwtSecretKey
 						}
 					}
 					volumeMounts: {
-						// Wolf REST API socket
+						// Wolf REST API socket — must NOT be readOnly; connect() requires
+						// write permission on the socket file itself.
 						"wolf-api": volumes["wolf-api"] & {
 							mountPath: "/run/wolf"
-							readOnly:  true
 						}
 						// Persistent storage for SQLite database (wolfmanager.db)
 						"wolf-config": volumes["wolf-config"] & {
@@ -627,6 +642,21 @@ import (
 					hostPath: {
 						path: "/run/udev"
 						type: "Directory"
+					}
+				}
+
+				// NVIDIA container runtime binary — bind-mounted from the host Talos
+				// nvidia-container-toolkit-lts extension into DinD so dockerd can
+				// register it as a custom runtime for GPU-accelerated runner containers.
+				// type: "" (no check) because Talos extension overlays expose the binary
+				// as a symlink, which HostPathType "File" rejects.
+				if #config.gpu.type == "nvidia" {
+					"nvidia-container-runtime": {
+						name: "nvidia-container-runtime"
+						hostPath: {
+							path: "/usr/bin/nvidia-container-runtime"
+							type: ""
+						}
 					}
 				}
 

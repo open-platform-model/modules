@@ -222,7 +222,7 @@ package wolf
 // #PairedClientSettings holds per-client input/output device settings written
 // by Wolf at runtime when a Moonlight client pairs successfully.
 #PairedClientSettings: {
-	controllers_override:  [...string]
+	controllers_override: [...string]
 	h_scroll_acceleration: float
 	mouse_acceleration:    float
 	run_gid:               int
