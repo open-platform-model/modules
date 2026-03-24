@@ -1,0 +1,106 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: zfsvolumes.zfs.openebs.io
+spec:
+  group: zfs.openebs.io
+  names:
+    kind: ZFSVolume
+    listKind: ZFSVolumeList
+    plural: zfsvolumes
+    shortNames:
+    - zv
+    singular: zfsvolume
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.poolName
+      name: ZFSPool
+      type: string
+    - jsonPath: .spec.nodeID
+      name: Node
+      type: string
+    - jsonPath: .spec.capacity
+      name: Size
+      type: string
+    - jsonPath: .spec.fsType
+      name: FsType
+      type: string
+    - jsonPath: .status.state
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: ZFSVolume represents a ZFS dataset or zvol provisioned on a node.
+        properties:
+          apiVersion:
+            description: APIVersion defines the versioned schema of this representation of an object.
+            type: string
+          kind:
+            description: Kind is a string value representing the REST resource this object represents.
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ZFSVolumeSpec defines the desired state of ZFSVolume.
+            properties:
+              capacity:
+                description: Capacity of the volume.
+                type: string
+              compression:
+                description: Compression specifies the compression algorithm.
+                type: string
+              dedup:
+                description: Dedup specifies deduplication for the volume.
+                type: string
+              fsType:
+                description: FsType specifies the filesystem type.
+                type: string
+              nodeID:
+                description: NodeID is the node on which this volume is provisioned.
+                type: string
+              ownerNodeID:
+                description: OwnerNodeID is the node which owns the volume.
+                type: string
+              poolName:
+                description: PoolName specifies the name of the ZFS pool.
+                type: string
+              recordsize:
+                description: RecordSize specifies the block size for ZFS datasets.
+                type: string
+              thinProvision:
+                description: ThinProvision specifies whether the volume is thin provisioned.
+                type: string
+              volblocksize:
+                description: VolBlockSize specifies the block size for zvols.
+                type: string
+              volumeType:
+                description: VolumeType specifies DATASET or ZVOL.
+                type: string
+            required:
+            - capacity
+            - nodeID
+            - ownerNodeID
+            - poolName
+            type: object
+          status:
+            description: ZFSVolumeStatus defines the observed state of ZFSVolume.
+            properties:
+              state:
+                description: State of the ZFSVolume.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

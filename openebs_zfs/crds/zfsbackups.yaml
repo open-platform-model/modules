@@ -1,0 +1,68 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: zfsbackups.zfs.openebs.io
+spec:
+  group: zfs.openebs.io
+  names:
+    kind: ZFSBackup
+    listKind: ZFSBackupList
+    plural: zfsbackups
+    shortNames:
+    - zb
+    singular: zfsbackup
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: ZFSBackup represents a backup of a ZFS volume.
+        properties:
+          apiVersion:
+            description: APIVersion defines the versioned schema of this representation of an object.
+            type: string
+          kind:
+            description: Kind is a string value representing the REST resource this object represents.
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ZFSBackupSpec defines the desired state of ZFSBackup.
+            properties:
+              backupName:
+                description: BackupName is the name of the backup.
+                type: string
+              backupDest:
+                description: BackupDest is the destination path for the backup.
+                type: string
+              prevSnapName:
+                description: PrevSnapName is the last completed backup snapshot name.
+                type: string
+              snapName:
+                description: SnapName is the snapshot for this backup.
+                type: string
+              volumeName:
+                description: VolumeName is the name of the volume to back up.
+                type: string
+            required:
+            - backupName
+            - snapName
+            - volumeName
+            type: object
+          status:
+            description: ZFSBackupStatus defines the observed state of ZFSBackup.
+            properties:
+              state:
+                description: State of the ZFSBackup.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

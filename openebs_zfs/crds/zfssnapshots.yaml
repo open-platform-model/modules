@@ -1,0 +1,88 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: zfssnapshots.zfs.openebs.io
+spec:
+  group: zfs.openebs.io
+  names:
+    kind: ZFSSnapshot
+    listKind: ZFSSnapshotList
+    plural: zfssnapshots
+    shortNames:
+    - zfssnap
+    singular: zfssnapshot
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.poolName
+      name: ZFSPool
+      type: string
+    - jsonPath: .spec.nodeID
+      name: Node
+      type: string
+    - jsonPath: .spec.capacity
+      name: Size
+      type: string
+    - jsonPath: .status.state
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: ZFSSnapshot represents a ZFS snapshot of a volume.
+        properties:
+          apiVersion:
+            description: APIVersion defines the versioned schema of this representation of an object.
+            type: string
+          kind:
+            description: Kind is a string value representing the REST resource this object represents.
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ZFSSnapshotSpec defines the desired state of ZFSSnapshot.
+            properties:
+              capacity:
+                description: Capacity of the snapshot.
+                type: string
+              fsType:
+                description: FsType specifies the filesystem type.
+                type: string
+              nodeID:
+                description: NodeID is the node on which this snapshot is provisioned.
+                type: string
+              ownerNodeID:
+                description: OwnerNodeID is the node which owns the snapshot.
+                type: string
+              poolName:
+                description: PoolName specifies the name of the ZFS pool.
+                type: string
+              volumeType:
+                description: VolumeType specifies DATASET or ZVOL.
+                type: string
+            required:
+            - capacity
+            - nodeID
+            - ownerNodeID
+            - poolName
+            type: object
+          status:
+            description: ZFSSnapshotStatus defines the observed state of ZFSSnapshot.
+            properties:
+              state:
+                description: State of the ZFSSnapshot.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
