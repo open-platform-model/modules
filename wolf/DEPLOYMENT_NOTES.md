@@ -47,7 +47,7 @@ transformer but was absent from the StatefulSet transformer.
 
 **Fix** — `catalog/v1alpha1/providers/kubernetes/transformers/statefulset_transformer.cue`
 
-- Added `network_traits "opmodel.dev/traits/network@v1"` import
+- Added `network_traits "opmodel.dev/opm/v1alpha1/traits/network@v1"` import
 - Added `"opmodel.dev/traits/network/host-network@v1": network_traits.#HostNetworkTrait` to `optionalTraits`
 - Added `if #component.spec.hostNetwork != _|_ { hostNetwork: #component.spec.hostNetwork }` to the pod template spec
 

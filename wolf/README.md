@@ -127,7 +127,7 @@ the K8s provider `ModuleRelease` annotations or a privileged namespace.
 package main
 
 import (
-    m    "opmodel.dev/core/modulerelease@v1"
+    m    "opmodel.dev/core/v1alpha1/modulerelease@v1"
     wolf "example.com/modules/wolf@v0.1.0"
 )
 
