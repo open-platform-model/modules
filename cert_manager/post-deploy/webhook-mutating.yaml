@@ -1,0 +1,50 @@
+# MutatingWebhookConfiguration for cert-manager webhook.
+#
+# TECH DEBT: OPM has no resource type for MutatingWebhookConfiguration.
+# Apply this manifest manually after the cert-manager module is deployed:
+#
+#   kubectl apply -f post-deploy/webhook-mutating.yaml
+#
+# The cainjector will populate spec.webhooks[].clientConfig.caBundle automatically
+# once it reads the cert-manager-webhook-ca Secret (managed by the webhook itself).
+#
+# Source: cert-manager Helm chart v1.13.0 — templates/webhook-mutatingwebhookconfiguration.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: cert-manager-webhook
+  labels:
+    app: webhook
+    app.kubernetes.io/name: webhook
+    app.kubernetes.io/instance: cert-manager
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/version: v1.13.0
+  annotations:
+    # cainjector reads this annotation and injects the CA bundle automatically.
+    cert-manager.io/inject-apiserver-ca: "true"
+webhooks:
+  - name: webhook.cert-manager.io
+    admissionReviewVersions: ["v1"]
+    matchPolicy: Equivalent
+    timeoutSeconds: 10
+    failurePolicy: Fail
+    sideEffects: None
+    rules:
+      - apiGroups:
+          - cert-manager.io
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - certificates/*
+          - issuers/*
+          - clusterissuers/*
+          - certificaterequests/*
+    clientConfig:
+      # caBundle is intentionally omitted — cainjector will inject it.
+      service:
+        name: cert-manager-webhook
+        namespace: cert-manager
+        path: /mutate
