@@ -56,7 +56,7 @@ Deploys the MetalLB controller and speaker alongside all required CRDs and clust
 ```cue
 package my_release
 
-import r "opmodel.dev/core/modulerelease@v1"
+import r "opmodel.dev/core/v1alpha1/modulerelease@v1"
 
 r.#ModuleRelease
 
