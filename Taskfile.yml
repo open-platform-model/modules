@@ -17,6 +17,45 @@ tasks:
     cmds:
       - task --list
 
+  fmt:
+    desc: Format all CUE modules
+    cmds:
+      - |
+        for dir in "{{.TASKFILE_DIR}}"/*/; do
+          [ -d "$dir/cue.mod" ] || continue
+          echo "fmt: $(basename "$dir")"
+          (cd "$dir" && cue fmt ./...)
+        done
+
+  vet:
+    desc: Validate all CUE modules
+    vars:
+      CONCRETE: '{{.CONCRETE | default "false"}}'
+      VET_FLAGS: '{{if eq .CONCRETE "true"}}-c{{end}}'
+    cmds:
+      - |
+        for dir in "{{.TASKFILE_DIR}}"/*/; do
+          [ -d "$dir/cue.mod" ] || continue
+          echo "vet: $(basename "$dir")"
+          (cd "$dir" && cue vet {{.VET_FLAGS}} ./...)
+        done
+
+  tidy:
+    desc: Tidy all CUE module dependencies
+    cmds:
+      - |
+        for dir in "{{.TASKFILE_DIR}}"/*/; do
+          [ -d "$dir/cue.mod" ] || continue
+          echo "tidy: $(basename "$dir")"
+          (cd "$dir" && cue mod tidy)
+        done
+
+  check:
+    desc: Format and validate all CUE modules
+    cmds:
+      - task: fmt
+      - task: vet
+
   versions:
     desc: Show current version and change status for all modules
     preconditions:
@@ -154,7 +193,7 @@ tasks:
           fi
 
           # 4. Tag
-          git -C "$TASKFILE_DIR/.." tag "modules/${module}/${new_version}"
+          git -C "$TASKFILE_DIR" tag "modules/${module}/${new_version}"
           echo "  Tagged modules/${module}/${new_version}"
 
           # 5. Store checksum
@@ -243,7 +282,7 @@ tasks:
           echo -e "  ${RED}Failed to publish ${MODULE}${RESET}"
           exit 1
         fi
-        git -C "{{.TASKFILE_DIR}}/.." tag "modules/${MODULE}/${new_version}"
+        git -C "{{.TASKFILE_DIR}}" tag "modules/${MODULE}/${new_version}"
         echo "  Tagged modules/${MODULE}/${new_version}"
         new_checksum=$(compute_checksum)
         yq -i ".$MODULE.checksum = \"${new_checksum}\"" "$VERSION_FILE"

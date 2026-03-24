@@ -30,6 +30,22 @@ modules/
 - Do not put build artifacts, binaries, or generated Kubernetes YAML here — those belong in the cluster or CI.
 - To update CUE deps for all workspace modules at once, run `task update-deps` from the workspace root. Do not manually edit version pins in `cue.mod/module.cue` — use the task instead.
 
+## Commands
+
+Run all commands from `modules/`.
+
+| Command | Purpose | When to use |
+| --- | --- | --- |
+| `task fmt` | Format all CUE modules | After editing any `.cue` file |
+| `task vet` | Validate all CUE modules | Before committing; to catch schema errors |
+| `task vet CONCRETE=true` | Validate with concreteness check (`-c`) | When checking fully-resolved values |
+| `task tidy` | Tidy dependencies for all modules | After changing imports or updating deps |
+| `task check` | Run `fmt` then `vet` | Pre-commit quality gate |
+| `task versions` | Show version and change status | Before publishing |
+| `task publish` | Publish all changed modules | When releasing new versions |
+| `task publish:one MODULE=<name>` | Publish a single module | When releasing one module |
+| `task publish:dry` | Dry run of publish | To preview what would be published |
+
 ## Adding a New Module
 
 1. Create `modules/<name>/` directory.
