@@ -3,11 +3,35 @@
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
 wolf:
-  version: v0.0.3
-  checksum: "dd4db8e049071e49719c99834abb8ece5ddd4286ad1deccb4527e4d0251162fc"
+  version: v0.0.18
+  checksum: 7acec1eaeca62d52bbc4faea24d6f69c8e0b1032897c3c377913ed781f5a43f7
 metallb:
-  version: v0.0.2
-  checksum: "db3aeadad2fa2cffcead62858d51b8844d9804bd5b3891415cc06d5c85e97e1c"
+  version: v0.0.4
+  checksum: 98835434d5d00bf0dcccdb4eae9e5816bc412a85ac8f219d0059995acd92e3ac
 zot_registry_ttl:
+  version: v0.0.4
+  checksum: 0e35a04b8804f41ebb612e02c4b62ef315761353725117e06bb6a9172720974d
+jellyfin:
+  version: v1.0.15
+  checksum: a50c2ce693641c8c4bc98664c987c999c31e13d862a976b6a90a1a530f675b4b
+gateway_api:
+  version: v1.1.13
+  checksum: 9eb9ef175f897cf2091ae96e73be36b88d18cb95a4d67b6162883598faffc84d
+openebs_zfs:
   version: v0.0.2
-  checksum: "92571a14ca0264335b1ddaee32fffb93441547a83c54ac6572ecbf6a9c6c92f2"
+  checksum: 4c80d3b51b5634d1c24f33d9b0e73da69d4efea2f582b14ed5d7342688734f3b
+metric_server:
+  version: v0.0.4
+  checksum: "512229a9ee4ee72657452a80c62c600f1c60c654ee7d9264f8da41749738c919"
+intel_gpu_device_plugin:
+  version: v0.0.8
+  checksum: "05e3079aebaf1c1d66382bae7c487ce901abae5b3b6b85e516e9fbcfdef9339c"
+gateway:
+  version: v0.0.6
+  checksum: 9db11b724d76d65fa96b4a475d53d784aeeb5f96d591bfec3a4b629d6a265908
+cert_manager:
+  version: v0.0.2
+  checksum: 76bce409e3bc8fac109a75e7c1435a080b34165edd5611ea99647e33bd52aeba
+cert_manager_config:
+  version: v0.0.2
+  checksum: 74391ff7b0391ccc678115cbbf87d6ea3d2c79d35b1d7d6b3c4469437f36d199
