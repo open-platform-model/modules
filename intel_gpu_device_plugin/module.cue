@@ -28,14 +28,14 @@ metadata: {
 
 #config: {
 	// Image configuration for the Intel GPU Device Plugin container.
-	image: {
+	image: schemas.#Image & {
 		// Full image repository path including registry.
 		// Override to use a private mirror, e.g. "my-mirror.io/intel/intel-gpu-plugin".
 		repository: string | *"intel/intel-gpu-plugin"
 		// Plugin release tag. See https://github.com/intel/intel-device-plugins-for-kubernetes/releases.
 		tag: string | *"0.35.0"
-		// Image pull policy.
-		pullPolicy: "Always" | *"IfNotPresent" | "Never"
+		// Image digest for the container.
+		digest: string | *""
 	}
 
 	// Number of containers that may simultaneously share a single GPU device.

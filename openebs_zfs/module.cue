@@ -25,13 +25,13 @@ metadata: {
 
 #config: {
 	// Image configuration for the ZFS CSI driver.
-	image: {
+	image: schemas.#Image & {
 		// ZFS driver image repository.
 		repository: string | *"openebs/zfs-driver"
 		// ZFS driver release tag. See https://github.com/openebs/zfs-localpv/releases.
 		tag: string | *"2.6.2"
-		// Image pull policy.
-		pullPolicy: "Always" | *"IfNotPresent" | "Never"
+		// Image digest for the container.
+		digest: string | *""
 	}
 
 	// CSI sidecar image tags — pinned to stable upstream versions.

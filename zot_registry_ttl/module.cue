@@ -19,10 +19,10 @@ metadata: {
 
 #config: {
 	// Image configuration -- always use full image (retention policies require full zot)
-	image: {
-		tag:        string | *"v2.1.14"
-		digest:     string | *""
-		pullPolicy: "Always" | *"IfNotPresent" | "Never"
+	image: schemas.#Image & {
+		repository: string | *"ghcr.io/project-zot/zot"
+		tag:        string | *"v2.1.15"
+		digest:     string | *"sha256:376cb38a335bab89571af306eff481547212746aff11828043c22f32637fe17b"
 	}
 
 	// TTL policies -- maps repository path prefixes to expiration durations
@@ -115,9 +115,9 @@ metadata: {
 // debugValues exercises the full #config surface for local cue vet / cue eval.
 debugValues: {
 	image: {
-		tag:        "v2.1.14"
-		digest:     ""
-		pullPolicy: "IfNotPresent"
+		repository: "ghcr.io/project-zot/zot"
+		tag:        "v2.1.15"
+		digest:     "sha256:376cb38a335bab89571af306eff481547212746aff11828043c22f32637fe17b"
 	}
 	ttl: {
 		policies: [

@@ -1,6 +1,6 @@
 // Components for the cert-manager module.
 //
-// Seventeen components:
+// Nineteen components:
 //   crds                           — 6 CRDs (Certificate, CertificateRequest, ClusterIssuer, Issuer, Order, Challenge)
 //   controller                     — certificate controller (Deployment)
 //   webhook                        — admission webhook (Deployment)
@@ -18,13 +18,14 @@
 //   cainjector-leaderelection-role — namespace Role for cainjector leader election
 //   webhook-sar-rbac               — ClusterRole for SubjectAccessReview (webhook authz)
 //   webhook-dynamic-serving-role   — namespace Role for dynamic TLS cert management
+//   webhook-validating             — ValidatingWebhookConfiguration (cert-manager-webhook)
+//   webhook-mutating               — MutatingWebhookConfiguration (cert-manager-webhook)
 //
 // RBAC follows the cert-manager Helm chart v1.13.0 structure exactly.
-// ValidatingWebhookConfiguration and MutatingWebhookConfiguration are NOT deployed —
-// apply manually from post-deploy/. See TECH_DEBT.md.
 package cert_manager
 
 import (
+	resources_admission "opmodel.dev/kubernetes/v1alpha1/resources/admission@v1"
 	resources_extension "opmodel.dev/opm/v1alpha1/resources/extension@v1"
 	resources_security "opmodel.dev/opm/v1alpha1/resources/security@v1"
 	resources_workload "opmodel.dev/opm/v1alpha1/resources/workload@v1"
@@ -193,8 +194,6 @@ import (
 	//// control. Generates and manages its own TLS serving certificate
 	//// using the --dynamic-serving-* flags (stored in a K8s Secret).
 	////
-	//// NOTE: ValidatingWebhookConfiguration and MutatingWebhookConfiguration
-	//// are not managed by OPM — apply them manually from post-deploy/.
 	/////////////////////////////////////////////////////////////////
 
 	webhook: {
@@ -915,6 +914,135 @@ import (
 			]
 
 			subjects: [{name: "cert-manager-webhook"}]
+		}
+	}
+
+	/////////////////////////////////////////////////////////////////
+	//// Webhook Validating — ValidatingWebhookConfiguration: cert-manager-webhook
+	////
+	//// Registers the cert-manager admission webhook for validation of
+	//// cert-manager.io and acme.cert-manager.io resources. The cainjector
+	//// injects the CA bundle via the cert-manager.io/inject-apiserver-ca
+	//// annotation. Excludes the cert-manager namespace and namespaces that
+	//// opt out via the cert-manager.io/disable-validation label.
+	////
+	//// Source: cert-manager Helm chart v1.13.0 —
+	//// templates/webhook-validatingwebhookconfiguration.yaml
+	/////////////////////////////////////////////////////////////////
+
+	"webhook-validating": {
+		resources_admission.#ValidatingWebhookConfigurationComponent
+
+		spec: validatingwebhookconfiguration: {
+			metadata: {
+				name: "cert-manager-webhook"
+				labels: {
+					"app":                         "webhook"
+					"app.kubernetes.io/name":      "webhook"
+					"app.kubernetes.io/instance":  "cert-manager"
+					"app.kubernetes.io/component": "webhook"
+					"app.kubernetes.io/version":   "v1.13.0"
+				}
+				annotations: {
+					"cert-manager.io/inject-apiserver-ca": "true"
+				}
+			}
+			webhooks: [
+				{
+					name: "webhook.cert-manager.io"
+					admissionReviewVersions: ["v1"]
+					matchPolicy:    "Equivalent"
+					timeoutSeconds: 10
+					failurePolicy:  "Fail"
+					sideEffects:    "None"
+					namespaceSelector: {
+						matchExpressions: [
+							{
+								key:      "cert-manager.io/disable-validation"
+								operator: "NotIn"
+								values: ["true"]
+							},
+							{
+								key:      "name"
+								operator: "NotIn"
+								values: ["cert-manager"]
+							},
+						]
+					}
+					rules: [
+						{
+							apiGroups: ["cert-manager.io", "acme.cert-manager.io"]
+							apiVersions: ["v1"]
+							operations: ["CREATE", "UPDATE"]
+							resources: ["*/*"]
+						},
+					]
+					clientConfig: service: {
+						name:      "cert-manager-webhook"
+						namespace: "cert-manager"
+						path:      "/validate"
+					}
+				},
+			]
+		}
+	}
+
+	/////////////////////////////////////////////////////////////////
+	//// Webhook Mutating — MutatingWebhookConfiguration: cert-manager-webhook
+	////
+	//// Registers the cert-manager admission webhook for mutation of
+	//// cert-manager.io resources. The cainjector injects the CA bundle
+	//// via the cert-manager.io/inject-apiserver-ca annotation.
+	////
+	//// Source: cert-manager Helm chart v1.13.0 —
+	//// templates/webhook-mutatingwebhookconfiguration.yaml
+	/////////////////////////////////////////////////////////////////
+
+	"webhook-mutating": {
+		resources_admission.#MutatingWebhookConfigurationComponent
+
+		spec: mutatingwebhookconfiguration: {
+			metadata: {
+				name: "cert-manager-webhook"
+				labels: {
+					"app":                         "webhook"
+					"app.kubernetes.io/name":      "webhook"
+					"app.kubernetes.io/instance":  "cert-manager"
+					"app.kubernetes.io/component": "webhook"
+					"app.kubernetes.io/version":   "v1.13.0"
+				}
+				annotations: {
+					"cert-manager.io/inject-apiserver-ca": "true"
+				}
+			}
+			webhooks: [
+				{
+					name: "webhook.cert-manager.io"
+					admissionReviewVersions: ["v1"]
+					matchPolicy:    "Equivalent"
+					timeoutSeconds: 10
+					failurePolicy:  "Fail"
+					sideEffects:    "None"
+					rules: [
+						{
+							apiGroups: ["cert-manager.io"]
+							apiVersions: ["v1"]
+							operations: ["CREATE", "UPDATE"]
+							resources: [
+								"certificates/*",
+								"issuers/*",
+								"clusterissuers/*",
+								"certificaterequests/*",
+							]
+						},
+					]
+					clientConfig: service: {
+						name:      "cert-manager-webhook"
+						namespace: "cert-manager"
+						path:      "/mutate"
+					}
+				},
+			]
 		}
 	}
 }

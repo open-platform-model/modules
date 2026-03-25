@@ -26,14 +26,14 @@ metadata: {
 
 #config: {
 	// Image configuration for the metrics-server container.
-	image: {
+	image: schemas.#Image & {
 		// Full image repository path including registry.
 		// Override to use a private mirror, e.g. "my-mirror.io/metrics-server/metrics-server".
 		repository: string | *"registry.k8s.io/metrics-server/metrics-server"
 		// metrics-server release tag. See https://github.com/kubernetes-sigs/metrics-server/releases.
 		tag: string | *"v0.8.1"
-		// Image pull policy.
-		pullPolicy: "Always" | *"IfNotPresent" | "Never"
+		// Image digest for the container.
+		digest: string | *""
 	}
 
 	// Number of metrics-server replicas.

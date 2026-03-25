@@ -7,6 +7,7 @@ package cert_manager
 
 import (
 	m "opmodel.dev/core/v1alpha1/module@v1"
+	schemas "opmodel.dev/opm/v1alpha1/schemas@v1"
 )
 
 m.#Module
@@ -24,11 +25,12 @@ metadata: {
 
 #config: {
 	// Image configuration — tag is shared across all cert-manager components.
-	image: {
+	image: schemas.#Image & {
+		repository: string | *"ghcr.io/cert-manager"
 		// cert-manager release tag (e.g., "v1.13.0"). See https://github.com/cert-manager/cert-manager/releases.
 		tag: string | *"v1.13.0"
-		// Image pull policy applied to controller, webhook, and cainjector.
-		pullPolicy: "Always" | *"IfNotPresent" | "Never"
+		// Image digest for the container.
+		digest: string | *""
 	}
 
 	// Controller configuration — handles certificate issuance, renewal, and CRD reconciliation.
@@ -38,10 +40,7 @@ metadata: {
 		// Number of controller replicas.
 		replicas: int & >=1 | *1
 		// Resource requests and limits (optional — omit to use cluster defaults).
-		resources?: {
-			requests?: {cpu?: string, memory?: string}
-			limits?: {cpu?: string, memory?: string}
-		}
+		resources?: schemas.#ResourceRequirementsSchema
 	}
 
 	// Webhook configuration — validates and mutates cert-manager resources via Kubernetes admission control.
@@ -53,10 +52,7 @@ metadata: {
 		// Secure port the webhook HTTPS server listens on (matches Helm chart default).
 		securePort: int & >=1 & <=65535 | *10250
 		// Resource requests and limits (optional — omit to use cluster defaults).
-		resources?: {
-			requests?: {cpu?: string, memory?: string}
-			limits?: {cpu?: string, memory?: string}
-		}
+		resources?: schemas.#ResourceRequirementsSchema
 	}
 
 	// CAInjector configuration — patches caBundle into ValidatingWebhookConfiguration,
@@ -67,10 +63,7 @@ metadata: {
 		// Number of cainjector replicas.
 		replicas: int & >=1 | *1
 		// Resource requests and limits (optional — omit to use cluster defaults).
-		resources?: {
-			requests?: {cpu?: string, memory?: string}
-			limits?: {cpu?: string, memory?: string}
-		}
+		resources?: schemas.#ResourceRequirementsSchema
 	}
 
 	// Leader election configuration — namespace where controller and cainjector store leader election Leases.
@@ -85,6 +78,7 @@ metadata: {
 // debugValues exercises the full #config surface for local `cue vet` / `cue eval`.
 debugValues: {
 	image: {
+		repository: "ghcr.io/cert-manager"
 		tag:        "v1.13.0"
 		pullPolicy: "IfNotPresent"
 	}

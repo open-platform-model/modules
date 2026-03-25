@@ -25,11 +25,13 @@ metadata: {
 
 #config: {
 	// Image configuration — tag is shared across all MetalLB components (controller, speaker).
-	image: {
+	image: schemas.#Image & {
+		// Full image repository path including registry.
+		repository: string | *"quay.io/metallb/controller"
 		// MetalLB release tag (e.g., "v0.15.3"). See https://github.com/metallb/metallb/releases.
 		tag: string | *"v0.15.3"
-		// Image pull policy applied to both controller and speaker.
-		pullPolicy: "Always" | *"IfNotPresent" | "Never"
+		// Image digest for the container.
+		digest: string | *""
 	}
 
 	// Controller configuration — handles IP address assignment for LoadBalancer Services.
@@ -61,6 +63,7 @@ metadata: {
 // debugValues exercises the full #config surface for local `cue vet` / `cue eval`.
 debugValues: {
 	image: {
+		repository: "quay.io/metallb/controller"
 		tag:        "v0.15.3"
 		pullPolicy: "IfNotPresent"
 	}

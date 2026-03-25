@@ -19,7 +19,7 @@ m.#Module
 metadata: {
 	modulePath:       "opmodel.dev/modules"
 	name:             "intel-gpu-exporter"
-	version:          "1.2.28"
+	version:          "1.2.27"
 	description:      "Intel GPU Exporter — exports Intel GPU utilization, memory, temperature, and power metrics as Prometheus metrics via XPU Manager"
 	defaultNamespace: "monitoring"
 	labels: {
@@ -29,14 +29,14 @@ metadata: {
 
 #config: {
 	// Image configuration for the Intel GPU Exporter container.
-	image: {
+	image: schemas.#Image & {
 		// Full image repository path including registry.
 		// Override to use a private mirror, e.g. "my-mirror.io/intel/xpumanager".
-		repository: string | *"ghcr.io/intel/xpumanager"
+		repository: string | *"intel/xpumanager"
 		// Exporter release tag. See https://github.com/intel/xpumanager/releases.
-		tag: string | *"v1.2.28"
-		// Image pull policy.
-		pullPolicy: "Always" | *"IfNotPresent" | "Never"
+		tag: string | *"v1.2.27"
+		// Image digest for the container.
+		digest: string | *"sha256:7c2123abfdf87ba97fce3865e0db86a8728a8fefdebe96961ab066b2aabcbc86"
 	}
 
 	// metricsPort is the TCP port on which the Prometheus metrics endpoint is exposed.
@@ -59,9 +59,9 @@ metadata: {
 // debugValues exercises the full #config surface for local `cue vet`.
 debugValues: {
 	image: {
-		repository: "ghcr.io/intel/xpumanager"
-		tag:        "v1.2.28"
-		pullPolicy: "IfNotPresent"
+		repository: "intel/xpumanager"
+		tag:        "v1.2.27"
+		digest:     "sha256:7c2123abfdf87ba97fce3865e0db86a8728a8fefdebe96961ab066b2aabcbc86"
 	}
 	metricsPort: 9090
 	resources: {
