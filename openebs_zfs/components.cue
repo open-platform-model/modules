@@ -14,12 +14,12 @@ package openebs_zfs
 
 import (
 	resources_extension "opmodel.dev/opm/v1alpha1/resources/extension@v1"
-	resources_security  "opmodel.dev/opm/v1alpha1/resources/security@v1"
-	resources_storage   "opmodel.dev/opm/v1alpha1/resources/storage@v1"
-	resources_workload  "opmodel.dev/opm/v1alpha1/resources/workload@v1"
-	traits_network      "opmodel.dev/opm/v1alpha1/traits/network@v1"
-	traits_security     "opmodel.dev/opm/v1alpha1/traits/security@v1"
-	traits_workload     "opmodel.dev/opm/v1alpha1/traits/workload@v1"
+	resources_security "opmodel.dev/opm/v1alpha1/resources/security@v1"
+	resources_storage "opmodel.dev/opm/v1alpha1/resources/storage@v1"
+	resources_workload "opmodel.dev/opm/v1alpha1/resources/workload@v1"
+	traits_network "opmodel.dev/opm/v1alpha1/traits/network@v1"
+	traits_security "opmodel.dev/opm/v1alpha1/traits/security@v1"
+	traits_workload "opmodel.dev/opm/v1alpha1/traits/workload@v1"
 )
 
 #components: {
@@ -133,7 +133,7 @@ import (
 
 				env: {
 					OPENEBS_NODE_ID: {
-						name:     "OPENEBS_NODE_ID"
+						name: "OPENEBS_NODE_ID"
 						fieldRef: fieldPath: "spec.nodeName"
 					}
 					OPENEBS_CSI_ENDPOINT: {
@@ -158,13 +158,13 @@ import (
 					"plugin-dir": {
 						name:      "plugin-dir"
 						mountPath: "/plugin"
-						emptyDir:  {}
+						emptyDir: {}
 					}
 					"device-dir": {
 						name:             "device-dir"
 						mountPath:        "/dev"
 						mountPropagation: "Bidirectional"
-						emptyDir:         {}
+						emptyDir: {}
 					}
 				}
 
@@ -176,7 +176,7 @@ import (
 
 			volumes: {
 				"plugin-dir": {
-					name:     "plugin-dir"
+					name: "plugin-dir"
 					emptyDir: {}
 				}
 				"device-dir": {
@@ -213,6 +213,7 @@ import (
 		traits_workload.#UpdateStrategy
 		traits_workload.#GracefulShutdown
 		traits_network.#HostNetwork
+		traits_security.#HostPID
 		traits_security.#SecurityContext
 		traits_security.#WorkloadIdentity
 
@@ -236,6 +237,12 @@ import (
 			// hostNetwork required for ZFS pool discovery on the node network.
 			hostNetwork: true
 
+			// hostPID required for ZFS pool and device operations on the host.
+			hostPid: true
+
+			// hostPID required for ZFS pool and device operations on the host.
+			hostPid: true
+
 			workloadIdentity: {
 				name:           "openebs-zfs-node-sa"
 				automountToken: true
@@ -258,7 +265,7 @@ import (
 
 				env: {
 					OPENEBS_NODE_ID: {
-						name:     "OPENEBS_NODE_ID"
+						name: "OPENEBS_NODE_ID"
 						fieldRef: fieldPath: "spec.nodeName"
 					}
 					OPENEBS_CSI_ENDPOINT: {
@@ -283,30 +290,30 @@ import (
 					"plugin-dir": {
 						name:      "plugin-dir"
 						mountPath: "/plugin"
-						emptyDir:  {}
+						emptyDir: {}
 					}
 					"pod-dir": {
 						name:             "pod-dir"
 						mountPath:        "\(#config.nodePlugin.kubeletDir)/pods"
 						mountPropagation: "Bidirectional"
-						emptyDir:         {}
+						emptyDir: {}
 					}
 					"device-dir": {
 						name:             "device-dir"
 						mountPath:        "/dev"
 						mountPropagation: "Bidirectional"
-						emptyDir:         {}
+						emptyDir: {}
 					}
 					"sys-dir": {
 						name:      "sys-dir"
 						mountPath: "/sys"
-						emptyDir:  {}
+						emptyDir: {}
 					}
 					"host-root": {
 						name:             "host-root"
 						mountPath:        "/host"
 						mountPropagation: "Bidirectional"
-						emptyDir:         {}
+						emptyDir: {}
 					}
 				}
 
@@ -314,7 +321,7 @@ import (
 					privileged:               true
 					allowPrivilegeEscalation: true
 					capabilities: {
-						add:  ["SYS_ADMIN"]
+						add: ["SYS_ADMIN"]
 						drop: ["ALL"]
 					}
 				}
