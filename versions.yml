@@ -18,8 +18,8 @@ gateway_api:
   version: v1.1.13
   checksum: 9eb9ef175f897cf2091ae96e73be36b88d18cb95a4d67b6162883598faffc84d
 openebs_zfs:
-  version: v0.0.4
-  checksum: f5f553f455f37b99253aabe3b92fbf52d7b7596fa7eb2bca037d1b7a85c1593e
+  version: v0.0.5
+  checksum: f70f4fcff05e369780ec6739a688428a6a4bae2a58e6698146690f5304294d14
 metric_server:
   version: v0.0.5
   checksum: "9dd7ffafec0dcbb7bca0b7f5b84e367d3db3273bd32ca843a7e1685fc1c26a1e"

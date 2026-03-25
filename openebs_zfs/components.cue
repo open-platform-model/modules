@@ -240,9 +240,6 @@ import (
 			// hostPID required for ZFS pool and device operations on the host.
 			hostPid: true
 
-			// hostPID required for ZFS pool and device operations on the host.
-			hostPid: true
-
 			workloadIdentity: {
 				name:           "openebs-zfs-node-sa"
 				automountToken: true
