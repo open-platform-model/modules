@@ -37,8 +37,8 @@ metadata: {
 			pushedWithin: string
 			pulledWithin: string
 		}] | *[
-			{repositories: ["1h/**"],  pushedWithin: "1h",  pulledWithin: "1h"},
-			{repositories: ["6h/**"],  pushedWithin: "6h",  pulledWithin: "6h"},
+			{repositories: ["1h/**"], pushedWithin: "1h", pulledWithin: "1h"},
+			{repositories: ["6h/**"], pushedWithin: "6h", pulledWithin: "6h"},
 			{repositories: ["24h/**"], pushedWithin: "24h", pulledWithin: "24h"},
 		]
 
@@ -121,8 +121,8 @@ debugValues: {
 	}
 	ttl: {
 		policies: [
-			{repositories: ["1h/**"],  pushedWithin: "1h",  pulledWithin: "1h"},
-			{repositories: ["6h/**"],  pushedWithin: "6h",  pulledWithin: "6h"},
+			{repositories: ["1h/**"], pushedWithin: "1h", pulledWithin: "1h"},
+			{repositories: ["6h/**"], pushedWithin: "6h", pulledWithin: "6h"},
 			{repositories: ["24h/**"], pushedWithin: "24h", pulledWithin: "24h"},
 		]
 		defaultTTL: "24h"

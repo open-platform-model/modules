@@ -93,7 +93,7 @@ debugValues: {
 		replicas: 1
 		resources: {
 			requests: {cpu: "10m", memory: "32Mi"}
-			limits:   {cpu: "100m", memory: "128Mi"}
+			limits: {cpu: "100m", memory: "128Mi"}
 		}
 	}
 	webhook: {
@@ -102,7 +102,7 @@ debugValues: {
 		securePort: 10250
 		resources: {
 			requests: {cpu: "10m", memory: "32Mi"}
-			limits:   {cpu: "100m", memory: "128Mi"}
+			limits: {cpu: "100m", memory: "128Mi"}
 		}
 	}
 	cainjector: {
@@ -110,7 +110,7 @@ debugValues: {
 		replicas: 1
 		resources: {
 			requests: {cpu: "10m", memory: "32Mi"}
-			limits:   {cpu: "100m", memory: "128Mi"}
+			limits: {cpu: "100m", memory: "128Mi"}
 		}
 	}
 	leaderElection: {

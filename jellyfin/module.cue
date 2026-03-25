@@ -116,6 +116,10 @@ debugValues: {
 			cpu:    "4000m"
 			memory: "4Gi"
 		}
+		gpu: {
+			resource: "gpu.intel.com/i915"
+			count:    1
+		}
 	}
 	logging: {
 		defaultLevel: "Information"

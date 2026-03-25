@@ -7,7 +7,7 @@
 package cert_manager_config
 
 import (
-	m           "opmodel.dev/core/v1alpha1/module@v1"
+	m "opmodel.dev/core/v1alpha1/module@v1"
 	cm_security "opmodel.dev/cert_manager/v1alpha1/resources/security@v1"
 )
 

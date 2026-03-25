@@ -10,6 +10,6 @@ deps: {
 		v: "v1.3.1"
 	}
 	"opmodel.dev/gateway_api/v1alpha1@v1": {
-		v: "v1.3.1"
+		v: "v1.3.2"
 	}
 }
