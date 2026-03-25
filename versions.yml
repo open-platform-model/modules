@@ -6,32 +6,35 @@ wolf:
   version: v0.0.18
   checksum: 7acec1eaeca62d52bbc4faea24d6f69c8e0b1032897c3c377913ed781f5a43f7
 metallb:
-  version: v0.0.4
-  checksum: 98835434d5d00bf0dcccdb4eae9e5816bc412a85ac8f219d0059995acd92e3ac
+  version: v0.0.5
+  checksum: 7afb1d24721c6c632b9c10a30963dd9c4f884105cfd03feb7c8c1eeb9a444054
 zot_registry_ttl:
-  version: v0.0.4
-  checksum: 0e35a04b8804f41ebb612e02c4b62ef315761353725117e06bb6a9172720974d
+  version: v0.0.5
+  checksum: 02ce15824a522ec95c7d1f16f49a4b87b3cca46da81e3001ff15d578519d8a36
 jellyfin:
-  version: v1.0.15
-  checksum: a50c2ce693641c8c4bc98664c987c999c31e13d862a976b6a90a1a530f675b4b
+  version: v1.0.20
+  checksum: e3665b1f9371b0fe9047c3714150750c994abf13b12fbbaad3d42bba7aaca408
 gateway_api:
   version: v1.1.13
   checksum: 9eb9ef175f897cf2091ae96e73be36b88d18cb95a4d67b6162883598faffc84d
 openebs_zfs:
-  version: v0.0.2
-  checksum: 4c80d3b51b5634d1c24f33d9b0e73da69d4efea2f582b14ed5d7342688734f3b
-metric_server:
   version: v0.0.4
-  checksum: "512229a9ee4ee72657452a80c62c600f1c60c654ee7d9264f8da41749738c919"
+  checksum: f5f553f455f37b99253aabe3b92fbf52d7b7596fa7eb2bca037d1b7a85c1593e
+metric_server:
+  version: v0.0.5
+  checksum: "9dd7ffafec0dcbb7bca0b7f5b84e367d3db3273bd32ca843a7e1685fc1c26a1e"
 intel_gpu_device_plugin:
-  version: v0.0.8
-  checksum: "05e3079aebaf1c1d66382bae7c487ce901abae5b3b6b85e516e9fbcfdef9339c"
+  version: v0.0.11
+  checksum: "7d210cab689cea173cdd76d347cdb93279ee4660f33eaad1fd60c08f4da4fc58"
 gateway:
-  version: v0.0.6
-  checksum: 9db11b724d76d65fa96b4a475d53d784aeeb5f96d591bfec3a4b629d6a265908
+  version: v0.0.7
+  checksum: 728f9544c75331886dae877aea5089777acedb80ff5dee3d50f28ccb8f79aa06
 cert_manager:
-  version: v0.0.2
-  checksum: 76bce409e3bc8fac109a75e7c1435a080b34165edd5611ea99647e33bd52aeba
+  version: v0.0.3
+  checksum: f277f0ba4387950c2849f38286a22bd3c663623bfac4a65ac8525398300dccd4
 cert_manager_config:
-  version: v0.0.2
-  checksum: 74391ff7b0391ccc678115cbbf87d6ea3d2c79d35b1d7d6b3c4469437f36d199
+  version: v0.0.3
+  checksum: 9eda1a4964b372e6e329676e81b66d5c8fa08a029ef4e8ad714ef3b5306aab0b
+intel_gpu_exporter:
+  version: v0.0.1
+  checksum: "8176310821fb09d2eaa6603cdce26ee417839799ea36a72a0a5ee375cf235330"
