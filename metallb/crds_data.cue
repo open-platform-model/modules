@@ -151,7 +151,6 @@ package metallb
 	}
 }
 
-
 #metallb_io_bgpadvertisements: {
 	apiVersion: "apiextensions.k8s.io/v1"
 	kind:       "CustomResourceDefinition"
@@ -409,7 +408,6 @@ package metallb
 	}
 }
 
-
 #metallb_io_bgppeers: {
 	apiVersion: "apiextensions.k8s.io/v1"
 	kind:       "CustomResourceDefinition"
@@ -503,7 +501,7 @@ package metallb
 										matchExpressions: {
 											items: {
 												properties: {
-													key: type: "string"
+													key: type:      "string"
 													operator: type: "string"
 													values: {
 														items: type: "string"
@@ -853,7 +851,6 @@ package metallb
 	}
 }
 
-
 #metallb_io_communities: {
 	apiVersion: "apiextensions.k8s.io/v1"
 	kind:       "CustomResourceDefinition"
@@ -934,7 +931,6 @@ package metallb
 		}]
 	}
 }
-
 
 #metallb_io_configurationstates: {
 	apiVersion: "apiextensions.k8s.io/v1"
@@ -1099,7 +1095,6 @@ package metallb
 		}]
 	}
 }
-
 
 #metallb_io_ipaddresspools: {
 	apiVersion: "apiextensions.k8s.io/v1"
@@ -1391,7 +1386,6 @@ package metallb
 	}
 }
 
-
 #metallb_io_l2advertisements: {
 	apiVersion: "apiextensions.k8s.io/v1"
 	kind:       "CustomResourceDefinition"
@@ -1618,7 +1612,6 @@ package metallb
 	}
 }
 
-
 #metallb_io_servicebgpstatuses: {
 	apiVersion: "apiextensions.k8s.io/v1"
 	kind:       "CustomResourceDefinition"
@@ -1724,7 +1717,6 @@ package metallb
 		}]
 	}
 }
-
 
 #metallb_io_servicel2statuses: {
 	apiVersion: "apiextensions.k8s.io/v1"
@@ -1835,4 +1827,3 @@ package metallb
 		}]
 	}
 }
-

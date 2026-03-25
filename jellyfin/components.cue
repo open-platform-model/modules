@@ -10,6 +10,7 @@ import (
 	resources_storage "opmodel.dev/opm/v1alpha1/resources/storage@v1"
 	traits_workload "opmodel.dev/opm/v1alpha1/traits/workload@v1"
 	traits_network "opmodel.dev/opm/v1alpha1/traits/network@v1"
+	traits_security "opmodel.dev/opm/v1alpha1/traits/security@v1"
 )
 
 // #components contains component definitions.
@@ -27,6 +28,7 @@ import (
 		traits_workload.#Scaling
 		traits_workload.#RestartPolicy
 		traits_network.#Expose
+		traits_security.#SecurityContext
 
 		metadata: name: "jellyfin"
 		metadata: labels: "core.opmodel.dev/workload-type": "stateful"
@@ -52,6 +54,11 @@ import (
 			scaling: count: 1
 
 			restartPolicy: "Always"
+
+			// Intel GPU — add render group supplemental GIDs for DRI device access
+			if #config.resources != _|_ if #config.resources.gpu != _|_ {
+				securityContext: supplementalGroups: [44, 109]
+			}
 
 			container: {
 				name:  "jellyfin"
@@ -113,6 +120,7 @@ import (
 							mountPath: v.mountPath
 						}
 					}
+
 					// Serilog logging config — mounted as a single file via subPath
 					if #config.logging != _|_ {
 						"jellyfin-logging": _volumes["jellyfin-logging"] & {
@@ -177,6 +185,7 @@ import (
 						}
 					}
 				}
+
 				// Logging ConfigMap volume — only present when logging is configured
 				if #config.logging != _|_ {
 					"jellyfin-logging": {

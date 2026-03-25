@@ -1,24 +1,25 @@
 // Components for the intel-gpu-device-plugin module.
 //
 // Components:
-//   plugin — Intel GPU Device Plugin DaemonSet (init container + plugin container)
-//   rbac   — ClusterRole + ClusterRoleBinding for the plugin ServiceAccount
+//   plugin — Intel GPU Device Plugin DaemonSet
 //
-// The plugin component's WorkloadIdentity trait creates the ServiceAccount resource
-// via the serviceaccount-transformer (same pattern as metric_server, metallb, openebs_zfs).
+// The plugin registers gpu.intel.com/i915 and gpu.intel.com/xe extended resources
+// with each node's kubelet via the Kubernetes device plugin gRPC API. No Kubernetes
+// API server access is needed — no ServiceAccount, RBAC, or ClusterRole required.
 //
-// The plugin registers gpu.intel.com/i915 extended resources via the Kubernetes
-// device plugin API. Each Intel GPU node receives one DaemonSet pod.
+// Volume layout (matching the official Intel manifest):
+//   dev-dri     hostPath /dev/dri                        → /dev/dri (read-only)
+//   sysfs-drm   hostPath /sys/class/drm                  → /sys/class/drm (read-only)
+//   dp-socket   hostPath /var/lib/kubelet/device-plugins → /var/lib/kubelet/device-plugins
+//   cdi-path    hostPath /var/run/cdi                    → /var/run/cdi (created if absent)
 //
-// Volume layout:
-//   dev-dri   hostPath /dev/dri                        → /dev/dri (init + plugin, read-only)
-//   dp-socket hostPath /var/lib/kubelet/device-plugins → /var/lib/kubelet/device-plugins (plugin)
-//
-// Security note:
-//   The plugin container runs as root (uid 0) because creating a Unix socket in
-//   /var/lib/kubelet/device-plugins/ requires write access to that root-owned directory.
-//   The init container probes /dev/dri read-only and runs as non-root.
-//   All Linux capabilities are dropped to limit the blast radius of both containers.
+// Security (matching upstream):
+//   readOnlyRootFilesystem: true
+//   allowPrivilegeEscalation: false
+//   capabilities: drop: ["ALL"]
+//   seLinuxOptions: type: "container_device_plugin_t"
+//   seccompProfile: type: "RuntimeDefault"
+//   No runAsUser override — runs as default container user.
 package intel_gpu_device_plugin
 
 import (
@@ -30,10 +31,12 @@ import (
 	traits_workload "opmodel.dev/opm/v1alpha1/traits/workload@v1"
 )
 
-// _baseArgs holds the always-present plugin CLI arguments.
+// _baseArgs holds CLI flags that are always present.
 _baseArgs: [
 	"-shared-dev-num", "\(#config.sharedDevNum)",
 	"-allocation-policy", #config.allocationPolicy,
+	"-bypath", #config.bypath,
+	"-v", "\(#config.logLevel)",
 ]
 
 // _monitoringArgs is appended when monitoring is enabled.
@@ -42,35 +45,70 @@ if #config.enableMonitoring {
 	_monitoringArgs: ["-enable-monitoring"]
 }
 
+// _healthArgs is appended when health management is enabled.
+_healthArgs: *[] | ["-health-management"]
+if #config.healthManagement {
+	_healthArgs: ["-health-management"]
+}
+
+// _allowIdsArgs is appended when allowIds is non-empty.
+_allowIdsArgs: *[] | ["-allow-ids", #config.allowIds]
+if #config.allowIds != "" {
+	_allowIdsArgs: ["-allow-ids", #config.allowIds]
+}
+
+// _denyIdsArgs is appended when denyIds is non-empty.
+_denyIdsArgs: *[] | ["-deny-ids", #config.denyIds]
+if #config.denyIds != "" {
+	_denyIdsArgs: ["-deny-ids", #config.denyIds]
+}
+
+// _tempLimitArgs is appended when a global temperature limit is set.
+_tempLimitArgs: *[] | ["-temp-limit", "\(#config.tempLimit)"]
+if #config.tempLimit > 0 {
+	_tempLimitArgs: ["-temp-limit", "\(#config.tempLimit)"]
+}
+
+// _gpuTempLimitArgs is appended when a GPU-core temperature limit is set.
+_gpuTempLimitArgs: *[] | ["-gpu-temp-limit", "\(#config.gpuTempLimit)"]
+if #config.gpuTempLimit > 0 {
+	_gpuTempLimitArgs: ["-gpu-temp-limit", "\(#config.gpuTempLimit)"]
+}
+
+// _memoryTempLimitArgs is appended when a GPU-memory temperature limit is set.
+_memoryTempLimitArgs: *[] | ["-memory-temp-limit", "\(#config.memoryTempLimit)"]
+if #config.memoryTempLimit > 0 {
+	_memoryTempLimitArgs: ["-memory-temp-limit", "\(#config.memoryTempLimit)"]
+}
+
 #components: {
 
 	/////////////////////////////////////////////////////////////////
 	//// Plugin — Intel GPU Device Plugin (DaemonSet)
 	////
-	//// Runs on every Intel GPU node. The init container verifies that
-	//// /dev/dri is populated with Intel GPU nodes before the plugin starts,
-	//// preventing registration of zero devices with the kubelet.
-	////
-	//// The plugin creates a gRPC socket at:
+	//// Runs on every Intel GPU node. The plugin creates a gRPC socket at:
 	////   /var/lib/kubelet/device-plugins/gpu.intel.com-i915.sock
 	//// Kubelet polls this socket to discover and allocate GPU resources.
 	////
-	//// Node targeting: DaemonSet pods should be restricted to nodes labelled
-	////   intel.feature.node.io/gpu: "true"
-	//// This label is set by the Node Feature Discovery (NFD) operator.
-	//// Apply the nodeSelector via platform-level annotations or a release
-	//// override when NFD is present.
+	//// No ServiceAccount or RBAC needed — the plugin communicates only
+	//// with the kubelet via gRPC, not the Kubernetes API server.
+	////
+	//// Node targeting: defaults to amd64 via nodeSelector from #config.
+	//// When NFD is deployed, also add:
+	////   "intel.feature.node.kubernetes.io/gpu": "true"
+	//// via a release override on #config.nodeSelector.
 	/////////////////////////////////////////////////////////////////
 
 	plugin: {
 		resources_workload.#Container
 		resources_storage.#Volumes
-		traits_workload.#InitContainers
 		traits_workload.#RestartPolicy
 		traits_workload.#UpdateStrategy
 		traits_workload.#GracefulShutdown
+
 		traits_security.#SecurityContext
-		traits_security.#WorkloadIdentity
+		// NOTE: No WorkloadIdentity — the plugin does not need a ServiceAccount.
+		// It communicates only with the kubelet via gRPC socket, not the K8s API.
 
 		metadata: {
 			name: "plugin"
@@ -89,52 +127,9 @@ if #config.enableMonitoring {
 
 			gracefulShutdown: terminationGracePeriodSeconds: 30
 
-			// ServiceAccount created by the serviceaccount-transformer for this trait.
-			workloadIdentity: {
-				name:           "intel-gpu-device-plugin"
-				automountToken: true
-			}
-
-			// ── Init Container: init ───────────────────────────────────────────
-			// Probes /dev/dri on the node to confirm an Intel GPU is present.
-			// Exits non-zero (triggering a pod restart) when no GPU is detected
-			// and FAIL_ON_INIT_ERROR=true. Set false on mixed-GPU clusters where
-			// some nodes may not have Intel GPUs — prevents crash-loop restarts.
-			initContainers: [{
-				name: "init"
-				image: {
-					repository: #config.initImage.repository
-					tag:        #config.initImage.tag
-					digest:     ""
-					pullPolicy: #config.initImage.pullPolicy
-				}
-
-				env: {
-					FAIL_ON_INIT_ERROR: {
-						name:  "FAIL_ON_INIT_ERROR"
-						value: "\(#config.failOnInitError)"
-					}
-				}
-
-				// Probe the DRI device directory for Intel GPU control and render nodes.
-				volumeMounts: {
-					"dev-dri": volumes["dev-dri"] & {
-						mountPath: "/dev/dri"
-						readOnly:  true
-					}
-				}
-
-				securityContext: {
-					allowPrivilegeEscalation: false
-					readOnlyRootFilesystem:   true
-					runAsNonRoot:             true
-					capabilities: drop: ["ALL"]
-				}
-			}]
-
 			// ── Main Container: intel-gpu-device-plugin ───────────────────────
-			// Registers gpu.intel.com/i915 resources with the node's kubelet.
-			// Communicates with kubelet via a gRPC Unix socket created in
+			// Registers gpu.intel.com/i915 and gpu.intel.com/xe resources with
+			// the node's kubelet. Communicates via a gRPC Unix socket created in
 			// /var/lib/kubelet/device-plugins/.
 			container: {
 				name: "intel-gpu-device-plugin"
@@ -145,14 +140,20 @@ if #config.enableMonitoring {
 					pullPolicy: #config.image.pullPolicy
 				}
 
-				// Base plugin args with optional -enable-monitoring appended.
-				args: list.Concat([_baseArgs, _monitoringArgs])
+				// All CLI flags — base flags always present, optional flags appended
+				// only when the corresponding config is non-default.
+				args: list.Concat([_baseArgs, _monitoringArgs, _healthArgs, _allowIdsArgs, _denyIdsArgs, _tempLimitArgs, _gpuTempLimitArgs, _memoryTempLimitArgs])
 
 				env: {
 					// Downward API: node name injected for per-node plugin identity.
 					NODE_NAME: {
 						name: "NODE_NAME"
 						fieldRef: fieldPath: "spec.nodeName"
+					}
+					// Downward API: host IP for health endpoint binding.
+					HOST_IP: {
+						name: "HOST_IP"
+						fieldRef: fieldPath: "status.hostIP"
 					}
 				}
 
@@ -162,33 +163,41 @@ if #config.enableMonitoring {
 						mountPath: "/dev/dri"
 						readOnly:  true
 					}
+					// DRM sysfs — GPU topology enumeration (read-only).
+					"sysfs-drm": volumes["sysfs-drm"] & {
+						mountPath: "/sys/class/drm"
+						readOnly:  true
+					}
 					// Device plugin gRPC socket directory — kubelet discovers the plugin here.
-					// Must be writable: the plugin creates its socket in this directory.
+					// Must be writable: the plugin creates its socket file in this directory.
 					"dp-socket": volumes["dp-socket"] & {
 						mountPath: "/var/lib/kubelet/device-plugins"
 					}
+					// CDI specs directory — used when CDI device injection is enabled.
+					"cdi-path": volumes["cdi-path"] & {
+						mountPath: "/var/run/cdi"
+					}
 				}
 
-				if #config.resources != _|_ {
-					resources: #config.resources
-				}
+				resources: #config.resources
 
-				// Runs as root: creating a Unix socket in /var/lib/kubelet/device-plugins/
-				// requires write access to that root-owned kubelet directory.
-				// readOnlyRootFilesystem and dropped capabilities limit the blast radius.
+				// Security context matches the official upstream Intel manifest.
+				// No runAsUser override — the plugin runs as its container image default user.
+				// NOTE: seLinuxOptions (type: "container_device_plugin_t") and
+				// seccompProfile (type: "RuntimeDefault") are required by the upstream manifest
+				// but are not yet modeled by the OPM SecurityContextSchema. Apply them via
+				// a cluster-level mutating webhook or release annotation.
 				securityContext: {
 					allowPrivilegeEscalation: false
 					readOnlyRootFilesystem:   true
-					runAsNonRoot:             false
-					runAsUser:                0
 					capabilities: drop: ["ALL"]
 				}
 			}
 
 			// ── Volumes ────────────────────────────────────────────────────────
 			volumes: {
-				// Intel GPU DRI device nodes — control (card*) and render (renderD*) nodes.
-				// Mounted read-only: the plugin only enumerates devices, never writes to them.
+				// Intel GPU DRI device nodes — control (card*) and render (renderD*).
+				// Read-only: the plugin enumerates devices but never writes to /dev/dri.
 				"dev-dri": {
 					name: "dev-dri"
 					hostPath: {
@@ -196,21 +205,35 @@ if #config.enableMonitoring {
 						type: "Directory"
 					}
 				}
+				// DRM sysfs info — used by the plugin to enumerate GPU topology.
+				// Read-only: informational access only.
+				"sysfs-drm": {
+					name: "sysfs-drm"
+					hostPath: {
+						path: "/sys/class/drm"
+						type: "Directory"
+					}
+				}
 				// Kubelet device plugin socket directory.
 				// The plugin creates its gRPC socket here for kubelet to dial.
+				// Must be writable: the plugin creates a socket file in this directory.
 				"dp-socket": {
 					name: "dp-socket"
-				hostPath: {
-					path: "/var/lib/kubelet/device-plugins"
-					type: "Directory"
+					hostPath: {
+						path: "/var/lib/kubelet/device-plugins"
+						type: "Directory"
+					}
 				}
+				// Container Device Interface (CDI) specs directory.
+				// Created automatically if absent (DirectoryOrCreate).
+				// Used when CDI device injection is enabled.
+				"cdi-path": {
+					name: "cdi-path"
+					hostPath: {
+						path: "/var/run/cdi"
+						type: "DirectoryOrCreate"
+					}
 				}
-			}
-
-			// Pod-level security: no runAsUser set here so the init container (runAsNonRoot: true)
-			// inherits no conflicting UID. The plugin container sets runAsUser: 0 explicitly.
-			securityContext: {
-				allowPrivilegeEscalation: false
 			}
 		}
 	}

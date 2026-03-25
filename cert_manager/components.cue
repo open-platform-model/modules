@@ -26,10 +26,10 @@ package cert_manager
 
 import (
 	resources_extension "opmodel.dev/opm/v1alpha1/resources/extension@v1"
-	resources_security  "opmodel.dev/opm/v1alpha1/resources/security@v1"
-	resources_workload  "opmodel.dev/opm/v1alpha1/resources/workload@v1"
-	traits_security     "opmodel.dev/opm/v1alpha1/traits/security@v1"
-	traits_workload     "opmodel.dev/opm/v1alpha1/traits/workload@v1"
+	resources_security "opmodel.dev/opm/v1alpha1/resources/security@v1"
+	resources_workload "opmodel.dev/opm/v1alpha1/resources/workload@v1"
+	traits_security "opmodel.dev/opm/v1alpha1/traits/security@v1"
+	traits_workload "opmodel.dev/opm/v1alpha1/traits/workload@v1"
 )
 
 #components: {
@@ -152,7 +152,7 @@ import (
 
 				env: {
 					POD_NAMESPACE: {
-						name:     "POD_NAMESPACE"
+						name: "POD_NAMESPACE"
 						fieldRef: fieldPath: "metadata.namespace"
 					}
 				}
@@ -247,7 +247,7 @@ import (
 
 				env: {
 					POD_NAMESPACE: {
-						name:     "POD_NAMESPACE"
+						name: "POD_NAMESPACE"
 						fieldRef: fieldPath: "metadata.namespace"
 					}
 				}
@@ -335,7 +335,7 @@ import (
 
 				env: {
 					POD_NAMESPACE: {
-						name:     "POD_NAMESPACE"
+						name: "POD_NAMESPACE"
 						fieldRef: fieldPath: "metadata.namespace"
 					}
 				}

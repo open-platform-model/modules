@@ -24,10 +24,10 @@ import (
 	"list"
 
 	resources_security "opmodel.dev/opm/v1alpha1/resources/security@v1"
-	resources_storage  "opmodel.dev/opm/v1alpha1/resources/storage@v1"
+	resources_storage "opmodel.dev/opm/v1alpha1/resources/storage@v1"
 	resources_workload "opmodel.dev/opm/v1alpha1/resources/workload@v1"
-	traits_security    "opmodel.dev/opm/v1alpha1/traits/security@v1"
-	traits_workload    "opmodel.dev/opm/v1alpha1/traits/workload@v1"
+	traits_security "opmodel.dev/opm/v1alpha1/traits/security@v1"
+	traits_workload "opmodel.dev/opm/v1alpha1/traits/workload@v1"
 )
 
 // _baseArgs holds the always-present metrics-server arguments.
@@ -124,7 +124,7 @@ if #config.kubeletInsecureTLS {
 					"tmp-dir": {
 						name:      "tmp-dir"
 						mountPath: "/tmp"
-						emptyDir:  {}
+						emptyDir: {}
 					}
 				}
 
@@ -142,7 +142,7 @@ if #config.kubeletInsecureTLS {
 			// Writable /tmp for self-signed TLS cert generation.
 			volumes: {
 				"tmp-dir": {
-					name:     "tmp-dir"
+					name: "tmp-dir"
 					emptyDir: {}
 				}
 			}

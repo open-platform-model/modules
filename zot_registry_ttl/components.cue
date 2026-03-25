@@ -50,7 +50,7 @@ import (
 					delay:  #config.ttl.delay
 
 					// Per-prefix policies followed by a catch-all using defaultTTL
-				policies: [
+					policies: [
 						for p in #config.ttl.policies {
 							repositories:    p.repositories
 							deleteReferrers: true
@@ -61,7 +61,7 @@ import (
 							}]
 						},
 						{
-							repositories:    ["**"]
+							repositories: ["**"]
 							deleteReferrers: true
 							deleteUntagged:  true
 							keepTags: [{
