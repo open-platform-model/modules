@@ -6,10 +6,16 @@ source: {
 	kind: "self"
 }
 deps: {
+	"opmodel.dev/cert_manager/v1alpha1@v1": {
+		v: "v1.3.2"
+	}
 	"opmodel.dev/core/v1alpha1@v1": {
-		v: "v1.3.1"
+		v: "v1.3.2"
 	}
 	"opmodel.dev/gateway_api/v1alpha1@v1": {
-		v: "v1.3.2"
+		v: "v1.3.4"
+	}
+	"opmodel.dev/opm/v1alpha1@v1": {
+		v: "v1.5.5"
 	}
 }
