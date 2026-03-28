@@ -1,0 +1,134 @@
+# One-shot Job to copy NVIDIA driver libraries from the Talos glibc extension
+# to a clean hostPath directory with dereferenced symlinks.
+#
+# Why: The Talos nvidia-open-gpu-kernel-modules-lts extension stores NVIDIA
+# userspace libs at /usr/local/glibc/usr/lib/, but files like nvidia-drm_gbm.so
+# are absolute symlinks to /rootfs/... which are broken inside containers.
+# Wolf's 30-nvidia.sh crashes on them (see DEPLOYMENT_NOTES.md Issue 16).
+#
+# This Job copies real files (cp -L dereferences symlinks) and generates the
+# Vulkan/EGL JSON configs that the Talos extension does not include.
+#
+# Re-run this Job after any Talos NVIDIA extension upgrade (new driver version).
+#
+# Usage:
+#   kubectl apply -f modules/wolf/init/nvidia-driver-setup-job.yaml
+#   kubectl -n gaming wait --for=condition=complete job/nvidia-driver-setup --timeout=120s
+#   kubectl -n gaming delete job nvidia-driver-setup
+#
+# Verify:
+#   kubectl run --rm -it nvidia-check --image=busybox -n gaming --overrides='{"spec":{"containers":[{"name":"check","image":"busybox","command":["sh","-c","ls -la /dst/lib/libcuda.so.1 && cat /dst/share/vulkan/icd.d/nvidia_icd.json"],"volumeMounts":[{"name":"dst","mountPath":"/dst"}]}],"volumes":[{"name":"dst","hostPath":{"path":"/var/lib/wolf-nvidia-driver","type":""}}],"restartPolicy":"Never"}}'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nvidia-driver-setup
+  namespace: gaming
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: setup
+          image: busybox
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -exc
+            - |
+              # Create directory structure expected by Wolf's 30-nvidia.sh
+              mkdir -p /dst/lib/gbm
+              mkdir -p /dst/share/vulkan/icd.d
+              mkdir -p /dst/share/glvnd/egl_vendor.d
+              mkdir -p /dst/share/egl/egl_external_platform.d
+
+              # Copy NVIDIA-specific libraries only (not glibc's libc.so, libm.so, etc.)
+              # -L dereferences symlinks so we get real files, not broken /rootfs/ links
+              for pattern in \
+                'libcuda*' \
+                'libnvidia*' \
+                'libnvcuvid*' \
+                'libnvoptix*' \
+                'libvdpau_nvidia*' \
+                'libEGL_nvidia*' \
+                'libGLESv1_CM_nvidia*' \
+                'libGLESv2_nvidia*' \
+                'libGLX_nvidia*' \
+              ; do
+                # Use find to handle glob expansion safely
+                find /src/lib/ -maxdepth 1 -name "$pattern" -exec cp -L {} /dst/lib/ \;
+              done
+
+              # Copy GBM backend (or create symlink to libnvidia-allocator.so.1)
+              # Talos extension may not have /lib/gbm/, so fall back to a symlink
+              if [ -f /src/lib/gbm/nvidia-drm_gbm.so ]; then
+                cp -L /src/lib/gbm/nvidia-drm_gbm.so /dst/lib/gbm/
+              elif [ -f /dst/lib/libnvidia-allocator.so.1 ]; then
+                ln -sf ../libnvidia-allocator.so.1 /dst/lib/gbm/nvidia-drm_gbm.so
+              fi
+
+              # Generate Vulkan ICD config (Talos extension does not include these)
+              cat > /dst/share/vulkan/icd.d/nvidia_icd.json << 'VICD'
+              {
+                  "file_format_version": "1.0.0",
+                  "ICD": {
+                      "library_path": "libGLX_nvidia.so.0",
+                      "api_version": "1.3"
+                  }
+              }
+              VICD
+
+              # Generate EGL vendor config
+              cat > /dst/share/glvnd/egl_vendor.d/10_nvidia.json << 'VEGL'
+              {
+                  "file_format_version": "1.0.0",
+                  "ICD": {
+                      "library_path": "libEGL_nvidia.so.0"
+                  }
+              }
+              VEGL
+
+              # Generate EGL GBM platform config
+              cat > /dst/share/egl/egl_external_platform.d/15_nvidia_gbm.json << 'GBM'
+              {
+                  "file_format_version": "1.0.0",
+                  "ICD": {
+                      "library_path": "libnvidia-egl-gbm.so.1"
+                  }
+              }
+              GBM
+
+              # Generate EGL Wayland platform config
+              cat > /dst/share/egl/egl_external_platform.d/10_nvidia_wayland.json << 'WL'
+              {
+                  "file_format_version": "1.0.0",
+                  "ICD": {
+                      "library_path": "libnvidia-egl-wayland.so.1"
+                  }
+              }
+              WL
+
+              # Summary
+              echo "=== NVIDIA driver setup complete ==="
+              echo "Libraries copied:"
+              ls -1 /dst/lib/*.so* | wc -l
+              echo "GBM backend:"
+              ls -la /dst/lib/gbm/
+              echo "Vulkan/EGL configs:"
+              find /dst/share/ -name '*.json' -type f
+          volumeMounts:
+            - name: src
+              mountPath: /src
+              readOnly: true
+            - name: dst
+              mountPath: /dst
+      volumes:
+        - name: src
+          hostPath:
+            path: /usr/local/glibc/usr
+            type: ""
+        - name: dst
+          hostPath:
+            path: /var/lib/wolf-nvidia-driver
+            type: DirectoryOrCreate
