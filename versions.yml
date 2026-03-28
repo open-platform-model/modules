@@ -3,8 +3,8 @@
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
 wolf:
-  version: v0.0.18
-  checksum: 7acec1eaeca62d52bbc4faea24d6f69c8e0b1032897c3c377913ed781f5a43f7
+  version: v0.0.21
+  checksum: 758d22d3747a4ea36dbafb1b5a390c780d6ea63f25f664491e128907a4fd7f45
 metallb:
   version: v0.0.6
   checksum: 46583a4278dd4af8d81c188e59ae10dbb7b7a4e40fe4fd178aaea1d068249979
@@ -12,8 +12,8 @@ zot_registry_ttl:
   version: v0.0.6
   checksum: c903e6b1ecdebd35c8a0c6e15d2df5f1d397873293d1b22e451f7578eec93163
 jellyfin:
-  version: v1.0.20
-  checksum: e3665b1f9371b0fe9047c3714150750c994abf13b12fbbaad3d42bba7aaca408
+  version: v1.0.28
+  checksum: 8be1f31a3397ef5887e9874e57d9990a5bf6d732b0328b98d5d4fde703e6dae4
 gateway_api:
   version: v1.1.13
   checksum: 9eb9ef175f897cf2091ae96e73be36b88d18cb95a4d67b6162883598faffc84d
@@ -27,14 +27,23 @@ intel_gpu_device_plugin:
   version: v0.0.12
   checksum: "f9d13b2251c5ad9a8915f370901db0d637e760054be326851d8ded6fae162ec3"
 gateway:
-  version: v0.0.7
-  checksum: 728f9544c75331886dae877aea5089777acedb80ff5dee3d50f28ccb8f79aa06
+  version: v0.0.26
+  checksum: 4dc976773e5240846ab5fe75bbafd8d18a8766cf6ea0e07fa04c84c8d56e71df
 cert_manager:
-  version: v0.0.6
-  checksum: 97ed8b6f76eab1643134a6f593cc60242f639c3e8c942e41d3429bc3cf913bd2
+  version: v0.0.7
+  checksum: 4ee0c5c82a8693573149ebb04b03583bc900e2786a987df55d2bb4c90e248805
 cert_manager_config:
-  version: v0.0.3
-  checksum: 9eda1a4964b372e6e329676e81b66d5c8fa08a029ef4e8ad714ef3b5306aab0b
-intel_gpu_exporter:
   version: v0.0.4
-  checksum: "eb6381eb91b5d8798e13a2c87ba60f4e48ce405eb470e9983cbbcdefc55d6225"
+  checksum: 83f15f1d424b31112db14d2596d546ce421875535a0c46affa063f9b44bb97bc
+intel_gpu_exporter:
+  version: v0.0.7
+  checksum: "2914122e3a664fe5ba10df93f8a61404f67668bda9e79372c13ccabe5e5d038a"
+garage:
+  version: v0.0.2
+  checksum: 7da29f8a83e248522b015bdcafe41ab5d26261fc86475f14d4e5ccca740b60e1
+k8up:
+  version: v1.0.14
+  checksum: 9acee6ca4c99c4506b0c84bec9c68f612b985826f7190d16a6fbd0c4176f704f
+seerr:
+  version: v0.0.2
+  checksum: 367cc4fbd51070981aced91b29b4939e31551f95a5d020f7eada164aadf18c89
