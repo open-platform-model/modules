@@ -48,6 +48,8 @@ Run all commands from `modules/`.
 
 ## Adding a New Module
 
+Before writing any CUE, read [`DESIGN_PATTERNS.md`](./DESIGN_PATTERNS.md) — it documents the reusable patterns (catalog schema helpers, volume type-switch, ConfigMap rendering, sidecar container pattern, etc.) used across all modules in this directory.
+
 1. Create `modules/<name>/` directory.
 2. Write `module.cue` (module metadata + `#config` schema) and `components.cue` (#components).
 3. Add `README.md` with architecture overview, quick start, and configuration reference.
