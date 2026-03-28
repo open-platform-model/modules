@@ -1,0 +1,373 @@
+# Prowlarr Module Design
+
+> For reusable CUE patterns used in implementing this module, see [`modules/DESIGN_PATTERNS.md`](../../DESIGN_PATTERNS.md).
+
+**Tier:** 3
+**Version:** v2.3.0.5236  
+**OPM Module Path:** `opmodel.dev/modules/prowlarr`
+
+---
+
+## Overview
+
+Prowlarr is an indexer manager and proxy for the \*arr ecosystem. It manages all torrent
+tracker and Usenet indexer configurations in one place and syncs them automatically to
+Sonarr, Radarr, Lidarr, Readarr, and Whisparr — eliminating the need to configure
+indexers separately in each app. Prowlarr handles authentication, caps queries, and
+routing search requests from connected arr apps.
+
+Prowlarr is a Servarr application — it shares the same XML-based configuration pattern
+as Sonarr and Radarr, with `config.xml` seeded on first boot.
+
+---
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  prowlarr Pod                                            │
+│                                                          │
+│  ┌───────────────┐  init  ┌──────────────────────────┐  │
+│  │  config-seed  │ ─────▶ │  /config/config.xml      │  │
+│  │  (busybox)    │        │  (seeded if absent)      │  │
+│  └───────────────┘        └──────────────────────────┘  │
+│                                                          │
+│  ┌────────────────────────┐  ┌─────────────────────────┐│
+│  │  prowlarr              │  │  exportarr (optional)   ││
+│  │  :9696                 │  │  :9707                  ││
+│  │  /config  (PVC 5Gi)    │  │  scrapes :9696/api      ││
+│  └────────────────────────┘  └─────────────────────────┘│
+└──────────────────────────────────────────────────────────┘
+
+ConfigMap: prowlarr-config-seed  →  init copies to /config/config.xml
+                                    (only if file not already present)
+Secret:    prowlarr-secrets      →  Exportarr API key ref
+```
+
+Connected arr apps call Prowlarr's proxy endpoint to perform indexer searches. Prowlarr
+does not store media and has no media volume mounts.
+
+---
+
+## Container Image
+
+| Field      | Value                                |
+|------------|--------------------------------------|
+| Registry   | `lscr.io`                            |
+| Repository | `lscr.io/linuxserver/prowlarr`       |
+| Tag        | `latest`                             |
+| Digest     | `""` (not pinned at scaffold time)   |
+| Base       | LinuxServer.io (Ubuntu + s6-overlay) |
+| Version    | v2.3.0.5236                          |
+
+LinuxServer.io images require PUID/PGID/TZ environment variables. UMASK is optional.
+
+---
+
+## OPM Module Design
+
+- **Workload type:** `stateful` — single replica, `restartPolicy: Always`
+- **Traits used:** `#Container`, `#Volumes`, `#ConfigMaps`, `#Scaling`, `#RestartPolicy`,
+  `#Expose`, `#SecurityContext`
+- **Init container:** busybox seeds `/config/config.xml` from ConfigMap on first run
+- **Optional sidecar:** Exportarr for Prometheus metrics (conditional on `#config.exportarr`)
+- **Health check:** HTTP GET `/` on port 9696
+- **Config format:** XML (`config.xml`) — same Servarr pattern as Sonarr/Radarr
+
+---
+
+## #config Schema
+
+```cue
+package prowlarr
+
+import (
+    schemas "opmodel.dev/opm/v1alpha1/schemas@v1"
+)
+
+// #storageVolume — shared schema for all volume definitions
+#storageVolume: {
+    mountPath:     string
+    type:          "pvc" | "emptyDir" | "nfs"
+    size?:         string  // required when type == "pvc"
+    storageClass?: string  // optional; only used when type == "pvc"
+    server?:       string  // required when type == "nfs"
+    path?:         string  // required when type == "nfs"
+}
+
+// #exportarrSidecar — optional Prometheus metrics sidecar
+#exportarrSidecar: {
+    image: schemas.#Image & {
+        repository: string | *"ghcr.io/onedr0p/exportarr"
+        tag:        string | *"latest"
+        digest:     string | *""
+    }
+    // Port exportarr listens on for Prometheus scrape
+    port: int | *9707
+    // Prowlarr API key — injected from a Kubernetes Secret
+    apiKey: schemas.#Secret & {
+        $secretName: string | *"prowlarr-secrets"
+        $dataKey:    string | *"api-key"
+    }
+}
+
+// #servarrConfig — shared Servarr XML config seed schema
+// Matches the fields in Prowlarr's config.xml
+#servarrConfig: {
+    // Authentication method; External delegates to a reverse proxy
+    authMethod?: "Forms" | "Basic" | "External" | *"External"
+    // Controls which clients require authentication
+    authRequired?: "Enabled" | "DisabledForLocalAddresses" | *"DisabledForLocalAddresses"
+    // Release branch to track for updates
+    branch?: string | *"master"
+    // Prowlarr application log level
+    logLevel?: "trace" | "debug" | "info" | "warn" | "error" | *"info"
+    // URL base path when running behind a reverse proxy subpath
+    urlBase?: string | *""
+    // Application instance display name
+    instanceName?: string | *"Prowlarr"
+    // API key is auto-generated by Prowlarr; do not set here
+    // apiKey is excluded from the seed — Prowlarr generates it on first boot
+}
+
+// #config — top-level module configuration schema
+#config: {
+    // Container image; defaults to latest LinuxServer.io Prowlarr
+    image: schemas.#Image & {
+        repository: string | *"lscr.io/linuxserver/prowlarr"
+        tag:        string | *"latest"
+        digest:     string | *""
+    }
+
+    // Web UI port exposed by the container and service
+    port: int & >0 & <=65535 | *9696
+
+    // LinuxServer.io user/group identity for file ownership
+    puid: int | *1000
+    pgid: int | *1000
+
+    // Container timezone (IANA format)
+    timezone: string | *"Europe/Stockholm"
+
+    // Optional file creation mask; LinuxServer default is "022"
+    umask?: string
+
+    // Storage volumes — Prowlarr only needs config; no media volumes
+    storage: {
+        // Application state — database, logs, config.xml — defaults to 5Gi PVC
+        config: #storageVolume & {
+            mountPath: *"/config" | string
+            type:      *"pvc" | "emptyDir" | "nfs"
+            size:      string | *"5Gi"
+        }
+    }
+
+    // Kubernetes Service type for the web UI
+    serviceType: "ClusterIP" | "NodePort" | "LoadBalancer" | *"ClusterIP"
+
+    // Container resource requests and limits; omit for no constraints
+    resources?: schemas.#ResourceRequirementsSchema
+
+    // Optional Exportarr sidecar for Prometheus metrics
+    exportarr?: #exportarrSidecar
+
+    // Optional Servarr config.xml seed values
+    // When present, a ConfigMap is created and seeded via init container.
+    // Prowlarr may override values at runtime — seed is one-time only.
+    servarrConfig?: #servarrConfig
+}
+```
+
+---
+
+## Storage Layout
+
+| Name     | Mount Path | Type | Default Size | Description                                           |
+|----------|------------|------|--------------|-------------------------------------------------------|
+| `config` | `/config`  | pvc  | 5Gi          | Application database, logs, config.xml, indexer cache |
+
+Prowlarr does not download or store media. All indexer data is kept in the SQLite
+database inside `/config`. 5Gi is generous for the expected data volume.
+
+---
+
+## Network Configuration
+
+| Port | Protocol | Name      | Purpose                              |
+|------|----------|-----------|--------------------------------------|
+| 9696 | TCP      | `http`    | Web UI, REST API, proxy endpoint     |
+| 9707 | TCP      | `metrics` | Exportarr Prometheus scrape (optional)|
+
+Service type defaults to `ClusterIP`. Other arr apps reach Prowlarr at
+`prowlarr.prowlarr.svc.cluster.local:9696`. Exportarr port only appears when
+`#config.exportarr` is defined.
+
+---
+
+## Environment Variables
+
+| Variable | Source              | Required | Description                         |
+|----------|---------------------|----------|-------------------------------------|
+| `PUID`   | `#config.puid`      | Yes      | Process UID for file ownership      |
+| `PGID`   | `#config.pgid`      | Yes      | Process GID for file ownership      |
+| `TZ`     | `#config.timezone`  | Yes      | Container timezone                  |
+| `UMASK`  | `#config.umask`     | No       | File creation mask (default: `022`) |
+
+Exportarr sidecar environment variables (when `exportarr` is set):
+
+| Variable | Source                                  | Description                       |
+|----------|-----------------------------------------|-----------------------------------|
+| `PORT`   | `#config.exportarr.port`               | Exportarr listen port             |
+| `URL`    | `"http://localhost:\(#config.port)"`    | Target Prowlarr URL               |
+| `APIKEY` | Secret ref from `exportarr.apiKey`      | Prowlarr API key for scraping     |
+
+---
+
+## Declarative Configuration Strategy
+
+Prowlarr uses the **Servarr XML config seed** pattern, identical to Sonarr and Radarr:
+
+1. **Render** `config.xml` from `#config.servarrConfig` using CUE string interpolation
+   (not `encoding/xml` — the XML is simple enough for a template string) → stored in
+   ConfigMap `prowlarr-config-seed` under key `config.xml`.
+2. **Init container** (`busybox:latest`) mounts the ConfigMap at `/seed/` read-only and
+   the config PVC at `/config/`. On startup it runs:
+   ```sh
+   [ -f /config/config.xml ] || cp /seed/config.xml /config/config.xml
+   ```
+   The guard makes the copy **idempotent** — runtime state (API key, indexer configs)
+   is never overwritten on restart.
+3. **Main container** starts after the init container exits.
+
+When `#config.servarrConfig` is absent, no ConfigMap is created and no init container
+is injected — Prowlarr generates its own `config.xml` on first boot.
+
+**API key note:** The `<ApiKey>` element in `config.xml` is intentionally left as
+`auto-generated` in the seed. Prowlarr replaces it with a real UUID on first boot.
+Do not attempt to pre-set the API key in the seed — it creates a collision risk.
+
+---
+
+## ConfigMap Design
+
+**Name:** `prowlarr-config-seed`  
+**Created when:** `#config.servarrConfig != _|_`  
+**Immutable:** `false` (Prowlarr manages its own config.xml after seeding)
+
+Rendered `config.xml` content (CUE string interpolation):
+
+```xml
+<Config>
+  <BindAddress>*</BindAddress>
+  <Port>9696</Port>
+  <SslPort>6969</SslPort>
+  <EnableSsl>False</EnableSsl>
+  <LaunchBrowser>True</LaunchBrowser>
+  <ApiKey>auto-generated</ApiKey>
+  <AuthenticationMethod>External</AuthenticationMethod>
+  <AuthenticationRequired>DisabledForLocalAddresses</AuthenticationRequired>
+  <Branch>master</Branch>
+  <LogLevel>info</LogLevel>
+  <SslCertPath></SslCertPath>
+  <SslCertPassword></SslCertPassword>
+  <UrlBase></UrlBase>
+  <InstanceName>Prowlarr</InstanceName>
+  <UpdateMechanism>Docker</UpdateMechanism>
+</Config>
+```
+
+Values for `AuthenticationMethod`, `AuthenticationRequired`, `Branch`, `LogLevel`,
+`UrlBase`, and `InstanceName` are substituted from `#config.servarrConfig` fields
+using CUE string interpolation:
+
+```cue
+"config.xml": """
+    <Config>
+      <BindAddress>*</BindAddress>
+      <Port>\(#config.port)</Port>
+      ...
+      <AuthenticationMethod>\(#config.servarrConfig.authMethod)</AuthenticationMethod>
+      <Branch>\(#config.servarrConfig.branch)</Branch>
+      <LogLevel>\(#config.servarrConfig.logLevel)</LogLevel>
+      <UrlBase>\(#config.servarrConfig.urlBase)</UrlBase>
+      <InstanceName>\(#config.servarrConfig.instanceName)</InstanceName>
+      <UpdateMechanism>Docker</UpdateMechanism>
+    </Config>
+    """
+```
+
+---
+
+## Secrets
+
+| Secret Name        | Data Key  | Used By    | Description                              |
+|--------------------|-----------|------------|------------------------------------------|
+| `prowlarr-secrets` | `api-key` | Exportarr  | Prowlarr API key for metrics scraping    |
+
+Prowlarr generates its API key on first boot. To use Exportarr:
+1. Boot Prowlarr, complete initial setup.
+2. Copy the API key from Settings → General → API Key.
+3. Create the secret:
+   ```bash
+   kubectl create secret generic prowlarr-secrets \
+     --namespace prowlarr \
+     --from-literal=api-key=<your-prowlarr-api-key>
+   ```
+4. Enable `exportarr` in the release values and re-apply.
+
+---
+
+## Dev Release Values
+
+```cue
+package prowlarr
+
+import (
+    mr "opmodel.dev/core/v1alpha1/modulerelease@v1"
+    m  "opmodel.dev/modules/prowlarr@v1"
+)
+
+mr.#ModuleRelease
+
+metadata: {
+    name:      "prowlarr"
+    namespace: "prowlarr"
+}
+
+#module: m
+
+values: {
+    image: {
+        repository: "lscr.io/linuxserver/prowlarr"
+        tag:        "latest"
+        digest:     ""
+    }
+    port:        9696
+    puid:        3005
+    pgid:        3005
+    timezone:    "Europe/Stockholm"
+    serviceType: "ClusterIP"
+    storage: {
+        config: {
+            mountPath:    "/config"
+            type:         "pvc"
+            size:         "5Gi"
+            storageClass: "local-path"
+        }
+    }
+    servarrConfig: {
+        authMethod:   "External"
+        authRequired: "DisabledForLocalAddresses"
+        branch:       "master"
+        logLevel:     "info"
+        urlBase:      ""
+        instanceName: "Prowlarr"
+    }
+    // Exportarr metrics sidecar — enable after first boot and API key is set
+    // exportarr: {
+    //     image: { repository: "ghcr.io/onedr0p/exportarr", tag: "latest", digest: "" }
+    //     port:   9707
+    //     apiKey: { $secretName: "prowlarr-secrets", $dataKey: "api-key" }
+    // }
+}
+```
