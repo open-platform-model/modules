@@ -75,16 +75,26 @@ metadata: {
 	// Kubernetes Service type for the Jellyfin web UI
 	serviceType: "ClusterIP" | "NodePort" | "LoadBalancer" | *"ClusterIP"
 
+	// Optional Gateway API HTTPRoute for ingress routing.
+	// When set, an HTTPRoute resource is created pointing to the jellyfin service.
+	httpRoute?: {
+		hostnames: [...string]
+		gatewayRef?: {
+			name:      string
+			namespace: string
+		}
+	}
+
 	// Container resource requests and limits.
 	// When absent, no resource constraints are applied to the container.
 	resources?: schemas.#ResourceRequirementsSchema & {
-		requests?: {
-			cpu?:    *"500m" | _
-			memory?: *"1Gi" | _
+		requests: {
+			cpu:    *"500m" | _
+			memory: *"1Gi" | _
 		}
-		limits?: {
-			cpu?:    *"4000m" | _
-			memory?: *"4Gi" | _
+		limits: {
+			cpu:    *"4000m" | _
+			memory: *"4Gi" | _
 		}
 	}
 
@@ -93,6 +103,44 @@ metadata: {
 	logging?: {
 		defaultLevel: *"Information" | "Debug" | "Warning" | "Error"
 		overrides?: [string]: "Debug" | "Information" | "Warning" | "Error"
+	}
+
+	// Optional K8up backup configuration.
+	// When set, creates a K8up Schedule CR and a PreBackupPod CR for SQLite consistency.
+	backup?: {
+		// Name of the config PVC as rendered by OPM (e.g. "jellyfin-jellyfin-config").
+		// Required so the PreBackupPod can mount the correct volume.
+		configPvcName: string
+		// Cron schedule for backups (default: 2 AM daily)
+		schedule: *"0 2 * * *" | string
+		// S3 backend configuration
+		s3: {
+			endpoint: string
+			bucket:   string
+			accessKeyIDSecretRef: {
+				name: string
+				key:  *"access-key-id" | string
+			}
+			secretAccessKeySecretRef: {
+				name: string
+				key:  *"secret-access-key" | string
+			}
+		}
+		// Restic repository password secret
+		repoPasswordSecretRef: {
+			name: string
+			key:  *"password" | string
+		}
+		// Retention policy for prune
+		retention: {
+			keepDaily:   *7 | int
+			keepWeekly:  *4 | int
+			keepMonthly: *6 | int
+		}
+		// Cron schedule for repository integrity checks (default: 4 AM Sundays)
+		checkSchedule: *"0 4 * * 0" | string
+		// Cron schedule for pruning old snapshots (default: 5 AM Sundays)
+		pruneSchedule: *"0 5 * * 0" | string
 	}
 }
 
@@ -119,6 +167,13 @@ debugValues: {
 		gpu: {
 			resource: "gpu.intel.com/i915"
 			count:    1
+		}
+	}
+	httpRoute: {
+		hostnames: ["jellyfin.example.com"]
+		gatewayRef: {
+			name:      "gateway-gateway"
+			namespace: "istio-ingress"
 		}
 	}
 	logging: {
