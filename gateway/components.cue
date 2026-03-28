@@ -104,10 +104,16 @@ _explicitParentRefs: [
 					}
 				}
 			}
-			spec: {
-				gatewayClassName: #config.gateway.gatewayClassName
-				listeners:        _allListeners
-				if #config.gateway.infrastructure != _|_ {infrastructure: #config.gateway.infrastructure}
+
+			// Guard: only provide spec when listeners resolve to a non-empty list.
+			// At definition level (no concrete values), _allListeners is [] which
+			// conflicts with the upstream Gateway API schema's [_, ...] constraint.
+			if len(_allListeners) > 0 {
+				spec: {
+					gatewayClassName: #config.gateway.gatewayClassName
+					listeners:        _allListeners
+					if #config.gateway.infrastructure != _|_ {infrastructure: #config.gateway.infrastructure}
+				}
 			}
 		}
 	}
@@ -119,8 +125,8 @@ _explicitParentRefs: [
 				cm_security.#Certificate
 				spec: certificate: {
 					secretName: "gateway-\(name)-tls"
-					dnsNames:   ep.hostnames
-					issuerRef:  #config.gateway.issuerRef
+					dnsNames: [for h in ep.hostnames if !list.Contains(ep.hostnames, "*."+h) {h}]
+					issuerRef: #config.gateway.issuerRef
 				}
 			}
 		}
