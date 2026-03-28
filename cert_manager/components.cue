@@ -25,7 +25,7 @@
 package cert_manager
 
 import (
-	resources_admission "opmodel.dev/kubernetes/v1alpha1/resources/admission@v1"
+	resources_admission "opmodel.dev/kubernetes/v1/resources/admission@v1"
 	resources_extension "opmodel.dev/opm/v1alpha1/resources/extension@v1"
 	resources_security "opmodel.dev/opm/v1alpha1/resources/security@v1"
 	resources_workload "opmodel.dev/opm/v1alpha1/resources/workload@v1"
@@ -931,7 +931,7 @@ import (
 	/////////////////////////////////////////////////////////////////
 
 	"webhook-validating": {
-		resources_admission.#ValidatingWebhookConfigurationComponent
+		resources_admission.#ValidatingWebhookConfiguration
 
 		spec: validatingwebhookconfiguration: {
 			metadata: {
@@ -999,7 +999,7 @@ import (
 	/////////////////////////////////////////////////////////////////
 
 	"webhook-mutating": {
-		resources_admission.#MutatingWebhookConfigurationComponent
+		resources_admission.#MutatingWebhookConfiguration
 
 		spec: mutatingwebhookconfiguration: {
 			metadata: {
