@@ -117,19 +117,22 @@ metadata: {
 		s3: {
 			endpoint: string
 			bucket:   string
-			accessKeyIDSecretRef: {
-				name: string
-				key:  *"access-key-id" | string
+			accessKeyID: schemas.#Secret & {
+				$secretName:  "backup-s3"
+				$dataKey:     "access-key-id"
+				$description: "S3 access key ID for K8up backup"
 			}
-			secretAccessKeySecretRef: {
-				name: string
-				key:  *"secret-access-key" | string
+			secretAccessKey: schemas.#Secret & {
+				$secretName:  "backup-s3"
+				$dataKey:     "secret-access-key"
+				$description: "S3 secret access key for K8up backup"
 			}
 		}
 		// Restic repository password secret
-		repoPasswordSecretRef: {
-			name: string
-			key:  *"password" | string
+		repoPassword: schemas.#Secret & {
+			$secretName:  "backup-restic"
+			$dataKey:     "password"
+			$description: "Restic repository encryption password"
 		}
 		// Retention policy for prune
 		retention: {
@@ -207,6 +210,21 @@ debugValues: {
 				server:    "192.168.1.1"
 				path:      "/mnt/data/media"
 			}
+		}
+	}
+	backup: {
+		configPvcName: "jellyfin-jellyfin-config"
+		s3: {
+			endpoint: "http://10.10.0.2:30304"
+			bucket:   "jellyfin-backup"
+			accessKeyID: {value: "debug-access-key-id-value"}
+			secretAccessKey: {value: "debug-secret-access-key-value"}
+		}
+		repoPassword: {value: "debug-restic-password-32chars!!"}
+		retention: {
+			keepDaily:   7
+			keepWeekly:  4
+			keepMonthly: 6
 		}
 	}
 }

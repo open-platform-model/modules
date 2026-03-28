@@ -255,12 +255,12 @@ import (
 
 			spec: schedule: spec: {
 				backend: {
-					repoPasswordSecretRef: #config.backup.repoPasswordSecretRef
+					repoPasswordSecretRef: #config.backup.repoPassword
 					s3: {
 						endpoint:                 #config.backup.s3.endpoint
 						bucket:                   #config.backup.s3.bucket
-						accessKeyIDSecretRef:     #config.backup.s3.accessKeyIDSecretRef
-						secretAccessKeySecretRef: #config.backup.s3.secretAccessKeySecretRef
+						accessKeyIDSecretRef:     #config.backup.s3.accessKeyID
+						secretAccessKeySecretRef: #config.backup.s3.secretAccessKey
 					}
 				}
 				backup: {

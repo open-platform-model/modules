@@ -12,8 +12,8 @@ zot_registry_ttl:
   version: v0.0.6
   checksum: c903e6b1ecdebd35c8a0c6e15d2df5f1d397873293d1b22e451f7578eec93163
 jellyfin:
-  version: v1.0.28
-  checksum: 8be1f31a3397ef5887e9874e57d9990a5bf6d732b0328b98d5d4fde703e6dae4
+  version: v1.0.29
+  checksum: 3f0ec17b8f6480437a999cfcfcb41f446c9a72fe3b154f6802abe3ee4953d75a
 gateway_api:
   version: v1.1.13
   checksum: 9eb9ef175f897cf2091ae96e73be36b88d18cb95a4d67b6162883598faffc84d
