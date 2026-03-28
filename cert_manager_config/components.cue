@@ -1,9 +1,9 @@
 // Components for the cert-manager-config module.
 //
 // Three dynamic component sets, each driven by an optional #config map:
-//   clusterIssuers — one #ClusterIssuerComponent per entry in #config.clusterIssuers
-//   certificates   — one #CertificateComponent per entry in #config.certificates
-//   issuers        — one #IssuerComponent per entry in #config.issuers
+//   clusterIssuers — one #ClusterIssuer per entry in #config.clusterIssuers
+//   certificates   — one #Certificate per entry in #config.certificates
+//   issuers        — one #Issuer per entry in #config.issuers
 //
 // All three sets are optional — omit a map in #config to skip that resource type entirely.
 package cert_manager_config
@@ -25,7 +25,7 @@ import (
 	if #config.clusterIssuers != _|_ {
 		for name, issuerSpec in #config.clusterIssuers {
 			(name): {
-				cm_security.#ClusterIssuerComponent
+				cm_security.#ClusterIssuer
 				spec: clusterIssuer: issuerSpec
 			}
 		}
@@ -43,7 +43,7 @@ import (
 	if #config.certificates != _|_ {
 		for name, certSpec in #config.certificates {
 			(name): {
-				cm_security.#CertificateComponent
+				cm_security.#Certificate
 				spec: certificate: certSpec
 			}
 		}
@@ -60,7 +60,7 @@ import (
 	if #config.issuers != _|_ {
 		for name, issuerSpec in #config.issuers {
 			(name): {
-				cm_security.#IssuerComponent
+				cm_security.#Issuer
 				spec: issuer: issuerSpec
 			}
 		}
