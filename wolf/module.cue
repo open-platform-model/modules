@@ -163,7 +163,9 @@ _#portSchema: uint & >0 & <=65535
 			driverPath: string | *"/var/lib/docker/volumes/nvidia-driver-vol/_data"
 
 			// hostPathType for the driver volume mount
-			hostPathType: *"Directory" | "DirectoryOrCreate"
+			// "" bypasses the kubelet's type check — required on Talos where
+			// the glibc extension path resolves in a different mount namespace.
+			hostPathType: *"Directory" | "DirectoryOrCreate" | ""
 		}
 	}
 

@@ -155,18 +155,14 @@ import (
 					// Set dind.logLevel to "debug" in the release to diagnose container
 					// launch failures (e.g. bind-mount errors, cgroup issues).
 					"--log-level", #config.dind.logLevel,
-					// ── NVIDIA: register nvidia-container-runtime in dockerd ──────────
-					// When gpu.type is "nvidia", runner containers (Steam, games) spawned
-					// by Wolf need GPU access via device file passthrough. Registering
-					// nvidia-container-runtime as a named runtime and making it the default
-					// causes dockerd to use it when creating those containers.
-					// The binary is bind-mounted from the host Talos extension at
-					// /usr/bin/nvidia-container-runtime (nvidia-container-toolkit-lts)
-					// into /usr/local/bin/ inside DinD (/usr/bin/ is read-only in docker:dind).
-					if #config.gpu.type == "nvidia" {"--add-runtime"},
-					if #config.gpu.type == "nvidia" {"nvidia=/usr/local/bin/nvidia-container-runtime"},
-					if #config.gpu.type == "nvidia" {"--default-runtime"},
-					if #config.gpu.type == "nvidia" {"nvidia"},
+					// NOTE: nvidia-container-runtime is NOT registered as the default
+					// DinD runtime here. On Talos, the runtime's config lives at
+					// /usr/local/etc/nvidia-container-runtime/config.toml (not /etc/),
+					// which DinD cannot find, causing exit status 1 for ALL containers
+					// (including PulseAudio which needs no GPU). App containers get GPU
+					// device access via GOW's GOW_REQUIRED_DEVICES bind-mount mechanism.
+					// The nvidia-container-runtime binary is still bind-mounted into DinD
+					// (via the nvidia-container-runtime volume) for future use.
 				]
 				// DinD requires privileged: true — Docker-in-Docker needs full
 				// kernel access to create network namespaces, cgroups, and mounts.
@@ -650,11 +646,13 @@ import (
 				// register it as a custom runtime for GPU-accelerated runner containers.
 				// type: "" (no check) because Talos extension overlays expose the binary
 				// as a symlink, which HostPathType "File" rejects.
+				// Path: Talos nvidia-container-toolkit-lts installs to /usr/local/bin/,
+				// not /usr/bin/ — the latter does not exist and causes CreateContainerError.
 				if #config.gpu.type == "nvidia" {
 					"nvidia-container-runtime": {
 						name: "nvidia-container-runtime"
 						hostPath: {
-							path: "/usr/bin/nvidia-container-runtime"
+							path: "/usr/local/bin/nvidia-container-runtime"
 							type: ""
 						}
 					}
