@@ -472,34 +472,182 @@ All changes published in catalog **v1.2.20**.
 
 ---
 
+## Issue 13 — DinD CreateContainerError: wrong hostPath for nvidia-container-runtime
+
+**Symptom**
+
+```
+failed to generate container spec: failed to apply OCI options: failed to mkdir
+"/usr/bin/nvidia-container-runtime": mkdir /usr/bin/nvidia-container-runtime: read-only file system
+```
+
+DinD container stuck in `CreateContainerError`.
+
+**Root cause**
+The `nvidia-container-runtime` volume hostPath was set to `/usr/bin/nvidia-container-runtime`.
+On Talos, the `nvidia-container-toolkit-lts` extension installs the binary to
+`/usr/local/bin/`, not `/usr/bin/`. Since the path didn't exist and `hostPathType: ""`
+(no check), containerd tried to create the missing directory — but `/usr/bin/` is
+read-only on Talos.
+
+**Fix** — `modules/wolf/components.cue`
+Changed `path: "/usr/bin/nvidia-container-runtime"` → `path: "/usr/local/bin/nvidia-container-runtime"`.
+
+**Status** ✓ Resolved — module published as v0.0.19
+
+---
+
+## Issue 14 — Wolf SIGSEGV (exit code 11): cascading failure from DinD down
+
+**Symptom**
+
+```
+Stack trace:
+#3  pa_context_get_state at libpulse.so.0
+#4  wolf::core::audio::queue_op at pulse.cpp:121
+#5  PulseAudioRouterState::enable_pulse_subscribe at pulse_router.cpp:146
+```
+
+Wolf crashes with exit code 11 (SIGSEGV) immediately after printing all its INFO
+startup messages.
+
+**Root cause**
+DinD wasn't running (blocked by Issue 13). Wolf tried to start PulseAudio via the
+Docker API, failed (no socket), then called `pa_context_get_state` on a null/invalid
+PulseAudio context → segfault. This is a Wolf bug (missing null check), but the
+trigger is DinD not being available.
+
+**Fix**
+Fixing Issue 13 (DinD starts) resolves this automatically.
+
+**Status** ✓ Resolved as side effect of Issue 13
+
+---
+
+## Issue 15 — nvidia-container-runtime as DinD default runtime fails for all containers
+
+**Symptom**
+
+```
+[DOCKER] error 400 - {"message":"failed to create task for container: failed to create
+shim task: OCI runtime create failed: unable to retrieve OCI runtime error ...:
+/usr/local/bin/nvidia-container-runtime did not terminate successfully: exit status 1"}
+```
+
+DinD starts, Wolf starts, but when Wolf tries to launch the PulseAudio container via
+DinD, it fails. Wolf then crashes with the same SIGSEGV (Issue 14) because PulseAudio
+can't start.
+
+**Root cause**
+The DinD dockerd was configured with `--add-runtime nvidia=... --default-runtime nvidia`.
+On Talos, the nvidia-container-runtime config file is at
+`/usr/local/etc/nvidia-container-runtime/config.toml` (not `/etc/...`). Inside DinD,
+`/usr/local/etc/` is not mounted, so the runtime can't find its config and exits with
+status 1 for ALL containers — including PulseAudio which doesn't need GPU at all.
+
+**Finding**
+App containers (Steam, Firefox, etc.) get GPU device access via the GOW
+`GOW_REQUIRED_DEVICES` bind-mount mechanism (DRI nodes, `/dev/input/*`) — they don't
+need the nvidia-container-runtime for device access. The runtime was only needed for
+CUDA library injection (NVENC), which has separate Talos-specific issues anyway.
+
+**Fix** — `modules/wolf/components.cue`
+Removed `--add-runtime` and `--default-runtime nvidia` from DinD args. DinD now uses
+runc (the default) for all containers. The nvidia-container-runtime binary is still
+bind-mounted into DinD via the `nvidia-container-runtime` volume for future use.
+
+**Status** ✓ Resolved — module published as v0.0.20
+
+---
+
+## Issue 16 — NVIDIA driver volume: broken symlinks in Talos glibc extension
+
+**Symptom**
+
+```
+[nvidia] Add gbm backend
+cp: cannot stat '/usr/nvidia/lib/gbm/nvidia-drm_gbm.so': No such file or directory
+```
+
+Wolf's `30-nvidia.sh` init script fails when the nvidia-driver volume is mounted,
+causing the container to exit with code 1.
+
+**Root cause**
+The Talos `nvidia-open-gpu-kernel-modules-lts` extension stores NVIDIA userspace
+libraries at `/usr/local/glibc/usr/lib/`. When mounted at `/usr/nvidia` in the Wolf
+container, the file `nvidia-drm_gbm.so` is a **symlink pointing to an absolute path
+with `/rootfs/` prefix** (`/rootfs/usr/local/glibc/lib/libnvidia-allocator.so.1`).
+This path is valid on the Talos host (which sees the system root at `/rootfs/`) but
+does not exist inside the container.
+
+Wolf's `30-nvidia.sh` calls `cp` on the GBM backend file, follows the symlink,
+fails to stat the target, and exits non-zero.
+
+**Additional context**
+- `/usr/local/glibc/usr/lib/` contains ALL needed NVIDIA libs (libcuda.so.1,
+  libnvidia-encode.so.1, etc.) but they have Talos-specific absolute symlinks
+- hostPathType: "Directory" check also fails because the kubelet sees this path in a
+  different mount namespace; `type: ""` bypasses the check
+- The standard GOW nvidia-driver volume build (docker pull + docker volume create)
+  works around this by creating real files (not symlinks)
+
+**Fix** — `modules/wolf/init/nvidia-driver-setup-job.yaml`
+
+Created a K8s Job that:
+1. Mounts `/usr/local/glibc/usr` (Talos glibc extension) read-only at `/src`
+2. Copies NVIDIA-specific libraries with `cp -L` (dereferences broken symlinks) to
+   `/var/lib/wolf-nvidia-driver/lib/`
+3. Creates the GBM backend symlink (`nvidia-drm_gbm.so` → `libnvidia-allocator.so.1`)
+   since the Talos extension does not include `/lib/gbm/`
+4. Generates Vulkan ICD, EGL vendor, and EGL external platform JSON configs
+   (the Talos extension does not include these)
+
+After running the Job and restarting Wolf, the `30-nvidia.sh` init script runs
+`ldconfig` on `/usr/nvidia/lib/`, registers all 75 NVIDIA libraries, and sets up
+GBM/EGL/Vulkan backends. Wolf detects NVENC hardware encoders:
+
+```
+INFO | Using h264 encoder: nvcodec
+INFO | Using h265 encoder: nvcodec
+INFO | Using av1 encoder: aom       ← RTX 3060 has no AV1 encode HW
+INFO | Using zero copy pipeline on Nvidia (/dev/dri/renderD129)
+```
+
+Re-run the Job after any Talos NVIDIA extension upgrade (new driver version).
+
+**Status** ✓ Resolved — driver 580.126.16, NVENC H.264/H.265 working
+
+---
+
 ## Current state
 
 | Capability | Status |
 |---|---|
 | Wolf starts and listens on all ports | [x] Working |
-| AMD Radeon 780M VAAPI encoding (H.264 / HEVC / AV1) | [x] Working |
-| Moonlight pairing | [x] Working |
+| NVIDIA RTX 3060 — DRI node renderD129 | [x] Working |
 | DinD running, pulling app images | [x] Working |
-| PulseAudio socket shared with wolf container | [x] Working (Issue 9 fixed) |
-| Wolf-UI Wayland socket shared with DinD containers | [x] Working (Issue 9 fixed) |
-| Virtual mouse / keyboard via uinput | [x] Working (Issue 11 fixed) |
+| PulseAudio socket shared with wolf container | [x] Working |
+| Wolf-UI Wayland socket shared with DinD containers | [x] Working |
+| Virtual mouse / keyboard via uinput | [x] Working |
 | Virtual gamepad via uhid (DualSense) | [ ] Not available — no Talos uhid extension |
 | PVC storage (local-path) | [ ] Not provisioned (Issue 4) |
+| NVIDIA NVENC hardware encoding (H.264 / H.265 via nvcodec) | [x] Working (Issue 16 resolved) — AV1 software-only (RTX 3060 limitation) |
+| AMD Radeon 780M VAAPI encoding (H.264 / HEVC / AV1) | [ ] Disabled (switched to NVIDIA GPU path) |
 
 ---
 
 ## Open TODOs
 
-1. **Test full streaming session with audio** — connect Moonlight, launch Wolf UI or
-   a game app; verify audio pipeline (pulsesrc → opusenc) completes without error.
+1. **Test full streaming session** — connect Moonlight, launch Wolf UI or a game app;
+   verify video and audio pipeline completes without error (NVENC + Wayland + audio).
 
-2. **Provision Talos UserVolume for local-path (Issue 4)** — apply machine config
+3. **Provision Talos UserVolume for local-path (Issue 4)** — apply machine config
    to carve a partition on `nvme0n1`, then switch release storage to PVC.
 
-3. **Investigate NVIDIA PCIe reboots (Issue 7)** — confirm `pcie_aspm=off` is
+4. **Investigate NVIDIA PCIe reboots (Issue 7)** — confirm `pcie_aspm=off` is
    active (`cat /sys/module/pcie_aspm/parameters/policy`), or consider blacklisting
    NVIDIA to eliminate it as a source of instability.
 
-4. **`uhid` / DualSense support** — check if a future Talos version or community
+5. **`uhid` / DualSense support** — check if a future Talos version or community
    extension provides `uhid.ko`; alternatively investigate whether `uinput` alone
    is sufficient for gamepad emulation in Wolf's supported controller profiles.
