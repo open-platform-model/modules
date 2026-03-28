@@ -79,6 +79,15 @@ import (
 					pullPolicy: #config.image.pullPolicy
 				}
 
+				env: {
+					for k, v in #config.env {
+						(k): {
+							name:  k
+							value: v
+						}
+					}
+				}
+
 				volumeMounts: {
 					// Intel GPU DRI device nodes — control (card*) and render (renderD*).
 					"dev-dri": volumes["dev-dri"] & {

@@ -19,7 +19,7 @@ m.#Module
 metadata: {
 	modulePath:       "opmodel.dev/modules"
 	name:             "intel-gpu-exporter"
-	version:          "1.2.27"
+	version:          "1.2.28"
 	description:      "Intel GPU Exporter — exports Intel GPU utilization, memory, temperature, and power metrics as Prometheus metrics via XPU Manager"
 	defaultNamespace: "monitoring"
 	labels: {
@@ -43,12 +43,24 @@ metadata: {
 	// The endpoint is available at http://<node-ip>:<metricsPort>/metrics.
 	metricsPort: *9090 | int & >=1024 & <=65535
 
+	// env configures environment variables passed to the exporter container.
+	// These defaults enable XPU Manager's exporter-only mode which bypasses
+	// the REST API and its TLS certificate requirement.
+	env: {
+		// Run in Prometheus exporter-only mode — skips REST API and TLS requirement.
+		XPUM_EXPORTER_ONLY: string | *"1"
+		// Disable authentication for the /metrics endpoint.
+		XPUM_EXPORTER_NO_AUTH: string | *"1"
+		// Disable TLS for the REST API (redundant with EXPORTER_ONLY but defensive).
+		XPUM_REST_NO_TLS: string | *"1"
+	}
+
 	// Resource requests and limits for the exporter container.
 	// Defaults sized for a lightweight metrics scrape process.
-	resources: *{
+	resources: schemas.#ResourceRequirementsSchema & _ | *{
 		requests: {cpu: "10m", memory: "30Mi"}
 		limits: {cpu: "200m", memory: "128Mi"}
-	} | schemas.#ResourceRequirementsSchema
+	}
 
 	// nodeSelector restricts which nodes the DaemonSet is scheduled on.
 	// Defaults to amd64 architecture. Add the NFD GPU label when NFD is deployed:
@@ -71,5 +83,10 @@ debugValues: {
 	nodeSelector: {
 		"kubernetes.io/arch":                   "amd64"
 		"intel.feature.node.kubernetes.io/gpu": "true"
+	}
+	env: {
+		XPUM_EXPORTER_ONLY:    "1"
+		XPUM_EXPORTER_NO_AUTH: "1"
+		XPUM_REST_NO_TLS:      "1"
 	}
 }
