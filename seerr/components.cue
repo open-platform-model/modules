@@ -10,6 +10,8 @@ import (
 	traits_workload "opmodel.dev/opm/v1alpha1/traits/workload@v1"
 	traits_network "opmodel.dev/opm/v1alpha1/traits/network@v1"
 	traits_security "opmodel.dev/opm/v1alpha1/traits/security@v1"
+	traits_init "opmodel.dev/opm/v1alpha1/traits/workload@v1"
+	k8up_backup "opmodel.dev/k8up/v1alpha1/resources/backup@v1"
 )
 
 // #components contains component definitions.
@@ -25,6 +27,7 @@ import (
 		resources_storage.#Volumes
 		traits_workload.#Scaling
 		traits_workload.#RestartPolicy
+		traits_init.#InitContainers
 		traits_network.#Expose
 		traits_security.#SecurityContext
 
@@ -44,12 +47,27 @@ import (
 
 			restartPolicy: "Always"
 
-			// Run as non-root user (Seerr default: 1000:1000)
+			// fsGroup ensures volume files are group-accessible by Seerr (UID 1000).
+			// runAsUser/runAsGroup are intentionally omitted so the init container
+			// can run as root for chown; the Seerr image runs as UID 1000 internally.
 			securityContext: {
-				runAsUser:  1000
-				runAsGroup: 1000
-				fsGroup:    1000
+				fsGroup: 1000
 			}
+
+			// Fix file ownership after a K8up restore (restic restores with backup-time UID).
+			// Runs on every start so permissions are always correct.
+			initContainers: [{
+				name: "fix-permissions"
+				image: {
+					repository: "busybox"
+					tag:        "1.37"
+					digest:     ""
+				}
+				command: ["/bin/sh", "-c", "chown -R 1000:1000 /app/config"]
+				volumeMounts: config: _volumes.config & {
+					mountPath: #config.storage.config.mountPath
+				}
+			}]
 
 			container: {
 				name:  "seerr"
@@ -197,6 +215,69 @@ import (
 							path:   #config.storage.config.path
 						}
 					}
+				}
+			}
+		}
+	}
+
+	/////////////////////////////////////////////////////////////////
+	//// K8up Backup — Schedule + PreBackupPod (SQLite only)
+	/////////////////////////////////////////////////////////////////
+
+	if #config.backup != _|_ {
+		"backup-schedule": {
+			k8up_backup.#Schedule
+
+			metadata: name: "backup"
+
+			spec: schedule: spec: {
+				backend: {
+					repoPasswordSecretRef: #config.backup.repoPassword
+					s3: {
+						endpoint:                 #config.backup.s3.endpoint
+						bucket:                   #config.backup.s3.bucket
+						accessKeyIDSecretRef:     #config.backup.s3.accessKeyID
+						secretAccessKeySecretRef: #config.backup.s3.secretAccessKey
+					}
+				}
+				backup: {
+					schedule:                   #config.backup.schedule
+					failedJobsHistoryLimit:     3
+					successfulJobsHistoryLimit: 3
+				}
+				check: schedule: #config.backup.checkSchedule
+				prune: {
+					schedule:  #config.backup.pruneSchedule
+					retention: #config.backup.retention
+				}
+			}
+		}
+	}
+
+	// PreBackupPod for SQLite WAL checkpoint — only when NOT using PostgreSQL.
+	// When postgres is configured, the database lives externally and doesn't need a file-level checkpoint.
+	if #config.backup != _|_ if #config.postgres == _|_ {
+		"pre-backup-checkpoint": {
+			k8up_backup.#PreBackupPod
+
+			metadata: name: "sqlite-checkpoint"
+
+			spec: preBackupPod: spec: {
+				backupCommand: "/bin/sh -c 'sqlite3 /app/config/db/db.sqlite3 \"PRAGMA wal_checkpoint(TRUNCATE);\"'"
+				pod: spec: {
+					containers: [{
+						name:  "sqlite-checkpoint"
+						image: "alpine:3.19"
+						command: ["/bin/sh", "-c", "apk add --no-cache sqlite && sleep infinity"]
+						volumeMounts: [{
+							name:      "config"
+							mountPath: "/app/config"
+						}]
+					}]
+					volumes: [{
+						name: "config"
+						persistentVolumeClaim: claimName: #config.backup.configPvcName
+					}]
 				}
 			}
 		}
