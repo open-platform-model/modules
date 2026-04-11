@@ -219,13 +219,17 @@ _#portSchema: uint & >0 & <=65535
 
 	// === Networking ===
 	networking: {
+		// Bind the pod directly to the node's network stack.
+		// When true, Wolf's streaming ports are exposed on the node IP without
+		// NAT — lowest latency for UDP streams. When false, traffic flows
+		// through the Kubernetes Service (LoadBalancer/NodePort/ClusterIP).
+		// Set to false when using MetalLB or another LB that can handle the
+		// streaming ports without NAT overhead.
+		hostNetwork: bool | *true
+
 		// Kubernetes Service type for the Wolf streaming ports.
 		// LoadBalancer is typical for home/bare-metal clusters with MetalLB.
 		// NodePort is an alternative when no LoadBalancer is available.
-		//
-		// For optimal streaming latency, also configure host networking at the
-		// pod level (hostNetwork: true in the K8s pod spec or ModuleRelease
-		// annotations). This avoids NAT overhead on the UDP streams.
 		serviceType: *"LoadBalancer" | "NodePort" | "ClusterIP"
 
 		// Streaming protocol ports. Only override these if the defaults conflict

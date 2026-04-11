@@ -70,12 +70,9 @@ import (
 		spec: {
 			scaling: count: 1
 
-			// hostNetwork: true binds Wolf directly to the node's network stack.
-			// Wolf's streaming ports (47984/47989/48010 TCP, 47999/48100/48200 UDP)
-			// are in the 47000–48200 range which falls outside the Kubernetes
-			// NodePort range (30000–32767), so hostNetwork is required for clients
-			// to reach Wolf on its standard ports.
-			hostNetwork: true
+			// hostNetwork binds Wolf directly to the node's network stack when true.
+			// When false, streaming traffic flows through the K8s Service instead.
+			hostNetwork: #config.networking.hostNetwork
 
 			restartPolicy: "Always"
 
@@ -212,6 +209,17 @@ import (
 					if #config.gpu.type == "nvidia" {
 						"nvidia-container-runtime": volumes["nvidia-container-runtime"] & {
 							mountPath: "/usr/local/bin/nvidia-container-runtime"
+						}
+					}
+
+					// NVIDIA driver libraries — DinD needs the driver volume at
+					// /usr/nvidia so that bind mounts from this path into child
+					// containers (Steam, Wolf-UI, etc.) resolve to the real driver
+					// files. Wolf constructs "-v /usr/nvidia:/usr/nvidia" using
+					// NVIDIA_DRIVER_VOLUME_NAME for each child container.
+					if #config.gpu.type == "nvidia" if #config.gpu.nvidia != _|_ {
+						"nvidia-driver": volumes["nvidia-driver"] & {
+							mountPath: "/usr/nvidia"
 						}
 					}
 				}
@@ -409,9 +417,14 @@ import (
 
 					// ── NVIDIA-specific ────────────────────────────────────────
 					if #config.gpu.type == "nvidia" if #config.gpu.nvidia != _|_ {
+						// Use an absolute path so Wolf constructs a bind mount
+						// ("-v /usr/nvidia:/usr/nvidia") instead of a Docker named
+						// volume. DinD has the K8s nvidia-driver hostPath mounted
+						// at /usr/nvidia, so child containers get the real driver
+						// files including ICD configs.
 						NVIDIA_DRIVER_VOLUME_NAME: {
 							name:  "NVIDIA_DRIVER_VOLUME_NAME"
-							value: "nvidia-driver-vol"
+							value: "/usr/nvidia"
 						}
 						NVIDIA_DRIVER_CAPABILITIES: {
 							name:  "NVIDIA_DRIVER_CAPABILITIES"

@@ -187,6 +187,11 @@ package wolf
 	// Human-readable display name for this profile (optional — some profiles are unnamed)
 	name?: string
 
+	// Optional numeric PIN required to access this profile from Wolf UI.
+	// Four-digit array, e.g. [1, 2, 3, 4]. When set, Wolf UI prompts for
+	// PIN entry before allowing the client to launch apps in this profile.
+	pin?: [int, int, int, int]
+
 	// Apps available to Moonlight clients using this profile
 	apps: [...#AppConfig]
 }
