@@ -50,3 +50,6 @@ seerr:
 olaris:
   version: v0.0.2
   checksum: b7b1de80fe655adaa9b123ebbe9b7436a85a322c1833bf78ef22be786a848b45
+mc_java_fleet:
+  version: v0.0.1
+  checksum: d74135031c8ce8a96ebfaad29bdb309b6ddec1f6c31c6e778b3cc0ba2bc8ccbc
