@@ -3,7 +3,7 @@
 // Components (plus conditional monitoring from monitoring.cue):
 //   crds                  — all 9 K8up CustomResourceDefinition objects
 //   operator              — K8up operator Deployment with metrics Expose
-//   service-account       — ServiceAccount (conditional on serviceAccount.create)
+//   (ServiceAccount is auto-created by the Deployment workloadIdentity transformer)
 //   manager-cluster-role  — ClusterRole for the operator manager (with SA subject)
 //   executor-cluster-role — ClusterRole for backup job executors
 //   edit-cluster-role     — aggregate ClusterRole for k8up.io resources (admin+edit)
@@ -248,28 +248,6 @@ let _serviceAccountName = {
 	}
 
 	/////////////////////////////////////////////////////////////////
-	//// ServiceAccount — K8up operator identity
-	////
-	//// Only created when config.serviceAccount.create == true.
-	//// The operator Deployment always references _serviceAccountName,
-	//// so an existing SA can be used by setting create: false and
-	//// providing the name explicitly.
-	/////////////////////////////////////////////////////////////////
-
-	if #config.serviceAccount.create {
-		"service-account": {
-			resources_security.#ServiceAccount
-
-			metadata: name: _serviceAccountName
-
-			spec: serviceAccount: {
-				name:           _serviceAccountName
-				automountToken: true
-			}
-		}
-	}
-
-	/////////////////////////////////////////////////////////////////
 	//// Manager ClusterRole — full operator permissions
 	////
 	//// Grants the operator permission to manage all K8up CRs,
@@ -420,6 +398,18 @@ let _serviceAccountName = {
 					apiGroups: ["k8up.io"]
 					resources: ["snapshots"]
 					verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+				},
+				// List Pods to discover PreBackupPod-annotated pods (k8up.io/backupcommand).
+				{
+					apiGroups: [""]
+					resources: ["pods"]
+					verbs: ["get", "list"]
+				},
+				// Exec into PreBackupPod containers to run backup commands (e.g. SQLite WAL checkpoint).
+				{
+					apiGroups: [""]
+					resources: ["pods/exec"]
+					verbs: ["create", "get"]
 				},
 				// Read PVCs to mount backup sources.
 				{

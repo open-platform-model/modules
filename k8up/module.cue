@@ -75,8 +75,7 @@ metadata: {
 
 	// Kubernetes ServiceAccount configuration
 	serviceAccount: {
-		create: *true | bool
-		name:   *"" | string
+		name: *"" | string
 		annotations: *{} | {[string]: string}
 	}
 
@@ -149,8 +148,7 @@ debugValues: {
 		}
 	}
 	serviceAccount: {
-		create: true
-		name:   ""
+		name: ""
 		annotations: {}
 	}
 	envVars: []
