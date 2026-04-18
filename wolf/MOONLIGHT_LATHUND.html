@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Moonlight + Wolf Lathund</title>
+  <style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    max-width: 860px;
+    margin: 2.5rem auto;
+    padding: 0 1.25rem 3rem;
+    color: #1f2328;
+    line-height: 1.6;
+    background: #ffffff;
+  }
+  h1, h2, h3 { line-height: 1.25; }
+  h1 { font-size: 2rem; border-bottom: 1px solid #d0d7de; padding-bottom: .3em; margin-top: 0; }
+  h2 { font-size: 1.4rem; border-bottom: 1px solid #d0d7de; padding-bottom: .3em; margin-top: 2rem; }
+  h3 { font-size: 1.15rem; margin-top: 1.5rem; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    background: #f6f8fa;
+    padding: .15em .35em;
+    border-radius: 4px;
+    font-size: 0.92em;
+  }
+  pre {
+    background: #f6f8fa;
+    padding: .8rem 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  pre code { background: transparent; padding: 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: 0.95em;
+  }
+  th, td {
+    border: 1px solid #d0d7de;
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f6f8fa; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  a { color: #0969da; }
+  hr { border: 0; border-top: 1px solid #d0d7de; margin: 2rem 0; }
+  blockquote {
+    border-left: 4px solid #d0d7de;
+    color: #57606a;
+    padding: 0 1rem;
+    margin: 1rem 0;
+  }
+  ul, ol { padding-left: 1.6rem; }
+  li + li { margin-top: .2rem; }
+  @media print {
+    body { max-width: none; margin: 0; padding: 1.2cm 1.4cm; }
+    h2 { page-break-after: avoid; }
+    table, pre { page-break-inside: avoid; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<h1>Moonlight + Wolf Lathund</h1>
+<p>Snabbreferens för att strömma spel till Wolf via Moonlight-klienter.
+Täcker tangentbordsgenvägar, sessionskontroll, klientinställningar och
+app-specifika tips (Prism Launcher, Steam, Minecraft).</p>
+<h2>Sessionskontroll</h2>
+<table>
+<thead>
+<tr>
+<th>Åtgärd</th>
+<th>Tangentbord</th>
+<th>Handkontroll</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Återgå till Wolf UI</td>
+<td><code>Ctrl+Alt+Shift+W</code></td>
+<td><code>Start+Upp+RB</code></td>
+</tr>
+<tr>
+<td>Avsluta Moonlight-session</td>
+<td><code>Ctrl+Alt+Shift+Q</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Växla tangentbordsinfångning</td>
+<td><code>Ctrl+Alt+Shift+Z</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Växla musinfångning (Qt)</td>
+<td><code>Ctrl+Alt+Shift+M</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Växla statistik-overlay</td>
+<td><code>Ctrl+Alt+Shift+S</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Växla helskärm (klientfönster)</td>
+<td><code>Ctrl+Alt+Shift+X</code></td>
+<td>—</td>
+</tr>
+</tbody></table>
+<p><code>Ctrl+Alt+Shift</code> är Moonlights standardprefix. Kan ändras i Moonlight Qt
+under Inställningar → Inmatning.</p>
+<h2>Skicka Super / Windows / systemtangenter till värden</h2>
+<p>Som standard fångar klient-OS:et Super, Alt+Tab, Ctrl+Esc. För att
+skicka dem vidare till Wolf:</p>
+<p><strong>Moonlight Qt (Linux/Windows/macOS):</strong>
+Inställningar → Inmatning → <strong>Fånga systemgenvägar på tangentbordet</strong> →
+välj <code>I helskärm</code> eller <code>Alltid</code>.</p>
+<p><strong>Moonlight iOS / Android:</strong>
+Inställningar → <strong>Byt plats på Windows/Alt/Ctrl-tangenter</strong> (för
+Mac-liknande mappning). Systemtangenter skickas automatiskt från
+mobila tangentbord.</p>
+<p>Infångning fungerar bara när Moonlight har fokus. Helskärmsläge fångar
+allt, inklusive Super+L och Alt+F4.</p>
+<h2>Tangentbordslayout</h2>
+<p>Wolf skickar endast skankoder — layouten tolkas av kompositören inuti
+runner-containern via XKB.</p>
+<p>Nuvarande konfiguration: <code>XKB_DEFAULT_LAYOUT=se</code> (svenska) satt på
+varje app-runner i <code>releases/mr_spel/wolf/release.cue</code>.</p>
+<p>Byta layout:</p>
+<ol>
+<li>Redigera varje <code>env:</code>-lista i release-filen. Sätt <code>XKB_DEFAULT_LAYOUT=&lt;kod&gt;</code>.</li>
+<li><code>task fmt &amp;&amp; task vet</code> i <code>releases/</code>.</li>
+<li>Driftsätt om och starta om sessionen (ny env gäller endast nya
+runner-containrar — koppla upp Moonlight igen).</li>
+</ol>
+<p>Vanliga layoutkoder: <code>us</code>, <code>se</code>, <code>no</code>, <code>dk</code>, <code>fi</code>, <code>de</code>, <code>fr</code>, <code>gb</code>.
+Variant: lägg till <code>XKB_DEFAULT_VARIANT=nodeadkeys</code> osv.</p>
+<p>Verifiera i sessionen: <code>setxkbmap -query</code> (X) eller <code>swaymsg -t get_inputs</code> (Sway).</p>
+<h2>Rekommenderade Moonlight Qt-inställningar</h2>
+<p>Inställningar → <strong>Grundinställningar</strong>:</p>
+<ul>
+<li>Upplösning / FPS: matcha skärmen (t.ex. 1920x1080 @ 60)</li>
+<li>Videobitrate: 20 Mbps (1080p60), 40 Mbps (1440p60), 80 Mbps (4K60)</li>
+<li>Videokodek: <code>HEVC (H.265)</code> om värd/klient stödjer det; annars H.264</li>
+<li>HDR: endast om båda sidor stödjer det</li>
+</ul>
+<p>Inställningar → <strong>Avancerade inställningar</strong>:</p>
+<ul>
+<li>Frame pacing: PÅ (jämnare, liten latenskostnad)</li>
+<li>V-Sync: AV (lägre latens; slå på vid tearing)</li>
+<li>Avkodare: <code>Auto</code> på Linux låter VAAPI/NVDEC välja bästa vägen</li>
+<li>Ljud: <code>Stereo</code> om inte värden exponerar 5.1/7.1</li>
+</ul>
+<p>Inställningar → <strong>Inmatning</strong>:</p>
+<ul>
+<li>Musacceleration: AV (servern bestämmer)</li>
+<li>Handkontroll: <code>Aktivera inmatning från handkontroll</code> PÅ</li>
+<li>Invertera scrollriktning: efter smak</li>
+<li>Absolut musläge: PÅ för skrivbordsappar, AV för FPS-spel</li>
+</ul>
+<h2>Tips för handkontroll</h2>
+<ul>
+<li>Wolf skapar en virtuell Xbox 360 / DualSense på värden per klient.</li>
+<li>Hot-plug: att koppla in/ur under en session stöds.</li>
+<li>Rumble + gyro: skickas vidare för DualSense via Moonlight Qt.</li>
+<li>Kombination för att avsluta session: <code>Start+Select+L1+R1</code> (om konfigurerad).</li>
+</ul>
+<h2>Prism Launcher (Minecraft)</h2>
+<ul>
+<li><strong>Dölj launchern när spelet startar</strong>: Prism → Inställningar → Minecraft →
+<strong>Launcher visibility on Minecraft window activation</strong> → <code>Hide</code> eller
+<code>Close</code>. Annars staplas både launcher och spel sida vid sida i Sway.</li>
+<li><strong>Helskärm i Minecraft</strong>: <code>F11</code> i spelet.</li>
+<li><strong>Tangentbordslayout</strong>: om svenska tangenter fortfarande ger US-tecken
+i spelet, verifiera att env-ändringen slog igenom: kör
+<code>echo $XKB_DEFAULT_LAYOUT</code> i sessionsterminalen.</li>
+</ul>
+<h2>Steam</h2>
+<ul>
+<li>Starta i Big Picture för handkontrollsnavigering.</li>
+<li>Proton-problem: sätt <code>PROTON_LOG=1</code> (redan satt i release) och kolla
+<code>/tmp/steam-*.log</code> inuti runnern.</li>
+<li>Gamescope-flaggor: justera <code>GAMESCOPE_FLAGS</code> i <code>release.cue</code>.</li>
+</ul>
+<h2>Avsluta ett spel</h2>
+<p>Tre sätt beroende på vad du vill:</p>
+<table>
+<thead>
+<tr>
+<th>Vad du vill</th>
+<th>Så gör du</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Stänga spelet, stanna kvar i strömningen</td>
+<td><code>Ctrl+Alt+Shift+W</code> (tangent) eller <code>Start+Upp+RB</code> (pad) → tillbaka till Wolf UI</td>
+</tr>
+<tr>
+<td>Avsluta hela Moonlight-sessionen</td>
+<td><code>Ctrl+Alt+Shift+Q</code>, eller i Moonlight Qt: för musen till toppen → <strong>Koppla från</strong>. Högerklick på värd-tile → <strong>Quit App</strong></td>
+</tr>
+<tr>
+<td>Avsluta från spelet</td>
+<td>Använd spelets egen avslutningsmeny (Minecraft: Spara och avsluta → Avsluta spel)</td>
+</tr>
+</tbody></table>
+<p>Containern stoppas automatiskt när strömmen avslutas om
+<code>WOLF_STOP_CONTAINER_ON_EXIT=true</code> (standard).</p>
+<h2>Felsökning</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Trolig orsak</th>
+<th>Åtgärd</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>&quot;Slow connection to PC — reduce bitrate&quot; overlay</td>
+<td>Bandbreddstak eller WiFi-tapp</td>
+<td>Sänk bitrate, byt till trådbundet, använd 5 GHz</td>
+</tr>
+<tr>
+<td>Fel tecken skrivs</td>
+<td>XKB-layouten stämmer inte</td>
+<td>Se &quot;Tangentbordslayout&quot; ovan</td>
+</tr>
+<tr>
+<td>Super/Alt+Tab går till lokalt OS</td>
+<td>Systemgenvägsinfångning är av</td>
+<td>Slå på i Moonlight Qt → Inmatning</td>
+</tr>
+<tr>
+<td>Prism ligger över Minecraft</td>
+<td>Sway lade fönstren sida vid sida</td>
+<td>Sätt Prism &quot;launcher visibility&quot; till Hide</td>
+</tr>
+<tr>
+<td>Svart skärm / inget ljud</td>
+<td>Kompositör / PulseAudio-socket</td>
+<td>Gå tillbaka till Wolf UI, starta om appen</td>
+</tr>
+<tr>
+<td>Handkontroll upptäcks inte</td>
+<td>uinput/uhid device cgroup</td>
+<td>Kontrollera <code>DeviceCgroupRules</code> i <code>base_create_json</code></td>
+</tr>
+<tr>
+<td>Kommer inte tillbaka till Wolf UI</td>
+<td>Tangentbordsinfångning av i helskärm</td>
+<td><code>Ctrl+Alt+Shift+W</code> kräver att infångning är på</td>
+</tr>
+</tbody></table>
+<h2>Referenser</h2>
+<ul>
+<li>Wolf-dokumentation: <a href="https://games-on-whales.github.io/wolf/">https://games-on-whales.github.io/wolf/</a></li>
+<li>Moonlight Qt: <a href="https://github.com/moonlight-stream/moonlight-qt">https://github.com/moonlight-stream/moonlight-qt</a></li>
+<li>GOW app-images (Prism, Steam, Firefox m.fl.):
+<a href="https://github.com/games-on-whales/gow">https://github.com/games-on-whales/gow</a></li>
+<li>Wolf README (den här modulen): <code>modules/wolf/README.md</code></li>
+<li>Release-konfiguration: <code>releases/mr_spel/wolf/release.cue</code></li>
+</ul>
+
+</body>
+</html>

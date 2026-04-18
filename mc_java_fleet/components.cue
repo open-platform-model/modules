@@ -177,17 +177,17 @@ import (
 				if _c.securityContext != _|_ {
 					securityContext: _c.securityContext
 				}
-			if _c.securityContext == _|_ {
-				securityContext: {
-					runAsNonRoot:             true
-					runAsUser:                1000
-					runAsGroup:               3000
-					fsGroup:                  3000
-					readOnlyRootFilesystem:   true
-					allowPrivilegeEscalation: false
-					capabilities: drop: ["ALL"]
+				if _c.securityContext == _|_ {
+					securityContext: {
+						runAsNonRoot:             true
+						runAsUser:                1000
+						runAsGroup:               3000
+						fsGroup:                  3000
+						readOnlyRootFilesystem:   true
+						allowPrivilegeEscalation: false
+						capabilities: drop: ["ALL"]
+					}
 				}
-			}
 
 				// === Main Container: Minecraft Server ===
 				container: {
@@ -1894,7 +1894,7 @@ import (
 						command: ["cp", "/config-template/config.json", "/data/config.json"]
 						volumeMounts: {
 							"config-template": volumes["config-template"] & {mountPath: "/config-template", readOnly: true}
-							data:              volumes.data & {mountPath: "/data"}
+							data: volumes.data & {mountPath: "/data"}
 						}
 					}]
 
@@ -1912,16 +1912,16 @@ import (
 						}
 
 						env: {
-							BACKREST_PORT:   {name: "BACKREST_PORT",   value: "0.0.0.0:\(_rg.port)"}
-							BACKREST_DATA:   {name: "BACKREST_DATA",   value: "/data"}
+							BACKREST_PORT: {name: "BACKREST_PORT", value: "0.0.0.0:\(_rg.port)"}
+							BACKREST_DATA: {name: "BACKREST_DATA", value: "/data"}
 							BACKREST_CONFIG: {name: "BACKREST_CONFIG", value: "/data/config.json"}
-							XDG_CACHE_HOME:  {name: "XDG_CACHE_HOME", value: "/data/cache"}
-							TMPDIR:          {name: "TMPDIR",          value: "/tmp"}
+							XDG_CACHE_HOME: {name: "XDG_CACHE_HOME", value: "/data/cache"}
+							TMPDIR: {name: "TMPDIR", value: "/tmp"}
 						}
 
 						volumeMounts: {
 							data: volumes.data & {mountPath: "/data"}
-							tmp:  volumes.tmp & {mountPath: "/tmp"}
+							tmp: volumes.tmp & {mountPath: "/tmp"}
 
 							// One writable mount per hostPath-backed restic server.
 							for _, _s in _resticServers
@@ -1942,12 +1942,12 @@ import (
 						// GUIDs written back by Backrest, operation logs, and restic cache.
 						// Ephemeral: reset on every pod restart (init container re-seeds).
 						data: {
-							name:     "data"
+							name: "data"
 							emptyDir: {}
 						}
 						// Writable /tmp for restic staging.
 						tmp: {
-							name:     "tmp"
+							name: "tmp"
 							emptyDir: {}
 						}
 						// Read-only Secret mount — init container source only.
