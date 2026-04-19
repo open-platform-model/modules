@@ -3,7 +3,7 @@
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
 wolf:
-  version: v0.0.24
+  version: v0.0.26
   checksum: faf76fdf21657f8af1d78a52b232371f7dcc75625734f941af5dfafd384c890a
 metallb:
   version: v0.0.6
@@ -56,3 +56,9 @@ mc_java_fleet:
 streamio:
   version: v0.0.3
   checksum: 6d00e6e19507e04fe79f797effea10a32990c4e6808fc408e46bc3a721ff5a3c
+openebs:
+  version: v0.0.2
+  checksum: a0f5dc2c6077f14a2620b182863483c5d5a753b3e2c859d6f279698990ad6c98
+sealed_secrets:
+  version: v0.0.1
+  checksum: 2da9c03ec621ac0e440b5c7492653d80d4a30e5de942f0a30f5489abd270b00d

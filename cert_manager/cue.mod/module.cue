@@ -7,7 +7,7 @@ source: {
 }
 deps: {
 	"opmodel.dev/core/v1alpha1@v1": {
-		v: "v1.3.4"
+		v: "v1.3.5"
 	}
 	"opmodel.dev/kubernetes/v1@v1": {
 		v: "v1.0.1"

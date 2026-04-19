@@ -21,6 +21,7 @@ modules/
 
 | Module | Description |
 | --- | --- |
+| `ch_vmm/` | ch-vmm — Cloud Hypervisor virtualization add-on (controller + per-node daemon + CRDs) |
 | `wolf/` | Wolf GPU game streaming server — Moonlight-compatible, multi-user, AMD/NVIDIA |
 
 ## Conventions
