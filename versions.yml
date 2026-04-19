@@ -53,3 +53,6 @@ olaris:
 mc_java_fleet:
   version: v0.0.2
   checksum: e3d353ecfad9dec44598ffd24ef6b233a358aca9bd2e0ac2a170cb39c42ca14e
+streamio:
+  version: v0.0.3
+  checksum: 6d00e6e19507e04fe79f797effea10a32990c4e6808fc408e46bc3a721ff5a3c
