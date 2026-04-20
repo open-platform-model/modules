@@ -60,5 +60,8 @@ openebs:
   version: v0.0.2
   checksum: a0f5dc2c6077f14a2620b182863483c5d5a753b3e2c859d6f279698990ad6c98
 sealed_secrets:
+  version: v0.0.4
+  checksum: 633567ef28075d1b1189970cd56820d817eacc127dfb6a9b7e155b077f085f17
+ch_vmm:
   version: v0.0.1
-  checksum: 2da9c03ec621ac0e440b5c7492653d80d4a30e5de942f0a30f5489abd270b00d
+  checksum: 88674b048f6df6ab04832ef4f9e83d01fa5c49f4bad67101e85b805255405fe8

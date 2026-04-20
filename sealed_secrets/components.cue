@@ -16,11 +16,13 @@ package sealed_secrets
 import (
 	"list"
 	"strings"
+	"encoding/json"
 
 	resources_extension "opmodel.dev/opm/v1alpha1/resources/extension@v1"
 	resources_security "opmodel.dev/opm/v1alpha1/resources/security@v1"
 	resources_storage "opmodel.dev/opm/v1alpha1/resources/storage@v1"
 	resources_workload "opmodel.dev/opm/v1alpha1/resources/workload@v1"
+	resources_config "opmodel.dev/opm/v1alpha1/resources/config@v1"
 	traits_network "opmodel.dev/opm/v1alpha1/traits/network@v1"
 	traits_security "opmodel.dev/opm/v1alpha1/traits/security@v1"
 	traits_workload "opmodel.dev/opm/v1alpha1/traits/workload@v1"
@@ -150,6 +152,8 @@ let _controllerArgs = list.Concat([
 			}
 		}
 
+		_volumes: spec.volumes
+
 		spec: {
 			scaling: count: #config.controller.replicas
 
@@ -224,15 +228,18 @@ let _controllerArgs = list.Concat([
 
 				// /tmp must be writable because the root filesystem is
 				// read-only; the controller writes short-lived files here
-				// during key generation and unsealing.
+				// during key generation and unsealing. The OPM Volumes trait
+				// derives the pod-level volume from this entry, so the source
+				// (name + emptyDir) lives on the volumeMount via `_volumes`.
 				volumeMounts: {
-					tmp: {
+					tmp: _volumes.tmp & {
 						mountPath: "/tmp"
 					}
 				}
 			}
 
-			// Single emptyDir backing the /tmp mount.
+			// Single emptyDir backing the /tmp mount — referenced by
+			// volumeMounts.tmp above through the `_volumes` alias.
 			volumes: {
 				tmp: {
 					name: "tmp"
@@ -374,6 +381,24 @@ let _controllerArgs = list.Concat([
 				]
 
 				subjects: [{name: _serviceAccountName}]
+			}
+		}
+	}
+
+	// ServiceMonitor manifest carried as a ConfigMap — applied by deployment
+	// tooling when Prometheus Operator is present. Only emitted when
+	// monitoring.enabled is true so clusters without the CRD don't see a
+	// spurious ConfigMap.
+	if #config.monitoring.enabled {
+		"service-monitor": {
+			resources_config.#ConfigMaps
+			spec: configMaps: {
+				"sealed-secrets-service-monitor": {
+					immutable: false
+					data: {
+						"servicemonitor.json": "\(json.Marshal(_serviceMonitorManifest))"
+					}
+				}
 			}
 		}
 	}

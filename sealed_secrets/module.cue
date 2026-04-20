@@ -17,7 +17,7 @@ import (
 
 m.#Module
 
-metadata: {
+META=metadata: {
 	modulePath:       "opmodel.dev/modules"
 	name:             "sealed-secrets"
 	version:          "0.1.0"
@@ -34,6 +34,31 @@ _#portSchema: uint & >0 & <=65535
 // _#durationSchema loosely validates Go duration strings (e.g. "720h", "30m").
 // The controller parses these with time.ParseDuration — invalid values crash-loop.
 _#durationSchema: string & =~"^[0-9]+(ns|us|µs|ms|s|m|h)([0-9]+(ns|us|µs|ms|s|m|h))*$"
+
+// _serviceMonitorManifest — full monitoring.coreos.com/v1 ServiceMonitor.
+// Targets the metrics port on the controller Service. The selector relies
+// on the standard OPM label `app.kubernetes.io/name: sealed-secrets` applied
+// by the KubernetesProvider to every resource emitted by this module.
+_serviceMonitorManifest: {
+	apiVersion: "monitoring.coreos.com/v1"
+	kind:       "ServiceMonitor"
+	metadata: {
+		name: "sealed-secrets-controller"
+		if #config.monitoring.namespace != "" {
+			namespace: #config.monitoring.namespace
+		}
+		labels: #config.monitoring.additionalLabels
+	}
+	spec: {
+		endpoints: [{
+			port:     "metrics"
+			interval: #config.monitoring.scrapeInterval
+			path:     "/metrics"
+		}]
+		selector: matchLabels: "app.kubernetes.io/name": "sealed-secrets"
+		namespaceSelector: matchNames: [META.defaultNamespace]
+	}
+}
 
 #config: {
 	// Image configuration for the controller binary.
