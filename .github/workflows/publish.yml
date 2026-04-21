@@ -39,9 +39,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: mikefarah/yq@751d8ad57b84f1794661bc70c0afb92a22ad7b3c # v4.53.2
-        with:
-          cmd: yq --version
+      - name: Install yq
+        run: |
+          set -euo pipefail
+          sudo curl -fsSL -o /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.53.2/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
 
       - uses: cue-lang/setup-cue@a93fa358375740cd8b0078f76355512b9208acb1 # v1.0.1
         with:
@@ -81,7 +85,8 @@ jobs:
 
           module_major_from_cue() {
             local name="$1"
-            yq -oy '.module' "${name}/cue.mod/module.cue" 2>/dev/null \
+            grep -E '^module:' "${name}/cue.mod/module.cue" \
+              | head -1 \
               | sed -E 's/.*@(v[0-9]+).*/\1/'
           }
 
