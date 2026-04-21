@@ -65,3 +65,15 @@ sealed_secrets:
 ch_vmm:
   version: v0.0.1
   checksum: 88674b048f6df6ab04832ef4f9e83d01fa5c49f4bad67101e85b805255405fe8
+mongodb_operator:
+  version: v0.0.10
+  checksum: "1472c5776f86226b89406d69b7575ac821fa55c42b13c647fc9dd0db98c45aec"
+clickhouse_operator:
+  version: v0.0.4
+  checksum: "894c6717ae21e899f80b0740d0010c88ea1ca4ea0484a51c0a98351ed2440864"
+otel_collector:
+  version: v0.0.5
+  checksum: "35a63bdc4f3897d745f3e64e72f2310c4ddf73f6bf843cab4080aa1da37a31a6"
+clickstack:
+  version: v0.0.10
+  checksum: "08e1f59810149276baf14481bab6cd8e2a316bbf00135a2922b5e3bac3e778ae"

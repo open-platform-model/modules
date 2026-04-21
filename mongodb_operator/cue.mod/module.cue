@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/cert_manager@v0"
+module: "opmodel.dev/modules/mongodb_operator@v0"
 language: {
 	version: "v0.15.0"
 }
@@ -8,9 +8,6 @@ source: {
 deps: {
 	"opmodel.dev/core/v1alpha1@v1": {
 		v: "v1.3.9"
-	}
-	"opmodel.dev/kubernetes/v1@v1": {
-		v: "v1.0.1"
 	}
 	"opmodel.dev/opm/v1alpha1@v1": {
 		v: "v1.5.6"
