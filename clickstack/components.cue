@@ -79,64 +79,13 @@ import (
 						CLICKHOUSE_PROMETHEUS_METRICS_ENDPOINT: "clickhouse-\(#config.releaseName)-clickhouse:9363"
 						OTEL_EXPORTER_OTLP_ENDPOINT:            "http://\(#config.releaseName)-otel-collector:4318"
 						OPAMP_SERVER_URL:                       "http://\(#config.releaseName)-hyperdx:\(#config.ports.opamp)"
-						MONGO_URI:                              "mongodb://hyperdx:$(MONGODB_PASSWORD)@\(#config.releaseName)-mongodb-svc:27017/hyperdx?authSource=hyperdx"
+						// MONGO_URI lives on the container env, not here — Kubernetes
+						// only expands $(VAR) in values under `env:`, not those loaded
+						// via `envFrom: configMapRef`. Setting it in the CM would leave
+						// the literal "$(MONGODB_PASSWORD)" in the URI and fail SCRAM.
 					}
 				}
 
-				// Default connections + sources seed — written as JSON.
-				"clickstack-defaults": {
-					immutable: false
-					data: {
-						"connections.json": json.Marshal([{
-							name:     "Local ClickHouse"
-							host:     "http://clickhouse:\(#config.clickhouse.httpPort)"
-							port:     #config.clickhouse.httpPort
-							username: "app"
-						}])
-						"sources.json": json.Marshal([
-							{
-								from: {
-									databaseName: "default"
-									tableName:    "otel_logs"
-								}
-								kind:                              "log"
-								name:                              "Logs"
-								timestampValueExpression:          "TimestampTime"
-								displayedTimestampValueExpression: "Timestamp"
-								serviceNameExpression:             "ServiceName"
-								bodyExpression:                    "Body"
-								eventAttributesExpression:         "LogAttributes"
-								resourceAttributesExpression:      "ResourceAttributes"
-								severityTextExpression:            "SeverityText"
-								traceIdExpression:                 "TraceId"
-								spanIdExpression:                  "SpanId"
-								connection:                        "Local ClickHouse"
-							},
-							{
-								from: {
-									databaseName: "default"
-									tableName:    "otel_traces"
-								}
-								kind:                              "trace"
-								name:                              "Traces"
-								timestampValueExpression:          "Timestamp"
-								displayedTimestampValueExpression: "Timestamp"
-								serviceNameExpression:             "ServiceName"
-								bodyExpression:                    "SpanName"
-								durationExpression:                "Duration"
-								durationPrecision:                 9
-								traceIdExpression:                 "TraceId"
-								spanIdExpression:                  "SpanId"
-								parentSpanIdExpression:            "ParentSpanId"
-								spanNameExpression:                "SpanName"
-								spanKindExpression:                "SpanKind"
-								statusCodeExpression:              "StatusCode"
-								statusMessageExpression:           "StatusMessage"
-								connection:                        "Local ClickHouse"
-							},
-						])
-					}
-				}
 			}
 
 			// Init container — block startup until MongoDB accepts connections.
@@ -186,6 +135,10 @@ import (
 
 				// envFrom-style wiring — HyperDX reads non-sensitive config from
 				// the ConfigMap and passwords/keys from the OPM-provisioned Secret.
+				// MONGO_URI / DEFAULT_CONNECTIONS / DEFAULT_SOURCES must be defined
+				// here (not in the CM) so Kubernetes expands $(VAR) refs at pod
+				// start; envFrom values are passed verbatim and would leak the
+				// literal template string into the app.
 				env: {
 					MONGODB_PASSWORD: {
 						name: "MONGODB_PASSWORD"
@@ -202,6 +155,107 @@ import (
 					HYPERDX_API_KEY: {
 						name: "HYPERDX_API_KEY"
 						from: #config.hyperdxApiKey
+					}
+					MONGO_URI: {
+						name:  "MONGO_URI"
+						value: "mongodb://hyperdx:$(MONGODB_PASSWORD)@\(#config.releaseName)-mongodb-svc:27017/hyperdx?authSource=hyperdx"
+					}
+
+					// Seed default ClickHouse connection + log/trace/metric sources
+					// on first team creation. HyperDX runs setupDefaults() once per
+					// team — only when the team has zero connections AND zero sources
+					// — so subsequent UI edits are preserved.
+					//
+					// `$(CLICKHOUSE_APP_PASSWORD)` is expanded by Kubernetes (textual
+					// substitution inside the env `value`); HyperDX itself does not
+					// interpret $(VAR) syntax. Use the `app` user (read+write on the
+					// `default` DB where otel_logs / otel_traces / otel_metrics_*
+					// tables live) so the UI can run queries.
+					DEFAULT_CONNECTIONS: {
+						name: "DEFAULT_CONNECTIONS"
+						value: json.Marshal([{
+							name:     "Local ClickHouse"
+							host:     "http://clickhouse-\(#config.releaseName)-clickhouse:\(#config.clickhouse.httpPort)"
+							username: "app"
+							password: "$(CLICKHOUSE_APP_PASSWORD)"
+						}])
+					}
+					DEFAULT_SOURCES: {
+						name: "DEFAULT_SOURCES"
+						value: json.Marshal([
+							{
+								name:       "Logs"
+								kind:       "log"
+								connection: "Local ClickHouse"
+								from: {
+									databaseName: "default"
+									tableName:    "otel_logs"
+								}
+								timestampValueExpression:          "TimestampTime"
+								displayedTimestampValueExpression: "Timestamp"
+								defaultTableSelectExpression:      "Timestamp, ServiceName, SeverityText, Body"
+								serviceNameExpression:             "ServiceName"
+								severityTextExpression:            "SeverityText"
+								bodyExpression:                    "Body"
+								eventAttributesExpression:         "LogAttributes"
+								resourceAttributesExpression:      "ResourceAttributes"
+								traceIdExpression:                 "TraceId"
+								spanIdExpression:                  "SpanId"
+								implicitColumnExpression:          "Body"
+								traceSourceId:                     "Traces"
+								metricSourceId:                    "Metrics"
+							},
+							{
+								name:       "Traces"
+								kind:       "trace"
+								connection: "Local ClickHouse"
+								from: {
+									databaseName: "default"
+									tableName:    "otel_traces"
+								}
+								timestampValueExpression:          "Timestamp"
+								displayedTimestampValueExpression: "Timestamp"
+								defaultTableSelectExpression:      "Timestamp, ServiceName, StatusCode, round(Duration / 1e6), SpanName"
+								durationExpression:                "Duration"
+								durationPrecision:                 9
+								traceIdExpression:                 "TraceId"
+								spanIdExpression:                  "SpanId"
+								parentSpanIdExpression:            "ParentSpanId"
+								spanNameExpression:                "SpanName"
+								spanKindExpression:                "SpanKind"
+								statusCodeExpression:              "StatusCode"
+								statusMessageExpression:           "StatusMessage"
+								serviceNameExpression:             "ServiceName"
+								eventAttributesExpression:         "SpanAttributes"
+								resourceAttributesExpression:      "ResourceAttributes"
+								implicitColumnExpression:          "SpanName"
+								logSourceId:                       "Logs"
+								metricSourceId:                    "Metrics"
+							},
+							{
+								// Single metric source covers every OTel metric type;
+								// `metricTables` is a per-kind table-name map, and
+								// `from.tableName` must be empty.
+								name:       "Metrics"
+								kind:       "metric"
+								connection: "Local ClickHouse"
+								from: {
+									databaseName: "default"
+									tableName:    ""
+								}
+								timestampValueExpression: "TimeUnix"
+								metricTables: {
+									gauge:                   "otel_metrics_gauge"
+									histogram:               "otel_metrics_histogram"
+									sum:                     "otel_metrics_sum"
+									summary:                 "otel_metrics_summary"
+									"exponential histogram": "otel_metrics_exponential_histogram"
+								}
+								serviceNameExpression:        "ServiceName"
+								resourceAttributesExpression: "ResourceAttributes"
+								logSourceId:                  "Logs"
+							},
+						])
 					}
 				}
 
@@ -381,10 +435,16 @@ import (
 					}
 				}]
 				users: {
-					"otelcollector/password":    "\(#config.clickhousePassword.$secretName):\(#config.clickhousePassword.$dataKey)"
-					"otelcollector/networks/ip": "::/0"
-					"app/password":              "\(#config.clickhouseAppPassword.$secretName):\(#config.clickhouseAppPassword.$dataKey)"
-					"app/networks/ip":           "::/0"
+					// Altinity resolves Secret references only for keys prefixed with
+					// `k8s_secret_` and expects `<secret>/<key>` (slash, not colon).
+					// Plain `password:` is treated as a literal value and hashed as-is,
+					// which silently bakes the ref string into CH instead of the
+					// resolved password — clients then fail to authenticate with
+					// code 516. Keep the `k8s_secret_password` form.
+					"otelcollector/k8s_secret_password": "\(#config.clickhousePassword.$secretName)/\(#config.clickhousePassword.$dataKey)"
+					"otelcollector/networks/ip":         "::/0"
+					"app/k8s_secret_password":           "\(#config.clickhouseAppPassword.$secretName)/\(#config.clickhouseAppPassword.$dataKey)"
+					"app/networks/ip":                   "::/0"
 				}
 			}
 			// Storage templates omitted — the catalog's timoni-vendored schema
