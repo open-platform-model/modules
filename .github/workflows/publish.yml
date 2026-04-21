@@ -1,0 +1,300 @@
+name: Publish Modules
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.cue'
+      - 'versions.yml'
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+    inputs:
+      module:
+        description: 'Module to publish (or "all")'
+        required: false
+        default: 'all'
+        type: string
+      dry_run:
+        description: 'Validate only, skip publish and release'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  CUE_VERSION: 'v0.16.0'
+  CUE_REGISTRY: 'opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
+  ORG: 'open-platform-model'
+  REPO: 'modules'
+
+jobs:
+  publish:
+    name: Validate, Publish, Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - uses: mikefarah/yq@751d8ad57b84f1794661bc70c0afb92a22ad7b3c # v4.53.2
+        with:
+          cmd: yq --version
+
+      - uses: cue-lang/setup-cue@a93fa358375740cd8b0078f76355512b9208acb1 # v1.0.1
+        with:
+          version: ${{ env.CUE_VERSION }}
+
+      - name: Discover modules
+        id: discover
+        run: |
+          set -euo pipefail
+          MODULES=""
+          for dir in */; do
+            name="${dir%/}"
+            [ -d "${name}/cue.mod" ] || continue
+            MODULES="${MODULES} ${name}"
+          done
+          MODULES="${MODULES# }"
+          echo "modules=${MODULES}" >> "$GITHUB_OUTPUT"
+          echo "Found modules: ${MODULES}"
+
+      - name: Detect unpublished versions
+        id: check
+        run: |
+          set -euo pipefail
+
+          ALL_MODULES="${{ steps.discover.outputs.modules }}"
+          EVENT="${{ github.event_name }}"
+          SELECTED="${{ inputs.module || 'all' }}"
+
+          version_published() {
+            local repo="$1" tag="$2"
+            curl -fsS --head \
+              -u "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.oci.image.manifest.v1+json,*/*" \
+              "https://ghcr.io/v2/${ORG}/opmodel.dev/modules/${repo}/manifests/${tag}" \
+              >/dev/null 2>&1
+          }
+
+          module_major_from_cue() {
+            local name="$1"
+            yq -oy '.module' "${name}/cue.mod/module.cue" 2>/dev/null \
+              | sed -E 's/.*@(v[0-9]+).*/\1/'
+          }
+
+          CHANGED=""
+          for name in $ALL_MODULES; do
+            if [ "$EVENT" = "workflow_dispatch" ] && [ "$SELECTED" != "all" ] && [ "$SELECTED" != "$name" ]; then
+              continue
+            fi
+
+            version=$(yq ".${name}.version // \"\"" versions.yml)
+            if [ -z "$version" ] || [ "$version" = "null" ]; then
+              echo "  ${name}: no version in versions.yml — skip"
+              continue
+            fi
+
+            path_major=$(module_major_from_cue "$name")
+            ver_major="v${version#v}"; ver_major="${ver_major%%.*}"
+            if [ "$path_major" != "$ver_major" ]; then
+              echo "::error::${name}: module path major (${path_major}) != version major (${ver_major}). Bump module.cue path before publishing ${version}."
+              exit 1
+            fi
+
+            if version_published "$name" "$version"; then
+              echo "  ${name}@${version}: already on GHCR"
+            else
+              echo "  ${name}@${version}: unpublished"
+              CHANGED="${CHANGED} ${name}"
+            fi
+          done
+          CHANGED="${CHANGED# }"
+
+          if [ -z "$CHANGED" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "Nothing to publish."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "changed=${CHANGED}" >> "$GITHUB_OUTPUT"
+            echo "Will publish: ${CHANGED}"
+          fi
+
+      - name: Check formatting
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          set -euo pipefail
+          for name in ${{ steps.discover.outputs.modules }}; do
+            (cd "$name" && cue fmt ./...)
+          done
+          if ! git diff --quiet; then
+            echo "::error::CUE files are not formatted. Run 'cue fmt ./...' locally."
+            git diff --name-only
+            exit 1
+          fi
+
+      - name: Login to GHCR
+        if: steps.check.outputs.has_changes == 'true'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Validate and publish modules
+        if: steps.check.outputs.has_changes == 'true'
+        id: publish
+        run: |
+          set -euo pipefail
+
+          DRY_RUN="${{ inputs.dry_run || 'false' }}"
+          CHANGED="${{ steps.check.outputs.changed }}"
+          PUBLISHED=""
+
+          for name in $CHANGED; do
+            echo "=== ${name} ==="
+            version=$(yq ".${name}.version" versions.yml)
+
+            echo "  vet..."
+            (cd "$name" && cue vet ./...)
+
+            test_out=$(cd "$name" && cue vet -t test ./... 2>&1) && echo "  test: pass" || {
+              if echo "$test_out" | grep -q 'tag "test" not used in any file'; then
+                echo "  test: skip (no tests)"
+              else
+                echo "$test_out" >&2
+                echo "::error::${name}: tests failed"
+                exit 1
+              fi
+            }
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "  publish: skipped (dry run)"
+              continue
+            fi
+
+            echo "  publish: ${name}@${version}..."
+            (cd "$name" && cue mod publish "${version}")
+            PUBLISHED="${PUBLISHED} ${name}:${version}"
+          done
+
+          PUBLISHED="${PUBLISHED# }"
+          echo "published=${PUBLISHED}" >> "$GITHUB_OUTPUT"
+
+      - name: Tag published modules
+        if: steps.check.outputs.has_changes == 'true' && inputs.dry_run != true
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for entry in ${{ steps.publish.outputs.published }}; do
+            name="${entry%%:*}"
+            version="${entry##*:}"
+            tag="modules/${name}/${version}"
+
+            if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+              existing=$(git rev-parse "refs/tags/${tag}")
+              head=$(git rev-parse HEAD)
+              if [ "$existing" != "$head" ]; then
+                echo "::error::${tag} already exists at ${existing}, but HEAD is ${head}. Refusing to move tag."
+                exit 1
+              fi
+              echo "  ${tag}: already at HEAD"
+            else
+              git tag "${tag}"
+              echo "  ${tag}: created"
+            fi
+            git push origin "refs/tags/${tag}"
+          done
+
+      - name: Pick release tag
+        if: steps.check.outputs.has_changes == 'true' && inputs.dry_run != true
+        id: release_tag
+        run: |
+          set -euo pipefail
+          date="$(date -u +%Y-%m-%d)"
+          base="release/${date}"
+          git fetch origin --tags --quiet
+
+          if ! git rev-parse -q --verify "refs/tags/${base}" >/dev/null; then
+            tag="${base}"
+            title="${date}"
+          else
+            n=2
+            while git rev-parse -q --verify "refs/tags/${base}.${n}" >/dev/null; do
+              n=$((n+1))
+            done
+            tag="${base}.${n}"
+            title="${date} (rev ${n})"
+          fi
+
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "title=${title}" >> "$GITHUB_OUTPUT"
+          echo "date=${date}" >> "$GITHUB_OUTPUT"
+          echo "Release: ${tag} — ${title}"
+
+      - name: Build release notes
+        if: steps.check.outputs.has_changes == 'true' && inputs.dry_run != true
+        id: notes
+        run: |
+          set -euo pipefail
+
+          CHANGED="${{ steps.check.outputs.changed }}"
+          ALL="${{ steps.discover.outputs.modules }}"
+          DATE="${{ steps.release_tag.outputs.date }}"
+
+          is_changed() { echo " $CHANGED " | grep -q " $1 "; }
+
+          prev_release=$(git tag -l 'release/*' --sort=-v:refname | grep -v "^${{ steps.release_tag.outputs.tag }}\$" | head -1 || true)
+
+          {
+            echo "## Modules (${DATE})"
+            echo
+            if [ -n "$CHANGED" ]; then
+              changed_bold=""
+              for n in $CHANGED; do changed_bold="${changed_bold}, **${n}**"; done
+              echo "Changed this release: ${changed_bold#, }"
+            else
+              echo "Changed this release: _none_"
+            fi
+            echo
+            if [ -n "$prev_release" ]; then
+              echo "[Compare to previous release](https://github.com/${ORG}/${REPO}/compare/${prev_release}...${{ steps.release_tag.outputs.tag }})"
+              echo
+            fi
+            echo "| Module | Version | Package |"
+            echo "| --- | --- | --- |"
+            for name in $ALL; do
+              version=$(yq ".${name}.version // \"\"" versions.yml)
+              [ -z "$version" ] || [ "$version" = "null" ] && continue
+
+              tag_url="https://github.com/${ORG}/${REPO}/releases/tag/modules/${name}/${version}"
+              pkg_url="https://github.com/orgs/${ORG}/packages/container/package/opmodel.dev%2Fmodules%2F${name}"
+
+              if is_changed "$name"; then
+                echo "| **${name}** | **[${version}](${tag_url})** | [ghcr](${pkg_url}) |"
+              else
+                echo "| ${name} | [${version}](${tag_url}) _(unchanged)_ | [ghcr](${pkg_url}) |"
+              fi
+            done
+          } > release-notes.md
+
+          echo "path=release-notes.md" >> "$GITHUB_OUTPUT"
+          echo "--- release notes ---"
+          cat release-notes.md
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.has_changes == 'true' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ steps.release_tag.outputs.tag }}"
+          title="${{ steps.release_tag.outputs.title }}"
+
+          git tag "${tag}"
+          git push origin "refs/tags/${tag}"
+
+          gh release create "${tag}" \
+            --title "${title}" \
+            --notes-file "${{ steps.notes.outputs.path }}" \
+            --latest
