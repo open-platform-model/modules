@@ -1,0 +1,190 @@
+---
+# ConfigMap to configure pod scheduling (nodeSelector + tolerations)
+# Istio reads this to configure the gateway deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-local-prod
+  namespace: gateways
+data:
+  nodeSelector: |
+    node.ertia.io/platform: "true"
+  tolerations: |
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+---
+# Service with explicit NodePorts (Istio merges this with the auto-generated service)
+# Reference: https://ryandeangraham.medium.com/istio-gateway-api-nodeport-c598a21c4c95
+apiVersion: v1
+kind: Service
+metadata:
+  name: local-prod-istio
+  namespace: gateways
+  annotations:
+    networking.istio.io/service-type: NodePort
+  labels:
+    gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-name: local-prod
+    istio.io/gateway-name: local-prod
+spec:
+  type: NodePort
+  selector:
+    gateway.networking.k8s.io/gateway-name: local-prod
+  ports:
+    - name: status-port
+      port: 15021
+      protocol: TCP
+      targetPort: 15021
+      nodePort: 30021
+      appProtocol: tcp
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 80
+      nodePort: 30080
+      appProtocol: http
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 443
+      nodePort: 30443
+      appProtocol: https
+---
+# Gateway with HTTP and HTTPS listeners
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: local-prod
+  namespace: gateways
+  annotations:
+    networking.istio.io/service-type: NodePort
+spec:
+  gatewayClassName: istio
+  listeners:
+    # HTTP listener — platform domain (redirect only; restricted to platform namespaces)
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              ertia.io/routing: platform
+      hostname: "*.dev.emil.ext-ertia.cloud"
+
+    # HTTPS listener — platform domain (restricted to platform namespaces)
+    - name: https
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: local-prod-wildcard-cert-tls
+            namespace: gateways
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              ertia.io/routing: platform
+      hostname: "*.dev.emil.ext-ertia.cloud"
+
+    # HTTP listener — root domain (redirect only; restricted to platform namespaces)
+    - name: http-root
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              ertia.io/routing: platform
+      hostname: "dev.emil.ext-ertia.cloud"
+
+    # HTTPS listener — root domain (restricted to platform namespaces)
+    - name: https-root
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: local-prod-wildcard-cert-tls
+            namespace: gateways
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              ertia.io/routing: platform
+      hostname: "dev.emil.ext-ertia.cloud"
+
+    # HTTP listener — apps domain (redirect only; open to all namespaces)
+    - name: http-apps
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+      hostname: "*.apps.dev.emil.ext-ertia.cloud"
+
+    # HTTPS listener — apps domain (open to all namespaces)
+    - name: https-apps
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: local-prod-wildcard-cert-tls
+            namespace: gateways
+      allowedRoutes:
+        namespaces:
+          from: All
+      hostname: "*.apps.dev.emil.ext-ertia.cloud"
+---
+# HTTP to HTTPS redirect
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-to-https-redirect
+  namespace: gateways
+spec:
+  parentRefs:
+    - name: local-prod
+      namespace: gateways
+      sectionName: http
+    - name: local-prod
+      namespace: gateways
+      sectionName: http-root
+    - name: local-prod
+      namespace: gateways
+      sectionName: http-apps
+  hostnames:
+    - "*.dev.emil.ext-ertia.cloud"
+    - "dev.emil.ext-ertia.cloud"
+    - "*.apps.dev.emil.ext-ertia.cloud"
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+---
+# ReferenceGrant to allow Gateway to reference Secrets in gateways namespace
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-gateway-cert-ref
+  namespace: gateways
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: gateways
+  to:
+    - group: ""
+      kind: Secret
