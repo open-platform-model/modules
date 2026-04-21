@@ -475,12 +475,59 @@ import (
 	}
 
 	/////////////////////////////////////////////////////////////////
-	//// OTEL Collector — OTLP ingestion
+	//// OTEL Collector — OTLP ingress + cluster-wide scraping
 	////
-	//// Deployment-mode collector accepting OTLP gRPC/HTTP and exporting
-	//// to ClickHouse via the clickhouse exporter. Authentication uses
-	//// the otelcollector user provisioned in the ClickHouseInstallation.
+	//// DaemonSet-mode collector — one pod per node — doing three things
+	//// at once:
+	////
+	////   1. OTLP gRPC/HTTP ingress (4317/4318) for apps that push telemetry
+	////      (HyperDX itself + anything instrumented with the OTel SDK).
+	////   2. filelog receiver tailing every container's stdout/stderr from
+	////      the node's /var/log/pods (kubelet-managed). Self-logs are
+	////      excluded to prevent feedback loops.
+	////   3. kubeletstats receiver scraping per-pod/container/volume
+	////      metrics from the local kubelet's :10250 stats endpoint.
+	////
+	//// All three pipelines exit via the `clickhouse` exporter, which
+	//// authenticates as the `otelcollector` user provisioned in the CHI.
+	//// A `transform` processor copies k8s.container.name → service.name
+	//// on log records without an upstream service.name, so filelog-sourced
+	//// entries carry a useful ServiceName in the HyperDX UI.
 	/////////////////////////////////////////////////////////////////
+
+	"otel-collector-sa": {
+		resources_security.#ServiceAccount
+
+		metadata: name: "otel-scraper"
+
+		spec: serviceAccount: {
+			name:           "otel-scraper"
+			automountToken: true
+		}
+	}
+
+	// ClusterRole + ClusterRoleBinding covering the API access kubeletstats
+	// (nodes/stats, nodes/proxy) needs. Scope is cluster so the DaemonSet
+	// can reach every node's kubelet regardless of which namespace its pod
+	// lands in.
+	"otel-collector-rbac": {
+		resources_security.#Role
+
+		metadata: name: "otel-scraper"
+
+		spec: role: {
+			name:  "otel-scraper"
+			scope: "cluster"
+			rules: [
+				{
+					apiGroups: [""]
+					resources: ["nodes", "nodes/stats", "nodes/proxy", "pods", "namespaces"]
+					verbs: ["get", "list", "watch"]
+				},
+			]
+			subjects: [{name: "otel-scraper"}]
+		}
+	}
 
 	"otel-collector": {
 		otel_telemetry.#Collector
@@ -488,23 +535,88 @@ import (
 		metadata: name: "otel"
 
 		spec: collector: spec: {
-			mode:     "deployment"
-			replicas: #config.otel.replicas
-			image:    "\(#config.otel.image.repository):\(#config.otel.image.tag)"
-			// Pass CLICKHOUSE_PASSWORD from the clickstack-secret so the config's
-			// `${env:CLICKHOUSE_PASSWORD}` substitution resolves.
-			env: [{
-				name: "CLICKHOUSE_PASSWORD"
-				valueFrom: secretKeyRef: {
-					name: "clickstack-secret"
-					key:  "CLICKHOUSE_PASSWORD"
-				}
-			}]
+			mode:           "daemonset"
+			image:          "\(#config.otel.image.repository):\(#config.otel.image.tag)"
+			serviceAccount: "otel-scraper"
+
+			// Downward-API env: K8S_NODE_NAME is what kubeletstats uses to build
+			// the `https://${K8S_NODE_NAME}:10250` endpoint so each pod scrapes
+			// only its own node. CLICKHOUSE_PASSWORD wires the exporter auth.
+			env: [
+				{
+					name: "CLICKHOUSE_PASSWORD"
+					valueFrom: secretKeyRef: {
+						name: "clickstack-secret"
+						key:  "CLICKHOUSE_PASSWORD"
+					}
+				},
+				{
+					name: "K8S_NODE_NAME"
+					valueFrom: fieldRef: fieldPath: "spec.nodeName"
+				},
+			]
+
+			// Mount the node's kubelet-managed pod log tree read-only.
+			// /var/log/containers holds kubelet-created symlinks pointing into
+			// /var/log/pods; mounting both keeps the `container` operator happy
+			// regardless of which path the CRI surfaces.
+			volumes: [
+				{
+					name: "varlogpods"
+					hostPath: path: "/var/log/pods"
+				},
+				{
+					name: "varlogcontainers"
+					hostPath: path: "/var/log/containers"
+				},
+			]
+			volumeMounts: [
+				{
+					name:      "varlogpods"
+					mountPath: "/var/log/pods"
+					readOnly:  true
+				},
+				{
+					name:      "varlogcontainers"
+					mountPath: "/var/log/containers"
+					readOnly:  true
+				},
+			]
+
 			config: {
 				receivers: {
 					otlp: protocols: {
 						grpc: endpoint: "0.0.0.0:4317"
 						http: endpoint: "0.0.0.0:4318"
+					}
+
+					// Tail every container log on the node. Exclude this
+					// collector's own logs to stop a feedback loop (our logs
+					// ship themselves, get re-parsed, ship themselves…).
+					// The `container` operator parses the CRI log format and
+					// populates k8s.{namespace,pod,container}.name resource
+					// attributes so HyperDX can group by them.
+					filelog: {
+						include: ["/var/log/pods/*/*/*.log"]
+						exclude: ["/var/log/pods/*_\(#config.releaseName)-otel-collector-*/*/*.log"]
+						start_at:          "end"
+						include_file_path: true
+						include_file_name: false
+						operators: [{
+							type: "container"
+							id:   "container-parser"
+						}]
+					}
+
+					// Scrape per-pod / per-container / per-volume metrics from
+					// the local kubelet. insecure_skip_verify because kind uses
+					// a self-signed kubelet serving cert.
+					kubeletstats: {
+						auth_type:            "serviceAccount"
+						collection_interval:  "30s"
+						endpoint:             "https://${env:K8S_NODE_NAME}:10250"
+						insecure_skip_verify: true
+						metric_groups: ["node", "pod", "container", "volume"]
 					}
 				}
 				processors: {
@@ -513,6 +625,21 @@ import (
 						limit_percentage: 75
 					}
 					batch: {}
+
+					// Set service.name = k8s.container.name on logs that came
+					// in without one (i.e. filelog-sourced container stdout).
+					// HyperDX's ServiceName column is populated from
+					// resource["service.name"]; without this, pod logs land
+					// with an empty ServiceName and the UI's service filter is
+					// useless.
+					transform: {
+						log_statements: [{
+							context: "resource"
+							statements: [
+								"set(attributes[\"service.name\"], attributes[\"k8s.container.name\"]) where attributes[\"service.name\"] == nil",
+							]
+						}]
+					}
 				}
 				exporters: {
 					clickhouse: {
@@ -527,8 +654,8 @@ import (
 				}
 				service: pipelines: {
 					logs: {
-						receivers: ["otlp"]
-						processors: ["memory_limiter", "batch"]
+						receivers: ["otlp", "filelog"]
+						processors: ["memory_limiter", "transform", "batch"]
 						exporters: ["clickhouse"]
 					}
 					traces: {
@@ -537,7 +664,7 @@ import (
 						exporters: ["clickhouse"]
 					}
 					metrics: {
-						receivers: ["otlp"]
+						receivers: ["otlp", "kubeletstats"]
 						processors: ["memory_limiter", "batch"]
 						exporters: ["clickhouse"]
 					}

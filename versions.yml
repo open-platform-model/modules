@@ -75,8 +75,8 @@ otel_collector:
   version: v0.0.5
   checksum: "35a63bdc4f3897d745f3e64e72f2310c4ddf73f6bf843cab4080aa1da37a31a6"
 clickstack:
-  version: v0.0.10
-  checksum: "08e1f59810149276baf14481bab6cd8e2a316bbf00135a2922b5e3bac3e778ae"
+  version: v0.0.14
+  checksum: "5b58c78289d2c04df814d04d82e42f3d868bbe8399131ba417ca92538a5e297c"
 istio_ambient:
   version: v0.0.2
   checksum: "0266dfa338dc48efc49b7d9f678aaf9da11067df43958a74e2c2304ea05960c5"
