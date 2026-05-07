@@ -163,15 +163,143 @@ If the GOW launch scripts can be configured to run Steam through Gamescope, the 
 **Pros:** No 32-bit libs needed; Gamescope handles rendering with 64-bit Vulkan.
 **Cons:** Gamescope on NVIDIA in a container may have its own issues (DRM/KMS access, Vulkan initialization); needs testing; may not fully eliminate the 32-bit requirement (Steam's own UI code still uses 32-bit GL internally).
 
-## Recommendation
+## Applied — Option B + DISPLAY env + sysctl + shm (2026-04-24)
 
-**Option B** (extend the nvidia-driver-setup Job) is the most maintainable approach for this Talos/K8s environment. It keeps the existing hostPath + bind-mount architecture intact and adds 32-bit library support as a one-time Job enhancement. Combined with the `DISPLAY=:0` env fix, this should unblock Steam.
+`modules/wolf/init/nvidia-driver-setup-job.yaml` extended (image `alpine:3.19`,
+`curl` + `zstd` + `xz` + `binutils`):
 
-**Option E** (Gamescope) is worth investigating in parallel — if it works, it eliminates the 32-bit library problem entirely and is the architecturally cleanest solution.
+1. Detects kernel driver version from
+   `/src/lib/libnvidia-glcore.so.<VERSION>` (matches kernel module exactly).
+2. Builds an ordered candidate URL list:
+   - `https://us.download.nvidia.com/tesla/${VER}/…` — **Talos LTS drivers
+     live here**, not in the consumer `XFree86/Linux-x86_64/` archive. This
+     was the key finding: `580.126.16`/`.20` return 404 from the consumer
+     path but resolve from `tesla/`.
+   - `https://us.download.nvidia.com/XFree86/Linux-x86_64/${VER}/…` —
+     consumer fallback.
+   - Same-minor neighbors from the XFree86 index, descending patch order —
+     last-resort fallback. Neighbor versions usually fail NVIDIA's
+     userspace↔kernel-module version check (Steam's NVML probe returns an
+     error), so the tesla/ path is the reliable one for LTS nodes.
+3. Extracts the `.run` into a 2 GiB `emptyDir`-backed `/tmp` (extract-only,
+   zstd-compressed on newer installers).
+4. Copies `/tmp/nv/extracted/32/*.so*` into `/dst/lib32/` with `cp -a`; then
+   re-creates SONAME symlinks via `objdump -p` (the installer ships only
+   versioned real files in `32/` — SONAME symlinks like `libGLX_nvidia.so.0
+   → libGLX_nvidia.so.580.126.16` are normally created at install time).
+5. Pins `/dst/.nvidia_version` (kernel module) AND `/dst/.nvidia_lib32_version`
+   (upstream .run actually used). Guard only skips the download when both
+   equal the current `NV_VERSION`, so a prior neighbor-version install
+   auto-invalidates.
+6. Purges stale `*.so*` from `/dst/lib32/` before each copy to prevent
+   orphaned files from a previous version polluting ldconfig's SONAME
+   resolution.
+
+`releases/mr_spel/wolf/release.cue` Steam app changes:
+- `env`: add `"DISPLAY=:0"` for the 32-bit X11 bootstrap.
+- `base_create_json`: add `"ShmSize": 2147483648` (2 GiB) and remove
+  `"IpcMode": "host"` so `ShmSize` takes effect (with host IPC mode the
+  container shares DinD's 64 MB `/dev/shm` and `ShmSize` is ignored). This
+  fixes the `Transport Error 0x3000` from steamwebhelper.
+
+Talos machine config: add `machine.sysctls."user.max_user_namespaces": "15000"`
+(see `infra/talos/patches/user-namespaces.yaml` in the larnet repo). Talos
+ships with `0` which blocks Steam's pressure-vessel sandbox. Without this
+the 32-bit libs never get exercised — Steam fails earlier with the
+`basic_string::_M_create` error, which looks like a GL init crash but is
+actually the sandbox's namespace probe bubbling up through libstdc++.
+
+Library resolution relies on GOW's pre-existing
+`/etc/ld.so.conf.d/nvidia.conf` (lists both `/usr/nvidia/lib` and
+`/usr/nvidia/lib32`) and the `ldconfig` call in `30-nvidia.sh` — no
+`LD_LIBRARY_PATH` override needed.
+
+Option E (Gamescope) was not pursued; revisit if NVIDIA driver download
+maintenance becomes a problem.
+
+## Applied — Pod-level initContainer + Windows DLLs (2026-04-25)
+
+The standalone `nvidia-driver-setup-job.yaml` is **superseded** by an
+initContainer (`nvidia-driver-init`) inside the Wolf StatefulSet. It is
+gated on `gpu.nvidia.driverInit.enabled` (default `true`). The Job stays
+in-tree marked DEPRECATED for cluster-admin debug runs.
+
+**What's the same as the Job:**
+
+- 64-bit lib copy from the Talos glibc extension at
+  `/usr/local/glibc/usr/lib` with `/rootfs/` symlink dereferencing.
+- 32-bit lib download from `https://us.download.nvidia.com` with the
+  ordered candidate list (tesla → XFree86 → same-minor fallbacks).
+- Vulkan/EGL ICD JSON files written.
+- Version pin files `.nvidia_version` + `.nvidia_lib32_version` for the
+  fast-path skip on re-runs.
+
+**What's new vs the Job:**
+
+1. **Runs on every Wolf pod start**, not as a manual cluster-admin step.
+   Eliminates the failure mode where a fresh node or driver upgrade
+   leaves Wolf in a degraded state until someone applies the Job.
+2. **Extracts Windows-side NGX DLLs** (`nvngx.dll`, `_nvngx.dll`,
+   `nvngx_dlss.dll`, `nvngx_dlssg.dll`, `nvngx_dlssd.dll`) from the
+   upstream `.run` into `/dst/wine/nvngx/` (visible at
+   `/usr/nvidia/wine/nvngx/` inside Wolf containers). These are needed
+   by NVIDIA's Streamline framework for DLSS / FrameGen under Proton.
+   Without them, RE Engine titles (e.g. Pragmata, AppID 3357650) crash
+   on startup with `EXCEPTION_ACCESS_VIOLATION (0xc0000005)` in their
+   anti-tamper init code after Streamline fails to bootstrap NGX and
+   unloads `sl.dlss*.dll`. See
+   `modules/wolf/init/nvidia-driver-setup-job.yaml` (which does NOT
+   extract these DLLs — that's why Pragmata required the
+   `FrameGeneration=Off` workaround in `config.ini`).
+3. **Third version-pin file `.nvidia_dlls_version`** so toggling
+   `includeWindowsDLLs: false → true` mid-cycle correctly re-runs the
+   download / extraction.
+4. **`upstreamUrlBase` is parameterized** (default
+   `https://us.download.nvidia.com`) for air-gapped clusters with a
+   local mirror.
+
+**Schema**
+
+```cue
+gpu.nvidia.driverInit?: {
+    enabled:            bool   | *true
+    image:              schemas.#Image | *{repository: "alpine", tag: "3.19"}
+    glibcExtensionPath: string | *"/usr/local/glibc/usr"
+    upstreamUrlBase:    string | *"https://us.download.nvidia.com"
+    includeWindowsDLLs: bool   | *true
+}
+```
+
+**Pod startup penalty**
+
+First boot on a fresh node: ~30s–2 min for the ~300 MB `.run` download.
+Subsequent restarts hit the version-pin fast path (sub-second).
+
+**Verification after rollout**
+
+```bash
+# initContainer exited 0 cleanly
+kubectl --context admin@lnn1-mrspel -n gaming logs wolf-wolf-0 -c nvidia-driver-init --tail=80
+
+# Windows DLLs are present
+kubectl --context admin@lnn1-mrspel -n gaming exec wolf-wolf-0 -c wolf -- \
+    ls -la /usr/nvidia/wine/nvngx/ /usr/nvidia/.nvidia_dlls_version
+
+# Pragmata DLSS smoke test:
+#   1. Remove FrameGeneration=Off override from /home/retro/.steam/steam/steamapps/common/PRAGMATA/config.ini
+#   2. Launch Pragmata via Moonlight, set in-game Frame Generation = FSR or DLSS
+#   3. Game should render past the Streamline AV crash that previously
+#      killed it ~12s after launch.
+```
+
+If the initContainer hangs in `Init:0/2`: check egress to
+`download.nvidia.com` from the Wolf node, or override `upstreamUrlBase`.
 
 ## Related
 
-- DEPLOYMENT_NOTES.md Issue 16 — nvidia-driver-setup Job (64-bit)
-- `modules/wolf/init/nvidia-driver-setup-job.yaml` — current Job (64-bit only)
+- DEPLOYMENT_NOTES.md Issue 16 — original 64-bit Job
+- DEPLOYMENT_NOTES.md Issue 17 — 32-bit extension + DISPLAY fix
+- `modules/wolf/init/nvidia-driver-setup-job.yaml` — DEPRECATED Job (kept for admin debug)
+- `modules/wolf/components.cue` — `nvidia-driver-init` initContainer + script
+- `modules/wolf/module.cue` — `gpu.nvidia.driverInit` schema
 - `releases/mr_spel/wolf/release.cue` — Steam app env configuration
-- `modules/wolf/components.cue` — `NVIDIA_DRIVER_VOLUME_NAME` bind-mount fix (2026-04-07)

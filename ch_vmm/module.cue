@@ -28,12 +28,9 @@ m.#Module
 metadata: {
 	modulePath:       "opmodel.dev/modules"
 	name:             "ch-vmm"
-	version:          "0.1.0"
+	version:          "0.0.2"
 	description:      "ch-vmm — Cloud Hypervisor virtualization add-on for Kubernetes (controller + per-node daemon + CRDs)"
 	defaultNamespace: "ch-vmm-system"
-	labels: {
-		"app.kubernetes.io/name": "ch-vmm"
-	}
 }
 
 _#portSchema: uint & >0 & <=65535
@@ -56,6 +53,13 @@ _#portSchema: uint & >0 & <=65535
 	// Target namespace. Must match `metadata.defaultNamespace` when the module is
 	// deployed via OPM — referenced by cert DNS names and webhook clientConfig.
 	namespace: string | *"ch-vmm-system"
+
+	// Release name. MUST match the ModuleRelease metadata.name. Used to compute
+	// the rendered Service / Secret names that webhook clientConfig + Certificate
+	// secretName + cert-manager.io/inject-ca-from references must resolve to —
+	// OPM transformers prefix those names with {releaseName} but cannot rewrite
+	// CRD spec fields, so the module has to do it manually here.
+	releaseName: string | *"ch-vmm"
 
 	// Controller configuration.
 	controller: {
@@ -106,7 +110,8 @@ debugValues: {
 		tag:        "v1.4.0"
 		digest:     "sha256:46000a92081e3ebaf9733923998fafb167a3d53169a06ec0be9e682ac00f8b9b"
 	}
-	namespace: "ch-vmm-system"
+	namespace:   "ch-vmm-system"
+	releaseName: "ch-vmm"
 	controller: {
 		replicas:            1
 		registryCredsSecret: "registry-credentials"

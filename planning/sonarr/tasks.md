@@ -38,7 +38,7 @@ deps: {
 }
 ```
 
-> **Do not hand-edit version pins.** After writing this file, run `task update-deps` from the workspace root to resolve the latest compatible versions. The versions above are current as of the time of writing; they may need updating.
+> **Do not hand-edit version pins.** After writing this file, run `task deps:update` from the workspace root to resolve the latest compatible versions. The versions above are current as of the time of writing; they may need updating.
 
 ## Step 3: Write module.cue
 

@@ -3,8 +3,8 @@
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
 wolf:
-  version: v0.0.26
-  checksum: faf76fdf21657f8af1d78a52b232371f7dcc75625734f941af5dfafd384c890a
+  version: v0.0.27
+  checksum: d93fc31205ab80b85fdff03e1c29638104349bc4a39060a6fa827cf652bcb6b6
 metallb:
   version: v0.0.6
   checksum: 46583a4278dd4af8d81c188e59ae10dbb7b7a4e40fe4fd178aaea1d068249979
@@ -63,8 +63,8 @@ sealed_secrets:
   version: v0.0.4
   checksum: 633567ef28075d1b1189970cd56820d817eacc127dfb6a9b7e155b077f085f17
 ch_vmm:
-  version: v0.0.1
-  checksum: 88674b048f6df6ab04832ef4f9e83d01fa5c49f4bad67101e85b805255405fe8
+  version: v0.0.5
+  checksum: 5595266eb2461316d5dee27cb41422c72e4eb64532537defd49b538405fb6e23
 mongodb_operator:
   version: v0.0.10
   checksum: "1472c5776f86226b89406d69b7575ac821fa55c42b13c647fc9dd0db98c45aec"

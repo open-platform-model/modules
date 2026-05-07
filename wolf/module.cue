@@ -166,6 +166,63 @@ _#portSchema: uint & >0 & <=65535
 			// "" bypasses the kubelet's type check — required on Talos where
 			// the glibc extension path resolves in a different mount namespace.
 			hostPathType: *"Directory" | "DirectoryOrCreate" | ""
+
+			// Auto-prepare the driver hostPath at pod start via an initContainer.
+			// Replaces the manual init/nvidia-driver-setup-job.yaml workflow.
+			//
+			// On each pod start the initContainer:
+			//   1. Copies 64-bit NVIDIA libs from the Talos glibc extension
+			//      (glibcExtensionPath) into driverPath, dereferencing broken
+			//      /rootfs/ symlinks via cp -L.
+			//   2. Detects the driver version from libnvidia-glcore.so.<ver> and
+			//      downloads the matching upstream NVIDIA-Linux-x86_64-<ver>.run
+			//      from upstreamUrlBase (tesla → XFree86 → same-minor fallbacks).
+			//   3. Extracts the .run, copies its 32/ subtree into driverPath/lib32/
+			//      (needed for Steam's 32-bit bootstrap binary), and recreates
+			//      SONAME symlinks via objdump -p.
+			//   4. If includeWindowsDLLs, copies nvngx.dll / _nvngx.dll / nvngx_dlss*.dll
+			//      from the extracted .run into driverPath/wine/nvngx/ so Streamline
+			//      (NVIDIA's DLSS / FrameGen framework) can bootstrap NGX under Proton.
+			//      Without these, RE Engine titles (e.g. Pragmata) crash on startup
+			//      after their sl.dlss*.dll plugins fail NGX init.
+			//   5. Pins the kernel-module version + downloaded .run version + DLLs
+			//      version to .nvidia_version / .nvidia_lib32_version /
+			//      .nvidia_dlls_version under driverPath. Subsequent runs against
+			//      an unchanged version skip the ~300 MB download (fast path).
+			//
+			// First-boot pod startup penalty on a fresh node is ~30s–2 min (download).
+			// Subsequent restarts hit the version-pin fast path.
+			driverInit?: {
+				// Run the initContainer. When false, driverPath must be populated
+				// by another mechanism (the deprecated standalone Job, or a custom
+				// node provisioning step).
+				enabled: bool | *true
+
+				// Container image used for the initContainer. Must include sh + curl
+				// + ca-certificates + bash + zstd + xz + binutils (for objdump).
+				// Defaults to alpine:3.19 — apk-add at startup matches the existing
+				// nvidia-driver-setup-job.yaml's pattern.
+				image: schemas.#Image | *{
+					repository: "alpine"
+					tag:        "3.19"
+					digest:     ""
+				}
+
+				// Source path on the host containing the Talos NVIDIA glibc extension.
+				// Default matches the Talos `nvidia-open-gpu-kernel-modules-lts`
+				// extension layout. Mounted read-only at /src in the initContainer.
+				glibcExtensionPath: string | *"/usr/local/glibc/usr"
+
+				// Base URL for upstream NVIDIA installer downloads. Override for
+				// air-gapped clusters with a local mirror.
+				upstreamUrlBase: string | *"https://us.download.nvidia.com"
+
+				// Extract Windows-side NGX DLLs (nvngx.dll, _nvngx.dll, nvngx_dlss*.dll)
+				// into driverPath/wine/nvngx/. Required for Proton DLSS / Streamline
+				// to bootstrap on this cluster. Disable only if the host driver path
+				// already provides these DLLs.
+				includeWindowsDLLs: bool | *true
+			}
 		}
 	}
 
@@ -374,6 +431,10 @@ debugValues: {
 		nvidia: {
 			driverPath:   "/var/lib/docker/volumes/nvidia-driver-vol/_data"
 			hostPathType: "Directory"
+			driverInit: {
+				enabled:            true
+				includeWindowsDLLs: true
+			}
 		}
 	}
 

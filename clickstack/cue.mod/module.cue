@@ -16,7 +16,7 @@ deps: {
 		v: "v1.0.0"
 	}
 	"opmodel.dev/opm/v1alpha1@v1": {
-		v: "v1.5.6"
+		v: "v1.5.7"
 	}
 	"opmodel.dev/otel_collector/v1alpha1@v1": {
 		v: "v1.0.0"

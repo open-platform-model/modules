@@ -47,8 +47,8 @@ import (
 let _controllerSA = "virtmanager-controller-manager"
 let _daemonSA = "ch-vmm-daemon"
 
-// Webhook Service DNS is fixed by the clientConfig.service.name/namespace contract.
-let _webhookServiceName = "virtmanager-webhook-service"
+// Daemon component metadata.name. The DaemonSet/Service rendered name will be
+// "{releaseName}-{_daemonServiceName}" — used in cert DNS names below.
 let _daemonServiceName = "ch-vmm-daemon"
 
 #components: {
@@ -359,12 +359,14 @@ let _daemonServiceName = "ch-vmm-daemon"
 						type: "Directory"
 					}
 				}
-				// ch-vmm-daemon-cert Secret is populated by cert-manager from the daemon Certificate.
+				// Daemon TLS Secret is populated by cert-manager from the daemon Certificate.
+				// Rendered Secret name will be "{releaseName}-daemon-cert" — daemon-cert
+				// Certificate.spec.secretName is set to match.
 				cert: {
 					name: "cert"
 					secret: {
 						from: {
-							name: "ch-vmm-daemon-cert"
+							name: "cert"
 						}
 						defaultMode: 420
 					}
@@ -790,14 +792,18 @@ let _daemonServiceName = "ch-vmm-daemon"
 		metadata: name: "virtmanager-serving-cert"
 
 		spec: certificate: {
-			secretName: "webhook-server-cert"
+			// Must match the K8s Secret name the controller volume resolves to:
+			// {releaseName}-controller-{from.name=webhook-server-cert}.
+			secretName: "\(#config.releaseName)-controller-webhook-server-cert"
 			issuerRef: {
 				kind: "Issuer"
-				name: "virtmanager-selfsigned-issuer"
+				// Issuer object renders as "{releaseName}-virtmanager-selfsigned-issuer".
+				name: "\(#config.releaseName)-virtmanager-selfsigned-issuer"
 			}
+			// Controller Service is rendered as "{releaseName}-controller".
 			dnsNames: [
-				"\(_webhookServiceName).\(#config.namespace).svc",
-				"\(_webhookServiceName).\(#config.namespace).svc.cluster.local",
+				"\(#config.releaseName)-controller.\(#config.namespace).svc",
+				"\(#config.releaseName)-controller.\(#config.namespace).svc.cluster.local",
 			]
 			duration:    #config.certificates.duration
 			renewBefore: #config.certificates.renewBefore
@@ -832,16 +838,20 @@ let _daemonServiceName = "ch-vmm-daemon"
 		metadata: name: "ch-vmm-daemon-cert"
 
 		spec: certificate: {
-			secretName: "ch-vmm-daemon-cert"
+			// Must match the K8s Secret name the daemon volume resolves to:
+			// {releaseName}-daemon-{from.name=cert}.
+			secretName: "\(#config.releaseName)-daemon-cert"
 			issuerRef: {
 				kind: "Issuer"
-				name: "ch-vmm-daemon-cert-issuer"
+				// Issuer object renders as "{releaseName}-ch-vmm-daemon-cert-issuer".
+				name: "\(#config.releaseName)-ch-vmm-daemon-cert-issuer"
 			}
+			// Daemon Service is rendered as "{releaseName}-{_daemonServiceName}".
 			dnsNames: [
-				"\(_daemonServiceName).\(#config.namespace).svc",
-				"\(_daemonServiceName).\(#config.namespace).svc.cluster.local",
-				"*.\(_daemonServiceName).\(#config.namespace).svc",
-				"*.\(_daemonServiceName).\(#config.namespace).svc.cluster.local",
+				"\(#config.releaseName)-\(_daemonServiceName).\(#config.namespace).svc",
+				"\(#config.releaseName)-\(_daemonServiceName).\(#config.namespace).svc.cluster.local",
+				"*.\(#config.releaseName)-\(_daemonServiceName).\(#config.namespace).svc",
+				"*.\(#config.releaseName)-\(_daemonServiceName).\(#config.namespace).svc.cluster.local",
 			]
 			duration:    #config.certificates.duration
 			renewBefore: #config.certificates.renewBefore
@@ -863,7 +873,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 			metadata: {
 				name: "virtmanager-mutating-webhook-configuration"
 				annotations: {
-					"cert-manager.io/inject-ca-from": "\(#config.namespace)/virtmanager-serving-cert"
+					"cert-manager.io/inject-ca-from": "\(#config.namespace)/\(#config.releaseName)-virtmanager-serving-cert"
 				}
 			}
 			webhooks: [
@@ -873,7 +883,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/mutate-cloudhypervisor-quill-today-v1beta1-virtualmachine"
 					}
@@ -890,7 +900,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/mutate-cloudhypervisor-quill-today-v1beta1-virtualdisk"
 					}
@@ -907,7 +917,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/mutate-cloudhypervisor-quill-today-v1beta1-virtualdisksnapshot"
 					}
@@ -924,7 +934,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/mutate-cloudhypervisor-quill-today-v1beta1-vmpool"
 					}
@@ -941,7 +951,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/mutate-cloudhypervisor-quill-today-v1beta1-vmset"
 					}
@@ -969,7 +979,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 			metadata: {
 				name: "virtmanager-validating-webhook-configuration"
 				annotations: {
-					"cert-manager.io/inject-ca-from": "\(#config.namespace)/virtmanager-serving-cert"
+					"cert-manager.io/inject-ca-from": "\(#config.namespace)/\(#config.releaseName)-virtmanager-serving-cert"
 				}
 			}
 			webhooks: [
@@ -979,7 +989,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/validate-cloudhypervisor-quill-today-v1beta1-virtualdisk"
 					}
@@ -996,7 +1006,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/validate-cloudhypervisor-quill-today-v1beta1-virtualdisksnapshot"
 					}
@@ -1013,7 +1023,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/validate-cloudhypervisor-quill-today-v1beta1-virtualmachine"
 					}
@@ -1030,7 +1040,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/validate-cloudhypervisor-quill-today-v1beta1-virtualmachinemigration"
 					}
@@ -1047,7 +1057,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/validate-cloudhypervisor-quill-today-v1beta1-vmset"
 					}
@@ -1064,7 +1074,7 @@ let _daemonServiceName = "ch-vmm-daemon"
 					failurePolicy: "Fail"
 					sideEffects:   "None"
 					clientConfig: service: {
-						name:      _webhookServiceName
+						name:      "\(#config.releaseName)-controller"
 						namespace: #config.namespace
 						path:      "/validate-cloudhypervisor-quill-today-v1beta1-vmpool"
 					}

@@ -49,7 +49,7 @@ deps: {
 }
 ```
 
-> **Do not manually edit version pins after creation.** Run `task update-deps` from the workspace root to upgrade them.
+> **Do not manually edit version pins after creation.** Run `task deps:update` from the workspace root to upgrade them.
 
 After creating this file, run from `modules/`:
 
@@ -544,7 +544,7 @@ task publish:dry
 task publish:one MODULE=prowlarr
 ```
 
-After publishing, update `releases/<env>/prowlarr/cue.mod/module.cue` with the new version pin (or run `task update-deps` from the workspace root).
+After publishing, update `releases/<env>/prowlarr/cue.mod/module.cue` with the new version pin (or run `task deps:update` from the workspace root).
 
 > Verify the module appears in the registry:
 > ```bash

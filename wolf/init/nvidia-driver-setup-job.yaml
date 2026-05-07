@@ -1,23 +1,56 @@
+# DEPRECATED — superseded by the `nvidia-driver-init` initContainer in the
+# Wolf StatefulSet (see modules/wolf/components.cue, gated on
+# #config.gpu.nvidia.driverInit.enabled which defaults to true). The init
+# container runs the same logic on every pod start with a version-pin fast
+# path so re-runs against unchanged drivers skip the ~300 MB download.
+#
+# This Job is kept in-tree for two situations:
+#   1. Cluster admin debug: force-refresh the driver hostPath without
+#      bouncing the Wolf StatefulSet.
+#   2. Pre-rolling Wolf onto a fresh node: warm /var/lib/wolf-nvidia-driver/
+#      so the first Wolf pod startup does not pay the download penalty.
+#
+# Behavior is identical to the initContainer EXCEPT this Job does not extract
+# the Windows-side NGX DLLs (nvngx.dll / _nvngx.dll / nvngx_dlss*.dll) needed
+# by Streamline / DLSS / FrameGen under Proton. Use the initContainer for
+# DLSS-capable installs.
+#
+# ─────────────────────────────────────────────────────────────────────────────
 # One-shot Job to copy NVIDIA driver libraries from the Talos glibc extension
-# to a clean hostPath directory with dereferenced symlinks.
+# (64-bit) AND fetch 32-bit NVIDIA libs from the matching upstream installer to
+# a clean hostPath directory with dereferenced symlinks.
 #
-# Why: The Talos nvidia-open-gpu-kernel-modules-lts extension stores NVIDIA
-# userspace libs at /usr/local/glibc/usr/lib/, but files like nvidia-drm_gbm.so
-# are absolute symlinks to /rootfs/... which are broken inside containers.
-# Wolf's 30-nvidia.sh crashes on them (see DEPLOYMENT_NOTES.md Issue 16).
+# Why 64-bit: The Talos nvidia-open-gpu-kernel-modules-lts extension stores
+# NVIDIA userspace libs at /usr/local/glibc/usr/lib/, but files like
+# nvidia-drm_gbm.so are absolute symlinks to /rootfs/... which are broken inside
+# containers. Wolf's 30-nvidia.sh crashes on them (see DEPLOYMENT_NOTES.md
+# Issue 16).
 #
-# This Job copies real files (cp -L dereferences symlinks) and generates the
-# Vulkan/EGL JSON configs that the Talos extension does not include.
+# Why 32-bit: The Talos glibc extension only ships x86_64 libs. Steam's
+# bootstrap (/home/retro/.steam/ubuntu12_32/steam) is a 32-bit binary that
+# needs 32-bit libGLX_nvidia / libEGL_nvidia / libcuda to render its UI. Without
+# them Steam dies with "glx: failed to create dri3 screen" (see
+# DEPLOYMENT_NOTES_NVIDIA_DRIVER.md). We download the matching upstream
+# NVIDIA-Linux-x86_64-${VER}.run, extract its 32/ subtree, and copy it to
+# /var/lib/wolf-nvidia-driver/lib32/. GOW app images already include
+# /etc/ld.so.conf.d/nvidia.conf listing /usr/nvidia/lib32, so a single
+# ldconfig at container start picks the libs up automatically.
 #
 # Re-run this Job after any Talos NVIDIA extension upgrade (new driver version).
+# The 32-bit step is version-guarded — re-runs against an unchanged driver
+# version skip the ~300 MB download.
 #
 # Usage:
 #   kubectl apply -f modules/wolf/init/nvidia-driver-setup-job.yaml
-#   kubectl -n gaming wait --for=condition=complete job/nvidia-driver-setup --timeout=120s
+#   kubectl -n gaming wait --for=condition=complete job/nvidia-driver-setup --timeout=600s
+#   kubectl -n gaming logs -l job-name=nvidia-driver-setup --tail=-1
 #   kubectl -n gaming delete job nvidia-driver-setup
 #
-# Verify:
+# Verify (64-bit):
 #   kubectl run --rm -it nvidia-check --image=busybox -n gaming --overrides='{"spec":{"containers":[{"name":"check","image":"busybox","command":["sh","-c","ls -la /dst/lib/libcuda.so.1 && cat /dst/share/vulkan/icd.d/nvidia_icd.json"],"volumeMounts":[{"name":"dst","mountPath":"/dst"}]}],"volumes":[{"name":"dst","hostPath":{"path":"/var/lib/wolf-nvidia-driver","type":""}}],"restartPolicy":"Never"}}'
+#
+# Verify (32-bit):
+#   kubectl run --rm -it nvidia-check-32 --image=busybox -n gaming --overrides='{"spec":{"containers":[{"name":"check","image":"busybox","command":["sh","-c","ls -la /dst/lib32/libGLX_nvidia.so.0 /dst/lib32/libEGL_nvidia.so.0 && cat /dst/.nvidia_version"],"volumeMounts":[{"name":"dst","mountPath":"/dst"}]}],"volumes":[{"name":"dst","hostPath":{"path":"/var/lib/wolf-nvidia-driver","type":""}}],"restartPolicy":"Never"}}'
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -30,21 +63,24 @@ spec:
       restartPolicy: Never
       containers:
         - name: setup
-          image: busybox
+          image: alpine:3.19
           securityContext:
             privileged: true
           command:
             - sh
             - -exc
             - |
-              # Create directory structure expected by Wolf's 30-nvidia.sh
+              apk add --no-cache curl ca-certificates bash zstd xz binutils
+
+              # ── 64-bit copy from Talos glibc extension ──────────────────
               mkdir -p /dst/lib/gbm
               mkdir -p /dst/share/vulkan/icd.d
               mkdir -p /dst/share/glvnd/egl_vendor.d
               mkdir -p /dst/share/egl/egl_external_platform.d
 
-              # Copy NVIDIA-specific libraries only (not glibc's libc.so, libm.so, etc.)
-              # -L dereferences symlinks so we get real files, not broken /rootfs/ links
+              # Copy NVIDIA-specific libraries only (not glibc's libc.so etc.)
+              # -L dereferences symlinks so we get real files, not broken
+              # /rootfs/ links.
               for pattern in \
                 'libcuda*' \
                 'libnvidia*' \
@@ -56,19 +92,17 @@ spec:
                 'libGLESv2_nvidia*' \
                 'libGLX_nvidia*' \
               ; do
-                # Use find to handle glob expansion safely
                 find /src/lib/ -maxdepth 1 -name "$pattern" -exec cp -L {} /dst/lib/ \;
               done
 
-              # Copy GBM backend (or create symlink to libnvidia-allocator.so.1)
-              # Talos extension may not have /lib/gbm/, so fall back to a symlink
+              # GBM backend — symlink fallback if extension lacks /lib/gbm/.
               if [ -f /src/lib/gbm/nvidia-drm_gbm.so ]; then
                 cp -L /src/lib/gbm/nvidia-drm_gbm.so /dst/lib/gbm/
               elif [ -f /dst/lib/libnvidia-allocator.so.1 ]; then
                 ln -sf ../libnvidia-allocator.so.1 /dst/lib/gbm/nvidia-drm_gbm.so
               fi
 
-              # Generate Vulkan ICD config (Talos extension does not include these)
+              # Vulkan ICD config (Talos extension does not include these)
               cat > /dst/share/vulkan/icd.d/nvidia_icd.json << 'VICD'
               {
                   "file_format_version": "1.0.0",
@@ -79,7 +113,6 @@ spec:
               }
               VICD
 
-              # Generate EGL vendor config
               cat > /dst/share/glvnd/egl_vendor.d/10_nvidia.json << 'VEGL'
               {
                   "file_format_version": "1.0.0",
@@ -89,7 +122,6 @@ spec:
               }
               VEGL
 
-              # Generate EGL GBM platform config
               cat > /dst/share/egl/egl_external_platform.d/15_nvidia_gbm.json << 'GBM'
               {
                   "file_format_version": "1.0.0",
@@ -99,7 +131,6 @@ spec:
               }
               GBM
 
-              # Generate EGL Wayland platform config
               cat > /dst/share/egl/egl_external_platform.d/10_nvidia_wayland.json << 'WL'
               {
                   "file_format_version": "1.0.0",
@@ -109,20 +140,156 @@ spec:
               }
               WL
 
-              # Summary
+              # ── 32-bit fetch from upstream NVIDIA installer ─────────────
+              # Detect driver version from the Talos extension lib filename so
+              # the userspace 32-bit libs always match the kernel module / 64-bit
+              # libs we just copied.
+              NV_VERSION=$(ls /src/lib/libnvidia-glcore.so.* 2>/dev/null \
+                | head -1 | sed 's|.*libnvidia-glcore\.so\.||')
+              if [ -z "$NV_VERSION" ]; then
+                echo "ERROR: could not detect NVIDIA driver version from /src/lib"
+                echo "  expected /src/lib/libnvidia-glcore.so.<VERSION>"
+                exit 1
+              fi
+              echo "Detected NVIDIA driver version: ${NV_VERSION}"
+
+              mkdir -p /dst/lib32
+
+              # Skip download only when a prior run fetched libs with the
+              # EXACT same patch as the kernel module. NVIDIA enforces an
+              # exact userspace↔kernel version check, so a neighbor-version
+              # pin (e.g. kmod .16 + lib32 .18 from a failed earlier run) is
+              # still broken and must be refreshed from tesla/.
+              if [ -f /dst/.nvidia_version ] \
+                 && [ "$(cat /dst/.nvidia_version)" = "$NV_VERSION" ] \
+                 && [ -f /dst/.nvidia_lib32_version ] \
+                 && [ "$(cat /dst/.nvidia_lib32_version)" = "$NV_VERSION" ] \
+                 && [ -e /dst/lib32/libGLX_nvidia.so.0 ]; then
+                echo "lib32 already populated at exact version ${NV_VERSION}, skipping download"
+              else
+                # Build an ordered URL candidate list. Talos LTS driver versions
+                # (580.126.16 / .20) are published under NVIDIA's tesla/
+                # datacenter path, NOT under XFree86/Linux-x86_64/. An EXACT
+                # version match is required — NVIDIA enforces a userspace↔
+                # kernel-module version check, so Steam's 32-bit CUDA/NVML
+                # probe fails if the .run version differs from the kernel
+                # module version even by one patch. We try, in order:
+                #   1. tesla/${NV_VERSION}   (datacenter/LTS — Talos canonical)
+                #   2. XFree86/…/${NV_VERSION} (consumer — rare but possible)
+                #   3. XFree86 same-minor fallbacks (last resort; likely fails
+                #      the NVML version check but copied anyway to expose the
+                #      precise error in logs)
+                NV_MINOR=$(echo "$NV_VERSION" | awk -F. '{print $1"."$2}')
+                INDEX_URL="https://download.nvidia.com/XFree86/Linux-x86_64/"
+
+                CANDIDATE_URLS=$(
+                  {
+                    echo "https://us.download.nvidia.com/tesla/${NV_VERSION}/NVIDIA-Linux-x86_64-${NV_VERSION}.run"
+                    echo "https://us.download.nvidia.com/XFree86/Linux-x86_64/${NV_VERSION}/NVIDIA-Linux-x86_64-${NV_VERSION}.run"
+                    # Same-minor fallbacks (descending patch level, exclude exact)
+                    curl -fsS "$INDEX_URL" 2>/dev/null \
+                      | grep -oE "${NV_MINOR//./\\.}\\.[0-9]+/" \
+                      | tr -d '/' \
+                      | sort -t. -k3 -n -r \
+                      | awk -v exact="$NV_VERSION" '$0 != exact {
+                          print "https://us.download.nvidia.com/XFree86/Linux-x86_64/" $0 "/NVIDIA-Linux-x86_64-" $0 ".run"
+                        }'
+                  } | awk '!seen[$0]++'
+                )
+                echo "Candidate .run URLs (preferred first):"
+                echo "$CANDIDATE_URLS" | sed 's/^/  /'
+
+                mkdir -p /tmp/nv
+                cd /tmp/nv
+                NV_DL_VERSION=""
+                NV_DL_SOURCE=""
+                # URLs contain no whitespace; default IFS word-splits on
+                # newline, so `for url in $CANDIDATE_URLS` iterates one URL at
+                # a time without needing a heredoc.
+                for url in $CANDIDATE_URLS; do
+                  RUN=$(basename "$url")
+                  echo "Trying ${url}"
+                  if curl -fsSLO "$url"; then
+                    NV_DL_VERSION=$(echo "$RUN" | sed 's|NVIDIA-Linux-x86_64-||; s|\.run$||')
+                    NV_DL_SOURCE="$url"
+                    break
+                  fi
+                  rm -f "$RUN"
+                done
+                if [ -z "$NV_DL_VERSION" ]; then
+                  echo "ERROR: no upstream .run available for kernel module ${NV_VERSION} or same-minor fallbacks"
+                  exit 1
+                fi
+                echo "Using NVIDIA upstream ${NV_DL_VERSION} for kernel module ${NV_VERSION}"
+                echo "Source: ${NV_DL_SOURCE}"
+
+                RUN="NVIDIA-Linux-x86_64-${NV_DL_VERSION}.run"
+                chmod +x "$RUN"
+                # --extract-only writes to /tmp/nv/extracted; -x is the short form.
+                ./"$RUN" -x --target /tmp/nv/extracted
+                NV_32_DIR=$(find /tmp/nv/extracted -type d -name 32 | head -1)
+                if [ -z "$NV_32_DIR" ]; then
+                  echo "ERROR: 32/ directory not found in extracted installer"
+                  find /tmp/nv/extracted -maxdepth 2 -type d
+                  exit 1
+                fi
+                echo "Copying 32-bit libs from ${NV_32_DIR}"
+                # Purge any stale libs from a previous (possibly different-
+                # version) run so orphaned versioned files cannot confuse
+                # ldconfig's SONAME resolution.
+                rm -f /dst/lib32/*.so* 2>/dev/null || true
+                # cp -a preserves the installer's internal symlinks; but the
+                # NVIDIA installer's 32/ subtree only ships versioned real
+                # files (e.g. libGLX_nvidia.so.580.126.16) — the SONAME
+                # symlinks (libGLX_nvidia.so.0 → …) are normally created by
+                # the installer at install time. Re-create them from ELF
+                # SONAMEs below.
+                cp -a "$NV_32_DIR"/*.so* /dst/lib32/
+
+                echo "Creating SONAME symlinks in /dst/lib32/"
+                for lib in /dst/lib32/*.so.*; do
+                  [ -L "$lib" ] && continue
+                  [ -f "$lib" ] || continue
+                  soname=$(objdump -p "$lib" 2>/dev/null \
+                    | awk '/^[[:space:]]*SONAME[[:space:]]/{print $2; exit}')
+                  [ -z "$soname" ] && continue
+                  target=$(basename "$lib")
+                  [ "$soname" = "$target" ] && continue
+                  ln -sfn "$target" "/dst/lib32/${soname}"
+                done
+                # Pin by kernel-module version so re-runs against the same
+                # extension skip the download even when the upstream .run is
+                # a neighbor patch.
+                echo "$NV_VERSION" > /dst/.nvidia_version
+                echo "$NV_DL_VERSION" > /dst/.nvidia_lib32_version
+                cd /
+                rm -rf /tmp/nv
+              fi
+
+              # ── Summary ─────────────────────────────────────────────────
               echo "=== NVIDIA driver setup complete ==="
-              echo "Libraries copied:"
+              echo "64-bit libraries copied:"
               ls -1 /dst/lib/*.so* | wc -l
+              echo "32-bit libraries copied:"
+              ls -1 /dst/lib32/*.so* 2>/dev/null | wc -l
               echo "GBM backend:"
               ls -la /dst/lib/gbm/
               echo "Vulkan/EGL configs:"
               find /dst/share/ -name '*.json' -type f
+              echo "Pinned NVIDIA kernel-module version:"
+              cat /dst/.nvidia_version
+              if [ -f /dst/.nvidia_lib32_version ]; then
+                echo "lib32 sourced from upstream .run version:"
+                cat /dst/.nvidia_lib32_version
+              fi
           volumeMounts:
             - name: src
               mountPath: /src
               readOnly: true
             - name: dst
               mountPath: /dst
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: src
           hostPath:
@@ -132,3 +299,6 @@ spec:
           hostPath:
             path: /var/lib/wolf-nvidia-driver
             type: DirectoryOrCreate
+        - name: tmp
+          emptyDir:
+            sizeLimit: 2Gi

@@ -41,7 +41,7 @@ deps: {
 }
 ```
 
-> Do not manually edit version pins after creation. Use `task update-deps` from the workspace root to keep dep versions current.
+> Do not manually edit version pins after creation. Use `task deps:update` from the workspace root to keep dep versions current.
 
 ## Step 3: Write module.cue
 

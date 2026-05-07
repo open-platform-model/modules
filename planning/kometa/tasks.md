@@ -49,7 +49,7 @@ deps: {
 }
 ```
 
-> Do **not** manually edit version pins. Run `task update-deps` from the workspace root
+> Do **not** manually edit version pins. Run `task deps:update` from the workspace root
 > after scaffolding to pull the latest compatible versions.
 
 ---

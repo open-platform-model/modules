@@ -619,6 +619,106 @@ Re-run the Job after any Talos NVIDIA extension upgrade (new driver version).
 
 ---
 
+## Issue 17 — Steam grey screen: three independent blockers
+
+**Symptom**
+
+Steam launches inside its DinD container. Sway top bar renders, screen stays
+grey, then Steam exits with `basic_string::_M_create`. In earlier iterations
+we also saw `glx: failed to create dri3 screen`, `failed to load driver:
+nouveau`, `Could not open connection to X`, and `Transport Error 0x3000`.
+
+Other GOW apps (Wolf-UI, Firefox, RetroArch) stream correctly.
+
+**Root cause — three independent issues, fixed in order**
+
+### 1. Missing 32-bit NVIDIA userspace libs
+
+Steam's bootstrap (`/home/retro/.steam/ubuntu12_32/steam`) is a 32-bit (i386)
+binary that needs 32-bit `libGLX_nvidia.so.0`, `libEGL_nvidia.so.0`,
+`libcuda.so.1`, etc. The Talos `nvidia-open-gpu-kernel-modules-lts` extension
+ships only x86_64 libs, so the original `nvidia-driver-setup` Job populated
+`/var/lib/wolf-nvidia-driver/lib/` (64-bit only). `lib32/` was empty.
+
+NVIDIA enforces an **exact** userspace↔kernel-module version match. The Talos
+LTS series (`580.126.16`, `.20`) is NOT published under NVIDIA's consumer
+`XFree86/Linux-x86_64/` archive — those releases live under `tesla/`. The
+extended Job probes `tesla/${VER}/` first, then falls back to the consumer
+archive and then same-minor neighbors.
+
+### 2. `DISPLAY` not propagated to Steam
+
+Steam's bootstrap is an X11 app and needs `DISPLAY=:0` to reach XWayland.
+Sway starts XWayland, but the `DISPLAY` env var is not propagated to the
+process started via `exec` in the Sway config.
+
+### 3. `user.max_user_namespaces = 0` on Talos host
+
+Talos ships with `user.max_user_namespaces=0` (hardened default). Steam's
+runtime (pressure-vessel sandbox) bails out with *"Steam now requires user
+namespaces to be enabled"*, which surfaces to the container log as the
+generic `basic_string::_M_create` — easily mistaken for a GL init error.
+This was the actual blocker behind most of our iteration; the 32-bit libs
+were necessary but not sufficient.
+
+### 4. CEF /dev/shm too small (0x3000 Transport Error)
+
+Once Steam's sandbox initialized, `steamwebhelper` (CEF) crashed with
+`Less than 64MB of free space in temporary directory for shared memory files`
+and `CommandBufferHelper::AllocateRingBuffer() failed`, then showed the
+0x3000 dialog. Docker's default 64 MB `/dev/shm` is too small for CEF; Steam
+needs ≥256 MB. The Steam app had `IpcMode: "host"` which makes Docker
+**ignore `ShmSize`** — the container inherits DinD's 64 MB shm.
+
+Full analysis: `DEPLOYMENT_NOTES_NVIDIA_DRIVER.md`.
+
+**Fix**
+
+1. `modules/wolf/init/nvidia-driver-setup-job.yaml` extended to populate
+   `/var/lib/wolf-nvidia-driver/lib32/`. Uses `alpine:3.19` with `curl`,
+   `zstd`, `xz`, `binutils`. Logic:
+   - Detect kernel driver version from `/src/lib/libnvidia-glcore.so.<VERSION>`.
+   - Build an ordered URL candidate list: `tesla/${VER}/` first (Talos LTS),
+     `XFree86/Linux-x86_64/${VER}/` second, then same-minor neighbors from
+     the XFree86 index.
+   - `curl` the first URL that resolves, extract with `--extract-only` into
+     a 2 GiB `emptyDir`-backed `/tmp`.
+   - `cp -a <extracted>/32/*.so* /dst/lib32/` (preserves symlinks).
+   - Re-create SONAME symlinks (`.so.0`, `.so.1`) from ELF SONAMEs via
+     `objdump -p` — the installer's `32/` subtree ships only versioned real
+     files; SONAME symlinks are normally created at install time.
+   - Pin `/dst/.nvidia_version` (kernel module) and `/dst/.nvidia_lib32_version`
+     (upstream .run); re-runs skip download only when both match
+     `NV_VERSION` exactly.
+2. `releases/mr_spel/wolf/release.cue` Steam app `env` adds `"DISPLAY=:0"`.
+3. Talos machine config: add `machine.sysctls."user.max_user_namespaces": "15000"`.
+   Applied via a new patch file in the larnet repo (`infra/talos/patches/
+   user-namespaces.yaml`); node reboot required.
+4. `releases/mr_spel/wolf/release.cue` Steam app `base_create_json`:
+   - Add `"ShmSize": 2147483648` (2 GiB).
+   - Remove `"IpcMode": "host"` — with host IPC, `ShmSize` is ignored.
+
+GOW app images already include `/etc/ld.so.conf.d/nvidia.conf` listing both
+`/usr/nvidia/lib` and `/usr/nvidia/lib32`, and `30-nvidia.sh` runs `ldconfig`
+at container start, so no `LD_LIBRARY_PATH` change is needed.
+
+**Operational note** — after a stale crash, Chromium leaves a profile lock
+on the PVC that persists across container restarts:
+
+```
+/home/retro/.steam/steam/config/htmlcache/SingletonLock
+/home/retro/.steam/steam/config/htmlcache/SingletonCookie
+/home/retro/.steam/steam/config/htmlcache/SingletonSocket
+```
+
+Delete these on the PVC (via `docker exec`) before re-launching Steam if
+you've hit a webhelper crash.
+
+**Status** ✓ Resolved (2026-04-24) — Steam Big Picture renders, logs in,
+updates, browses the store, launches games.
+
+---
+
 ## Current state
 
 | Capability | Status |
