@@ -16,6 +16,7 @@ import (
 	resources_extension "opmodel.dev/opm/v1alpha1/resources/extension@v1"
 	resources_security "opmodel.dev/opm/v1alpha1/resources/security@v1"
 	resources_storage "opmodel.dev/opm/v1alpha1/resources/storage@v1"
+	resources_storage_k8s "opmodel.dev/kubernetes/v1/resources/storage@v1"
 	resources_workload "opmodel.dev/opm/v1alpha1/resources/workload@v1"
 	traits_network "opmodel.dev/opm/v1alpha1/traits/network@v1"
 	traits_security "opmodel.dev/opm/v1alpha1/traits/security@v1"
@@ -92,6 +93,7 @@ import (
 		traits_workload.#RestartPolicy
 		traits_workload.#UpdateStrategy
 		traits_workload.#GracefulShutdown
+		traits_workload.#SidecarContainers
 		traits_security.#SecurityContext
 		traits_security.#WorkloadIdentity
 
@@ -126,7 +128,8 @@ import (
 				}
 
 				args: [
-					"--nodeid=$(OPENEBS_NODE_ID)",
+					// zfs-driver 2.6.x uses --nodename (was --nodeid in older releases).
+					"--nodename=$(OPENEBS_NODE_NAME)",
 					"--endpoint=$(OPENEBS_CSI_ENDPOINT)",
 					"--plugin=controller",
 				]
@@ -134,6 +137,15 @@ import (
 				env: {
 					OPENEBS_NODE_ID: {
 						name: "OPENEBS_NODE_ID"
+						fieldRef: fieldPath: "spec.nodeName"
+					}
+					// Upstream zfs-driver 2.6.x fatals on startup ("OPENEBS_NODE_NAME
+					// environment variable not set" — volume.go:89) without this.
+					// Both NODE_ID and NODE_NAME come from spec.nodeName; the driver
+					// uses NODE_ID for the CSI --nodeid arg and NODE_NAME for ZFSNode
+					// custom-resource ownership.
+					OPENEBS_NODE_NAME: {
+						name: "OPENEBS_NODE_NAME"
 						fieldRef: fieldPath: "spec.nodeName"
 					}
 					OPENEBS_CSI_ENDPOINT: {
@@ -188,6 +200,122 @@ import (
 				}
 			}
 
+			// CSI sidecars — the zfs-driver controller container is only a CSI
+			// server. These sidecars translate Kubernetes PVC events into CSI
+			// RPCs and call into the driver over the shared /plugin/csi.sock.
+			sidecarContainers: [
+				{
+					name: "csi-provisioner"
+					image: {
+						repository: "registry.k8s.io/sig-storage/csi-provisioner"
+						tag:        #config.sidecars.provisionerTag
+						pullPolicy: "IfNotPresent"
+						digest:     ""
+					}
+					args: [
+						"--v=5",
+						"--csi-address=$(ADDRESS)",
+						"--feature-gates=Topology=true",
+						"--extra-create-metadata",
+						"--leader-election",
+					]
+					env: {
+						ADDRESS: {
+							name:  "ADDRESS"
+							value: "/plugin/csi.sock"
+						}
+					}
+					volumeMounts: {
+						"plugin-dir": {
+							name:      "plugin-dir"
+							mountPath: "/plugin"
+							emptyDir: {}
+						}
+					}
+				},
+				{
+					name: "csi-attacher"
+					image: {
+						repository: "registry.k8s.io/sig-storage/csi-attacher"
+						tag:        #config.sidecars.attacherTag
+						pullPolicy: "IfNotPresent"
+						digest:     ""
+					}
+					args: [
+						"--v=5",
+						"--csi-address=$(ADDRESS)",
+						"--leader-election",
+					]
+					env: {
+						ADDRESS: {
+							name:  "ADDRESS"
+							value: "/plugin/csi.sock"
+						}
+					}
+					volumeMounts: {
+						"plugin-dir": {
+							name:      "plugin-dir"
+							mountPath: "/plugin"
+							emptyDir: {}
+						}
+					}
+				},
+				{
+					name: "csi-resizer"
+					image: {
+						repository: "registry.k8s.io/sig-storage/csi-resizer"
+						tag:        #config.sidecars.resizerTag
+						pullPolicy: "IfNotPresent"
+						digest:     ""
+					}
+					args: [
+						"--v=5",
+						"--csi-address=$(ADDRESS)",
+						"--leader-election",
+					]
+					env: {
+						ADDRESS: {
+							name:  "ADDRESS"
+							value: "/plugin/csi.sock"
+						}
+					}
+					volumeMounts: {
+						"plugin-dir": {
+							name:      "plugin-dir"
+							mountPath: "/plugin"
+							emptyDir: {}
+						}
+					}
+				},
+				{
+					name: "csi-snapshotter"
+					image: {
+						repository: "registry.k8s.io/sig-storage/csi-snapshotter"
+						tag:        #config.sidecars.snapshotterTag
+						pullPolicy: "IfNotPresent"
+						digest:     ""
+					}
+					args: [
+						"--v=5",
+						"--csi-address=$(ADDRESS)",
+						"--leader-election",
+					]
+					env: {
+						ADDRESS: {
+							name:  "ADDRESS"
+							value: "/plugin/csi.sock"
+						}
+					}
+					volumeMounts: {
+						"plugin-dir": {
+							name:      "plugin-dir"
+							mountPath: "/plugin"
+							emptyDir: {}
+						}
+					}
+				},
+			]
+
 			// Controller security context — runs as root with full privilege
 			// required for ZFS dataset management operations.
 			securityContext: {
@@ -212,6 +340,8 @@ import (
 		traits_workload.#RestartPolicy
 		traits_workload.#UpdateStrategy
 		traits_workload.#GracefulShutdown
+		traits_workload.#SidecarContainers
+		traits_workload.#InitContainers
 		traits_network.#HostNetwork
 		traits_security.#HostPID
 		traits_security.#SecurityContext
@@ -255,14 +385,24 @@ import (
 				}
 
 				args: [
-					"--nodeid=$(OPENEBS_NODE_ID)",
+					// zfs-driver 2.6.x uses --nodename (was --nodeid in older releases).
+					"--nodename=$(OPENEBS_NODE_NAME)",
 					"--endpoint=$(OPENEBS_CSI_ENDPOINT)",
-					"--plugin=node",
+					// "agent" enables Identity + Node + CSI registration paths on the
+					// node-side; "node" only registered Identity in 2.6.x, leading to
+					// kubelet plugin-registration failures (unknown service csi.v1.Node).
+					"--plugin=agent",
 				]
 
 				env: {
 					OPENEBS_NODE_ID: {
 						name: "OPENEBS_NODE_ID"
+						fieldRef: fieldPath: "spec.nodeName"
+					}
+					// See controller env block for explanation. Required for the node
+					// plugin to register itself as a ZFSNode CR.
+					OPENEBS_NODE_NAME: {
+						name: "OPENEBS_NODE_NAME"
 						fieldRef: fieldPath: "spec.nodeName"
 					}
 					OPENEBS_CSI_ENDPOINT: {
@@ -276,6 +416,18 @@ import (
 					OPENEBS_NODE_DRIVER: {
 						name:  "OPENEBS_NODE_DRIVER"
 						value: "agent"
+					}
+					// The driver image is glibc-based but Talos's siderolabs/zfs
+					// extension is musl-linked (interpreter /lib/ld-musl-x86_64.so.1
+					// which doesn't exist in the container). Direct exec of the host's
+					// /host/usr/local/sbin/zfs binary fails with "no such file or
+					// directory" on the missing interpreter. Instead, an init container
+					// writes shell wrapper scripts to a shared emptyDir at /opt/zfs-bin
+					// that chroot into /host before exec'ing the binary — that way the
+					// binary runs against the host's filesystem and libs.
+					PATH: {
+						name:  "PATH"
+						value: "/opt/zfs-bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 					}
 				}
 
@@ -312,6 +464,11 @@ import (
 						mountPropagation: "Bidirectional"
 						emptyDir: {}
 					}
+					"zfs-wrappers": {
+						name:      "zfs-wrappers"
+						mountPath: "/opt/zfs-bin"
+						emptyDir: {}
+					}
 				}
 
 				securityContext: {
@@ -323,6 +480,41 @@ import (
 					}
 				}
 			}
+
+			// Init container — writes the zfs/zpool chroot wrapper scripts into the
+			// shared /opt/zfs-bin emptyDir before the main container starts. See the
+			// PATH env var on the main container for the rationale.
+			initContainers: [{
+				name: "install-zfs-wrappers"
+				image: {
+					repository: "busybox"
+					tag:        "1.37"
+					digest:     ""
+					pullPolicy: "IfNotPresent"
+				}
+				command: ["/bin/sh", "-c"]
+				args: ["""
+					set -e
+					cat > /opt/zfs-bin/zfs <<'WRAP'
+					#!/bin/sh
+					exec chroot /host /usr/local/sbin/zfs "$@"
+					WRAP
+					cat > /opt/zfs-bin/zpool <<'WRAP'
+					#!/bin/sh
+					exec chroot /host /usr/local/sbin/zpool "$@"
+					WRAP
+					chmod +x /opt/zfs-bin/zfs /opt/zfs-bin/zpool
+					echo "installed wrappers:"
+					ls -la /opt/zfs-bin/
+					"""]
+				volumeMounts: {
+					"zfs-wrappers": {
+						name:      "zfs-wrappers"
+						mountPath: "/opt/zfs-bin"
+						emptyDir: {}
+					}
+				}
+			}]
 
 			volumes: {
 				"plugin-dir": {
@@ -367,7 +559,63 @@ import (
 						type: "Directory"
 					}
 				}
+				"zfs-wrappers": {
+					name: "zfs-wrappers"
+					emptyDir: {}
+				}
 			}
+
+			// CSI node-driver-registrar sidecar — runs on every node, hands the
+			// /plugin/csi.sock path to kubelet's plugin registry so kubelet can
+			// route Mount/Stage RPCs to this driver.
+			sidecarContainers: [
+				{
+					name: "csi-node-driver-registrar"
+					image: {
+						repository: "registry.k8s.io/sig-storage/csi-node-driver-registrar"
+						tag:        #config.sidecars.nodeRegistrarTag
+						pullPolicy: "IfNotPresent"
+						digest:     ""
+					}
+					args: [
+						"--v=5",
+						"--csi-address=$(ADDRESS)",
+						"--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)",
+					]
+					env: {
+						ADDRESS: {
+							name:  "ADDRESS"
+							value: "/plugin/csi.sock"
+						}
+						DRIVER_REG_SOCK_PATH: {
+							name:  "DRIVER_REG_SOCK_PATH"
+							value: "\(#config.nodePlugin.kubeletDir)/plugins/zfs.csi.openebs.io/csi.sock"
+						}
+						KUBE_NODE_NAME: {
+							name: "KUBE_NODE_NAME"
+							fieldRef: fieldPath: "spec.nodeName"
+						}
+					}
+					volumeMounts: {
+						"plugin-dir": {
+							name:      "plugin-dir"
+							mountPath: "/plugin"
+							hostPath: {
+								path: "\(#config.nodePlugin.kubeletDir)/plugins/zfs.csi.openebs.io"
+								type: "DirectoryOrCreate"
+							}
+						}
+						"registration-dir": {
+							name:      "registration-dir"
+							mountPath: "/registration"
+							hostPath: {
+								path: "\(#config.nodePlugin.kubeletDir)/plugins_registry"
+								type: "Directory"
+							}
+						}
+					}
+				},
+			]
 
 			// Node security context — runs as root with full privilege
 			// required for ZFS pool and device operations on the host.
@@ -418,12 +666,14 @@ import (
 				},
 				{
 					apiGroups: ["zfs.openebs.io"]
-					resources: ["zfsvolumes", "zfssnapshots", "zfsbackups", "zfsrestores"]
+					// zfsnodes included so the controller can sync the topology cache
+					// of which pools live on which nodes (required by 2.6.x).
+					resources: ["zfsvolumes", "zfssnapshots", "zfsbackups", "zfsrestores", "zfsnodes"]
 					verbs: ["*"]
 				},
 				{
 					apiGroups: ["zfs.openebs.io"]
-					resources: ["zfsvolumes/status", "zfssnapshots/status", "zfsbackups/status", "zfsrestores/status"]
+					resources: ["zfsvolumes/status", "zfssnapshots/status", "zfsbackups/status", "zfsrestores/status", "zfsnodes/status"]
 					verbs: ["update", "patch"]
 				},
 				{
@@ -460,6 +710,12 @@ import (
 					apiGroups: ["storage.k8s.io"]
 					resources: ["volumeattachments/status"]
 					verbs: ["patch"]
+				},
+				{
+					// csi-provisioner needs CSINode topology to schedule volumes.
+					apiGroups: ["storage.k8s.io"]
+					resources: ["csinodes"]
+					verbs: ["get", "list", "watch"]
 				},
 			]
 
@@ -512,6 +768,47 @@ import (
 			]
 
 			subjects: [{name: "openebs-zfs-node-sa"}]
+		}
+	}
+
+	/////////////////////////////////////////////////////////////////
+	//// StorageClass — user-facing PVC entrypoint
+	////
+	//// provisioner: zfs.csi.openebs.io
+	//// parameters: poolname, fstype, compression, recordsize, dedup
+	////
+	//// Component name "zfspv" so the OPM k8s transformer renders the
+	//// StorageClass as "<release-name>-zfspv". The release's
+	//// metadata.name override (#config.storageClass.name) takes
+	//// precedence on the final K8s resource name.
+	/////////////////////////////////////////////////////////////////
+
+	zfspv: {
+		resources_storage_k8s.#StorageClass
+
+		spec: storageclass: {
+			metadata: {
+				name: #config.storageClass.name
+				if #config.storageClass.isDefault {
+					annotations: {
+						"storageclass.kubernetes.io/is-default-class": "true"
+					}
+				}
+			}
+			provisioner:          "zfs.csi.openebs.io"
+			reclaimPolicy:        #config.storageClass.reclaimPolicy
+			volumeBindingMode:    #config.storageClass.volumeBindingMode
+			allowVolumeExpansion: #config.storageClass.allowVolumeExpansion
+			parameters: {
+				poolname:    #config.storageClass.poolName
+				fstype:      #config.storageClass.fsType
+				compression: #config.storageClass.compression
+				dedup:       #config.storageClass.dedup
+				// recordsize is only meaningful for native ZFS datasets (fsType=zfs).
+				if #config.storageClass.fsType == "zfs" {
+					recordsize: #config.storageClass.recordSize
+				}
+			}
 		}
 	}
 }

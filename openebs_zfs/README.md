@@ -16,7 +16,7 @@ The module deploys five components into the `openebs` namespace:
 
 The CSI controller runs as a single Deployment (scale to 2+ for HA). The CSI node plugin runs as a DaemonSet with `hostNetwork: true` and privileged access — it mounts the host's `/dev`, `/sys`, and root filesystem so it can call `zfs` and `zpool` commands via `chroot /host`.
 
-**Note on sidecars:** The CSI controller requires four sidecar containers (`csi-provisioner`, `csi-attacher`, `csi-resizer`, `csi-snapshotter`) and the node plugin requires one (`csi-node-driver-registrar`). These are not yet modeled in the CUE module. See `DEPLOYMENT_NOTES.md` for the current workaround.
+**Sidecars:** The CSI controller runs four sidecars (`csi-provisioner`, `csi-attacher`, `csi-resizer`, `csi-snapshotter`) and the node plugin runs one (`csi-node-driver-registrar`). All five are modeled directly in `components.cue` via `traits_workload.#SidecarContainers`. Tag pins are exposed under `#config.sidecars`. See `DEPLOYMENT_NOTES.md` for the upstream-2.6.x divergences this module compensates for and the remaining `CSIDriver`-object limitation.
 
 ---
 

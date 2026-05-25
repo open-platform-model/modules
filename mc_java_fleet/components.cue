@@ -1660,10 +1660,13 @@ import (
 					// Run as the same UID/GID as the server containers so that
 					// files written by the servers are accessible in code-server.
 					// readOnlyRootFilesystem is false — code-server writes to /home/coder.
+					// fsGroup chowns the mounted home volume on attach so the
+					// non-root container can write to /home/coder on first start.
 					securityContext: {
 						runAsNonRoot:             true
 						runAsUser:                1000
 						runAsGroup:               3000
+						fsGroup:                  3000
 						readOnlyRootFilesystem:   false
 						allowPrivilegeEscalation: false
 						capabilities: drop: ["ALL"]

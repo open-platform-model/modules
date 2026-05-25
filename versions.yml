@@ -3,80 +3,77 @@
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
 wolf:
-  version: v0.0.27
-  checksum: d93fc31205ab80b85fdff03e1c29638104349bc4a39060a6fa827cf652bcb6b6
+  version: v0.1.2
+  checksum: fac263cd475286cbb4482d0a36bdab60645616c017d39e016cd63ef5650f7e55
 metallb:
-  version: v0.0.6
+  version: v0.0.7
   checksum: 46583a4278dd4af8d81c188e59ae10dbb7b7a4e40fe4fd178aaea1d068249979
 zot_registry_ttl:
-  version: v0.0.6
+  version: v0.0.7
   checksum: c903e6b1ecdebd35c8a0c6e15d2df5f1d397873293d1b22e451f7578eec93163
 jellyfin:
-  version: v1.0.29
+  version: v1.0.30
   checksum: 3f0ec17b8f6480437a999cfcfcb41f446c9a72fe3b154f6802abe3ee4953d75a
 gateway_api:
   version: v1.1.13
-  checksum: 9eb9ef175f897cf2091ae96e73be36b88d18cb95a4d67b6162883598faffc84d
 openebs_zfs:
-  version: v0.0.8
-  checksum: ff49788b8c76d403ec165559781cfc9c05ead443c2c7e00d4bfab3e2ce2cf1ff
+  version: v0.0.24
+  checksum: 86399c7203a47438bbfd7464cba6fb9e6f7747ebc8d68658709205bf6374f180
 metric_server:
-  version: v0.0.6
-  checksum: "ed5c8e2bca26fbbae0c45a02954d2002b56683f9b8b9ec165d4df33a1fa826b8"
+  version: v0.0.7
+  checksum: ed5c8e2bca26fbbae0c45a02954d2002b56683f9b8b9ec165d4df33a1fa826b8
 intel_gpu_device_plugin:
-  version: v0.0.12
-  checksum: "f9d13b2251c5ad9a8915f370901db0d637e760054be326851d8ded6fae162ec3"
+  version: v0.0.13
+  checksum: f9d13b2251c5ad9a8915f370901db0d637e760054be326851d8ded6fae162ec3
 gateway:
-  version: v0.0.26
+  version: v0.0.27
   checksum: 4dc976773e5240846ab5fe75bbafd8d18a8766cf6ea0e07fa04c84c8d56e71df
 cert_manager:
-  version: v0.0.7
+  version: v0.0.8
   checksum: 4ee0c5c82a8693573149ebb04b03583bc900e2786a987df55d2bb4c90e248805
 cert_manager_config:
-  version: v0.0.4
+  version: v0.0.5
   checksum: 83f15f1d424b31112db14d2596d546ce421875535a0c46affa063f9b44bb97bc
 intel_gpu_exporter:
-  version: v0.0.7
-  checksum: "2914122e3a664fe5ba10df93f8a61404f67668bda9e79372c13ccabe5e5d038a"
+  version: v0.0.8
+  checksum: 2914122e3a664fe5ba10df93f8a61404f67668bda9e79372c13ccabe5e5d038a
 garage:
-  version: v0.0.2
+  version: v0.0.3
   checksum: 7da29f8a83e248522b015bdcafe41ab5d26261fc86475f14d4e5ccca740b60e1
 k8up:
-  version: v1.0.18
+  version: v1.0.19
   checksum: e6b7c4a237580de28763382387abd5e20e0f06f6919f42bf4a40334b2c7e8ae8
 seerr:
-  version: v0.0.6
+  version: v0.0.7
   checksum: ba8d70fc29c7273d9474ae918b088688439fb0424d64159240a47233f52e3eb7
 olaris:
   version: v0.0.2
-  checksum: b7b1de80fe655adaa9b123ebbe9b7436a85a322c1833bf78ef22be786a848b45
 mc_java_fleet:
-  version: v0.0.2
-  checksum: e3d353ecfad9dec44598ffd24ef6b233a358aca9bd2e0ac2a170cb39c42ca14e
+  version: v0.1.2
+  checksum: e04b50b409daad23e40ed51ffeb52cd3d784a5908b9112a2199fa81f2d2527ff
 streamio:
   version: v0.0.3
-  checksum: 6d00e6e19507e04fe79f797effea10a32990c4e6808fc408e46bc3a721ff5a3c
 openebs:
-  version: v0.0.2
+  version: v0.0.3
   checksum: a0f5dc2c6077f14a2620b182863483c5d5a753b3e2c859d6f279698990ad6c98
 sealed_secrets:
-  version: v0.0.4
+  version: v0.0.5
   checksum: 633567ef28075d1b1189970cd56820d817eacc127dfb6a9b7e155b077f085f17
 ch_vmm:
-  version: v0.0.5
+  version: v0.0.6
   checksum: 5595266eb2461316d5dee27cb41422c72e4eb64532537defd49b538405fb6e23
 mongodb_operator:
-  version: v0.0.10
-  checksum: "1472c5776f86226b89406d69b7575ac821fa55c42b13c647fc9dd0db98c45aec"
+  version: v0.0.11
+  checksum: 1472c5776f86226b89406d69b7575ac821fa55c42b13c647fc9dd0db98c45aec
 clickhouse_operator:
-  version: v0.0.4
-  checksum: "894c6717ae21e899f80b0740d0010c88ea1ca4ea0484a51c0a98351ed2440864"
-otel_collector:
   version: v0.0.5
-  checksum: "35a63bdc4f3897d745f3e64e72f2310c4ddf73f6bf843cab4080aa1da37a31a6"
+  checksum: 894c6717ae21e899f80b0740d0010c88ea1ca4ea0484a51c0a98351ed2440864
+otel_collector:
+  version: v0.0.6
+  checksum: 35a63bdc4f3897d745f3e64e72f2310c4ddf73f6bf843cab4080aa1da37a31a6
 clickstack:
-  version: v0.0.14
-  checksum: "5b58c78289d2c04df814d04d82e42f3d868bbe8399131ba417ca92538a5e297c"
+  version: v0.0.15
+  checksum: 5b58c78289d2c04df814d04d82e42f3d868bbe8399131ba417ca92538a5e297c
 istio_ambient:
-  version: v0.0.2
-  checksum: "0266dfa338dc48efc49b7d9f678aaf9da11067df43958a74e2c2304ea05960c5"
+  version: v0.0.3
+  checksum: 0266dfa338dc48efc49b7d9f678aaf9da11067df43958a74e2c2304ea05960c5

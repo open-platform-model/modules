@@ -104,7 +104,11 @@ package openebs_zfs
 								type:        "string"
 							}
 						}
-						required: ["capacity", "nodeID", "ownerNodeID", "poolName"]
+						// nodeID intentionally NOT required — the driver creates the
+						// ZFSVolume CR with only ownerNodeID set; the node controller
+						// fills in nodeID later when the volume is actually mounted.
+						// Marking nodeID required breaks CreateVolume in 2.6.x.
+						required: ["capacity", "ownerNodeID", "poolName"]
 						type: "object"
 					}
 					status: {
@@ -121,8 +125,13 @@ package openebs_zfs
 			}
 			served:  true
 			storage: true
-			subresources: status: {}
-		}]
+		},
+			// Status subresource intentionally NOT enabled — upstream zfs-driver
+			// 2.6.x updates ZFSVolume.status via a regular Update() call, which the
+			// API server silently strips when /status is a subresource. Without the
+			// subresource, the status field is part of the main object and Update
+			// persists it.
+		]
 	}
 }
 
@@ -206,7 +215,11 @@ package openebs_zfs
 								type:        "string"
 							}
 						}
-						required: ["capacity", "nodeID", "ownerNodeID", "poolName"]
+						// nodeID intentionally NOT required — the driver creates the
+						// ZFSVolume CR with only ownerNodeID set; the node controller
+						// fills in nodeID later when the volume is actually mounted.
+						// Marking nodeID required breaks CreateVolume in 2.6.x.
+						required: ["capacity", "ownerNodeID", "poolName"]
 						type: "object"
 					}
 					status: {
@@ -223,8 +236,13 @@ package openebs_zfs
 			}
 			served:  true
 			storage: true
-			subresources: status: {}
-		}]
+		},
+			// Status subresource intentionally NOT enabled — upstream zfs-driver
+			// 2.6.x updates ZFSVolume.status via a regular Update() call, which the
+			// API server silently strips when /status is a subresource. Without the
+			// subresource, the status field is part of the main object and Update
+			// persists it.
+		]
 	}
 }
 
@@ -300,8 +318,13 @@ package openebs_zfs
 			}
 			served:  true
 			storage: true
-			subresources: status: {}
-		}]
+		},
+			// Status subresource intentionally NOT enabled — upstream zfs-driver
+			// 2.6.x updates ZFSVolume.status via a regular Update() call, which the
+			// API server silently strips when /status is a subresource. Without the
+			// subresource, the status field is part of the main object and Update
+			// persists it.
+		]
 	}
 }
 
@@ -369,8 +392,13 @@ package openebs_zfs
 			}
 			served:  true
 			storage: true
-			subresources: status: {}
-		}]
+		},
+			// Status subresource intentionally NOT enabled — upstream zfs-driver
+			// 2.6.x updates ZFSVolume.status via a regular Update() call, which the
+			// API server silently strips when /status is a subresource. Without the
+			// subresource, the status field is part of the main object and Update
+			// persists it.
+		]
 	}
 }
 
@@ -389,7 +417,10 @@ package openebs_zfs
 			plural:   "zfsnodes"
 			singular: "zfsnode"
 		}
-		scope: "Cluster"
+		// Namespaced (not Cluster) — upstream zfs-localpv 2.6.x controller queries the
+		// namespaced endpoint (/apis/zfs.openebs.io/v1/namespaces/openebs/zfsnodes) for
+		// ZFSNode CRs; Cluster scope produces 404 and the controller never starts.
+		scope: "Namespaced"
 		versions: [{
 			name: "v1"
 			schema: openAPIV3Schema: {

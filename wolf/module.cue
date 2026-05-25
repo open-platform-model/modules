@@ -401,12 +401,17 @@ _#portSchema: uint & >0 & <=65535
 	// Generate once with: uuidgen
 	uuid: string
 
-	// === GStreamer pipeline overrides (optional) ===
-	// Override Wolf's built-in GStreamer audio/video pipelines. Only needed when
-	// the defaults don't work well with your GPU hardware (e.g. custom VA-API nodes,
-	// non-standard NVENC configurations, or specific codec tuning requirements).
-	// When absent, Wolf uses its compiled-in default pipelines.
-	gstreamer?: #GstreamerConfig
+	// === GStreamer pipeline ===
+	// Vendor-keyed default selected from gpu.type:
+	//   - "nvidia"   → #GstreamerPresetNvidia   (NVENC first, VA-API + software fallback)
+	//   - "intelamd" → #GstreamerPresetIntelAmd (VA-API first, QSV + software fallback)
+	// Releases can override entirely by supplying a full #GstreamerConfig block.
+	if gpu.type == "nvidia" {
+		gstreamer: #GstreamerConfig | *#GstreamerPresetNvidia
+	}
+	if gpu.type == "intelamd" {
+		gstreamer: #GstreamerConfig | *#GstreamerPresetIntelAmd
+	}
 
 	// === Streaming profiles ===
 	// Each profile groups a set of apps that Moonlight clients can launch.

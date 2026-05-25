@@ -96,6 +96,7 @@ _#pluginsConfig: {
 // The rcon.password field is always provided at module level via #config.rconPassword
 // and injected into each server component — it is intentionally absent here.
 _#config: {
+
 	// name used so that router can reference this server in its defaultServer config when hostname doesn't match any server (e.g. lobby.mc.example.com → defaultServer)
 	name: string
 

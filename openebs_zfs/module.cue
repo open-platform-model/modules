@@ -62,6 +62,8 @@ metadata: {
 
 	// StorageClass configuration — creates an openebs-zfspv StorageClass.
 	storageClass: {
+		// Name of the emitted StorageClass.
+		name: string | *"openebs-zfspv"
 		// Name of the ZFS pool that must exist on all nodes.
 		poolName: string | *"zfspv-pool"
 		// Filesystem type: "zfs" for native datasets, "ext4" for zvol-backed ext4.
@@ -78,6 +80,8 @@ metadata: {
 		reclaimPolicy: "Delete" | *"Retain"
 		// Volume binding mode — WaitForFirstConsumer ensures local affinity.
 		volumeBindingMode: "WaitForFirstConsumer" | "Immediate" | *"WaitForFirstConsumer"
+		// Allow PVCs backed by this SC to be expanded after creation.
+		allowVolumeExpansion: bool | *true
 	}
 }
 
