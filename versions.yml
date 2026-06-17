@@ -3,78 +3,78 @@
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
 wolf:
-  version: v0.1.2
-  checksum: fac263cd475286cbb4482d0a36bdab60645616c017d39e016cd63ef5650f7e55
+  version: v0.1.3
+  checksum: 1c790ac57b5380f4896428d94c8429f3aa099df26ed950ca6220f9848691110a
 metallb:
-  version: v0.0.7
-  checksum: 46583a4278dd4af8d81c188e59ae10dbb7b7a4e40fe4fd178aaea1d068249979
+  version: v0.0.8
+  checksum: dc33c90fda24051ef2f281795464e29a478c9cb7ec6c0e659958c46808ed1c64
 zot_registry_ttl:
-  version: v0.0.7
-  checksum: c903e6b1ecdebd35c8a0c6e15d2df5f1d397873293d1b22e451f7578eec93163
+  version: v0.0.8
+  checksum: c50d1ef38b3509ca3c1d709b65648d7218501934d90f19e083427b3f576375f1
 jellyfin:
   version: v2.0.0
 gateway_api:
   version: v1.1.13
 openebs_zfs:
-  version: v0.0.24
-  checksum: 86399c7203a47438bbfd7464cba6fb9e6f7747ebc8d68658709205bf6374f180
+  version: v0.0.25
+  checksum: 1bab0b131a2e0aae857725a501b8326920d31e46ca407c7e0d82a68a684474ea
 metric_server:
-  version: v0.0.7
-  checksum: ed5c8e2bca26fbbae0c45a02954d2002b56683f9b8b9ec165d4df33a1fa826b8
+  version: v0.0.8
+  checksum: 0a2c6a972be2c6b827ca3734b945a2e9a1e0a30b28c8213f125d5a1df7a1c2d3
 intel_gpu_device_plugin:
-  version: v0.0.13
-  checksum: f9d13b2251c5ad9a8915f370901db0d637e760054be326851d8ded6fae162ec3
+  version: v0.0.14
+  checksum: 32809b68fe2531f1ac4b43e861b40c193b46b5fb15a7eec7e278078d4fbe82ae
 gateway:
-  version: v0.0.27
-  checksum: 4dc976773e5240846ab5fe75bbafd8d18a8766cf6ea0e07fa04c84c8d56e71df
+  version: v0.0.28
+  checksum: 7e4059b5f538273d921e1ef1e18cf6fd9f9fdf755ebabb7ad0767cff82b72240
 cert_manager:
-  version: v0.0.8
-  checksum: 4ee0c5c82a8693573149ebb04b03583bc900e2786a987df55d2bb4c90e248805
+  version: v0.0.9
+  checksum: 87962b87beed0e8dec027ea1771ddf146e11a832b2709885509e796540697dd2
 cert_manager_config:
-  version: v0.0.5
-  checksum: 83f15f1d424b31112db14d2596d546ce421875535a0c46affa063f9b44bb97bc
+  version: v0.0.6
+  checksum: 4b6dae4c2a3c66991c8660fd462e36028127aa8eb24d7609b5e831244229caac
 intel_gpu_exporter:
-  version: v0.0.8
-  checksum: 2914122e3a664fe5ba10df93f8a61404f67668bda9e79372c13ccabe5e5d038a
+  version: v0.0.9
+  checksum: 98da4c2166de2ae2b9902fc1d3850543a98387c1fd3542a64239e142f0ad8236
 garage:
-  version: v0.0.3
-  checksum: 7da29f8a83e248522b015bdcafe41ab5d26261fc86475f14d4e5ccca740b60e1
+  version: v0.0.4
+  checksum: 2386c6a34cee08738153d9b2e513644d430fa91e765a397671b7b3378556a14e
 k8up:
-  version: v1.0.19
-  checksum: e6b7c4a237580de28763382387abd5e20e0f06f6919f42bf4a40334b2c7e8ae8
+  version: v1.0.20
+  checksum: 590174e0348ab3789c4767273948e3ad2cf472600d7ffcc2fa2fc3edbe1e9a61
 seerr:
   version: v1.0.0
 olaris:
   version: v0.0.2
 mc_java_fleet:
-  version: v0.1.2
-  checksum: e04b50b409daad23e40ed51ffeb52cd3d784a5908b9112a2199fa81f2d2527ff
+  version: v0.1.3
+  checksum: 09b949ab2d508859a30e529cbaeefbb707a4de5303c72409c6fd1f60e8eebd47
 streamio:
   version: v0.0.3
 openebs:
-  version: v0.0.3
-  checksum: a0f5dc2c6077f14a2620b182863483c5d5a753b3e2c859d6f279698990ad6c98
+  version: v0.0.4
+  checksum: f5dbb8d77e81e43561a55f1d5e76b0723679d3310ae4cd871cc8882a34f4fbbc
 sealed_secrets:
-  version: v0.0.5
-  checksum: 633567ef28075d1b1189970cd56820d817eacc127dfb6a9b7e155b077f085f17
+  version: v0.0.6
+  checksum: 97bdac290b4b0cc6829c4c127af3501bd462822a0fc320f0d1b88a4df133a2c9
 ch_vmm:
-  version: v0.0.6
-  checksum: 5595266eb2461316d5dee27cb41422c72e4eb64532537defd49b538405fb6e23
+  version: v0.0.7
+  checksum: 9efa6e0a1c10dcaca6ba26324f368a2f058bed6388186a050c99eda925db4969
 mongodb_operator:
-  version: v0.0.11
-  checksum: 1472c5776f86226b89406d69b7575ac821fa55c42b13c647fc9dd0db98c45aec
+  version: v0.0.12
+  checksum: c37230145c28f27fd9a07a07bcd19081f966708b28af4c4dc46133a1efb97a8a
 clickhouse_operator:
-  version: v0.0.5
-  checksum: 894c6717ae21e899f80b0740d0010c88ea1ca4ea0484a51c0a98351ed2440864
-otel_collector:
   version: v0.0.6
-  checksum: 35a63bdc4f3897d745f3e64e72f2310c4ddf73f6bf843cab4080aa1da37a31a6
+  checksum: b3cebf785856da419e6f0aef6bdde6b195d834dccdce8ff8519948efcd9d310e
+otel_collector:
+  version: v0.0.7
+  checksum: 69d8771f66a0226290f5aadad1695720f2644db59c58b8b8a744695a811a58e4
 clickstack:
-  version: v0.0.15
-  checksum: 5b58c78289d2c04df814d04d82e42f3d868bbe8399131ba417ca92538a5e297c
+  version: v0.0.16
+  checksum: d2d0674dcbb4aef5f37b3eeb0cd500913932a281e78908c883edfe6ca577ba9f
 istio_ambient:
-  version: v0.0.3
-  checksum: 0266dfa338dc48efc49b7d9f678aaf9da11067df43958a74e2c2304ea05960c5
+  version: v0.0.4
+  checksum: 3bfc53ad3b2c2c919ddef5d2c0924491e696dda76d3026971970a2c44d3b7d76
 linstor:
   version: v0.0.1
   checksum: ecd2d46c305954ddb742d2c4f9f6fcb3a22ff948eddadbe235743163646f5ba5

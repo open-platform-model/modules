@@ -7,15 +7,15 @@ source: {
 }
 deps: {
 	"opmodel.dev/cert_manager/v1alpha1@v1": {
-		v: "v1.3.2"
+		v: "v1.3.3"
 	}
 	"opmodel.dev/core/v1alpha1@v1": {
-		v: "v1.3.9"
+		v: "v1.3.10"
 	}
 	"opmodel.dev/kubernetes/v1@v1": {
-		v: "v1.0.1"
+		v: "v1.0.2"
 	}
 	"opmodel.dev/opm/v1alpha1@v1": {
-		v: "v1.5.8"
+		v: "v1.5.9"
 	}
 }
