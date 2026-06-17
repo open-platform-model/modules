@@ -1,6 +1,6 @@
 module: "opmodel.dev/modules/istio_ambient@v0"
 language: {
-	version: "v0.15.0"
+	version: "v0.16.0"
 }
 source: {
 	kind: "self"

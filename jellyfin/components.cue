@@ -55,7 +55,7 @@ import (
 				scaling: count: 1
 				restartPolicy: "Always"
 				updateStrategy: {
-					type:          "RollingUpdate"
+					type: "RollingUpdate"
 					rollingUpdate: {}
 				}
 

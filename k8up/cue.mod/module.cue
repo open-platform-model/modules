@@ -1,6 +1,6 @@
 module: "opmodel.dev/modules/k8up@v1"
 language: {
-	version: "v0.15.0"
+	version: "v0.16.0"
 }
 source: {
 	kind: "self"
