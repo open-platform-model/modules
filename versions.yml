@@ -12,8 +12,8 @@ zot_registry_ttl:
   version: v0.0.8
   checksum: c50d1ef38b3509ca3c1d709b65648d7218501934d90f19e083427b3f576375f1
 jellyfin:
-  version: v2.0.1
-  checksum: af63de49c5e76d399135eeefbbf8bb685b9ecf1ae1306d5bf05e82beee2bd9ca
+  version: v2.0.2
+  checksum: 8664ccbf492fb8f9884e915c1c0fb5776c2ea9750ed2abe764da163d2509af91
 gateway_api:
   version: v1.1.13
 openebs_zfs:
@@ -44,8 +44,8 @@ k8up:
   version: v1.0.20
   checksum: 590174e0348ab3789c4767273948e3ad2cf472600d7ffcc2fa2fc3edbe1e9a61
 seerr:
-  version: v1.0.1
-  checksum: 3b894b75722c95b58e3d2a01aa4b3eca3444efad208a787ef0016baac5ea6fce
+  version: v1.0.2
+  checksum: 82216e21c196444b77be9e3f5aadceb016ad90eecc401971953e1b9a64dfc1e0
 olaris:
   version: v0.0.2
 mc_java_fleet:
@@ -81,5 +81,5 @@ linstor:
   version: v0.0.1
   checksum: ecd2d46c305954ddb742d2c4f9f6fcb3a22ff948eddadbe235743163646f5ba5
 web_app:
-  version: v0.0.1
-  checksum: fc32630fab66db81ae4dc7552cbc0f37df73df479af05139674c86228b6583c5
+  version: v0.0.2
+  checksum: 7a062e151154b2724659cd3e796396cb59c1453dda88ffb2e0c6666ce91f4d06
