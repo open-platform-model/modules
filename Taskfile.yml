@@ -112,6 +112,10 @@ tasks:
 
         bump_version() {
           local ver="$1" type="$2"
+          # Bootstrap: a missing / null / non-semver version is normalised to
+          # v0.0.0 so a brand-new module publishes at v0.0.1, instead of feeding
+          # "null" into the split and producing an invalid "vnull..." tag.
+          [[ "$ver" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]] || ver="v0.0.0"
           local stripped="${ver#v}"
           IFS='.' read -r major minor patch <<< "$stripped"
           case "$type" in
@@ -158,7 +162,7 @@ tasks:
           echo ""
           echo -e "${BOLD}Dry run — planned actions:${RESET}"
           for module in "${changed[@]}"; do
-            version=$(yq ".$module.version" "$VERSION_FILE")
+            version=$(yq ".$module.version // \"v0.0.0\"" "$VERSION_FILE")
             new_version=$(bump_version "$version" "$BUMP_TYPE")
             echo -e "  ${YELLOW}${module}${RESET}: $version -> ${GREEN}${new_version}${RESET} (bump + publish)"
           done
@@ -172,7 +176,7 @@ tasks:
 
         for module in "${changed[@]}"; do
           dir="$TASKFILE_DIR/$module"
-          version=$(yq ".$module.version" "$VERSION_FILE")
+          version=$(yq ".$module.version // \"v0.0.0\"" "$VERSION_FILE")
           new_version=$(bump_version "$version" "$BUMP_TYPE")
 
           echo ""
@@ -238,6 +242,10 @@ tasks:
 
         bump_version() {
           local ver="$1" type="$2"
+          # Bootstrap: a missing / null / non-semver version is normalised to
+          # v0.0.0 so a brand-new module publishes at v0.0.1, instead of feeding
+          # "null" into the split and producing an invalid "vnull..." tag.
+          [[ "$ver" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]] || ver="v0.0.0"
           local stripped="${ver#v}"
           IFS='.' read -r major minor patch <<< "$stripped"
           case "$type" in
@@ -264,7 +272,7 @@ tasks:
           exit 0
         fi
 
-        version=$(yq ".$MODULE.version" "$VERSION_FILE")
+        version=$(yq ".$MODULE.version // \"v0.0.0\"" "$VERSION_FILE")
         new_version=$(bump_version "$version" "$BUMP_TYPE")
 
         if [ "$DRY_RUN" = "true" ]; then
