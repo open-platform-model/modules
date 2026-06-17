@@ -5,6 +5,15 @@
 
 A real-world single-component stateful application demonstrating persistent storage, health checks, dynamic volume provisioning, and conditional configuration.
 
+> **v2 — rebased onto the OPM core catalog** (`opmodel.dev/catalogs/opm@v0`,
+> module path `opmodel.dev/modules/jellyfin@v2`). The component now composes the
+> catalog's `#StatefulWorkload` blueprint plus the `#Expose`, `#SecurityContext`,
+> `#ConfigMaps`, and (optional) `#HttpRoute` traits. The previous K8up backup
+> feature was dropped — the core catalog has no backup resource. Config storage,
+> media mounts, the Service, optional GPU passthrough, optional HTTPRoute, and
+> optional Serilog logging remain. Some teaching snippets further down predate
+> the rewrite; `module.cue` + `components.cue` are the source of truth.
+
 ## What This Example Demonstrates
 
 ### Core Concepts
@@ -73,57 +82,42 @@ A real-world single-component stateful application demonstrating persistent stor
 
 **Total:** 5 Kubernetes resources
 
-## Usage
+## Usage (ModuleRelease)
 
-### Build (render to YAML)
+The module is consumed by the opm-operator via a `ModuleRelease` CR that names
+the published module by path + version and supplies a `values` block matching
+`#config`:
 
-```bash
-# Render to stdout
-opm mod build ./examples/jellyfin
-
-# Render to split files
-opm mod build --split ./examples/jellyfin
+```yaml
+apiVersion: releases.opmodel.dev/v1alpha1
+kind: ModuleRelease
+metadata:
+  name: jellyfin
+  namespace: jellyfin
+spec:
+  module:
+    path: opmodel.dev/modules/jellyfin@v2
+    version: v2.0.0
+  serviceAccountName: opm-applier
+  prune: true
+  values:
+    timezone: Europe/London
+    publishedServerUrl: https://jellyfin.example.com
+    serviceType: LoadBalancer
+    storage:
+      config:
+        type: pvc
+        size: 50Gi
+        storageClass: standard
+      media:
+        movies: { mountPath: /media/movies, type: pvc, size: 2Ti, storageClass: standard }
+        tv:     { mountPath: /media/tv,     type: pvc, size: 3Ti, storageClass: standard }
 ```
 
-### Customize Values
-
-Create a custom values file for your environment:
-
-```cue
-// values_prod.cue
-package main
-
-values: {
-    image:              "lscr.io/linuxserver/jellyfin:10.8.13"  // Pin version
-    timezone:           "Europe/London"
-    publishedServerUrl: "https://jellyfin.example.com"
-    configStorageSize:  "50Gi"  // Larger config storage
-
-    media: {
-        movies: {
-            mountPath: "/data/movies"
-            type:      "pvc"
-            size:      "2Ti"  // 2TB for movies
-        }
-        tv: {
-            mountPath: "/data/tv"
-            type:      "pvc"
-            size:      "3Ti"  // 3TB for TV shows
-        }
-        music: {
-            mountPath: "/data/music"
-            type:      "pvc"
-            size:      "500Gi"
-        }
-    }
-}
-```
-
-Apply with custom values:
-
-```bash
-opm mod apply -f values_prod.cue ./examples/jellyfin
-```
+Optional features available through `values`: `resources` (incl. `resources.gpu`
+for Intel/render-group passthrough), `logging` (renders a Serilog ConfigMap
+mounted at `/config/logging.json`), and `httpRoute` (renders a Gateway API
+HTTPRoute).
 
 ## Files
 
