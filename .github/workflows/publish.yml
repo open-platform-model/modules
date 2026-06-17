@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       module:
-        description: 'Module to publish (or "all")'
+        description: 'Module(s) to publish: a single name, a space-separated list, or "all"'
         required: false
         default: 'all'
         type: string
@@ -92,8 +92,12 @@ jobs:
 
           CHANGED=""
           for name in $ALL_MODULES; do
-            if [ "$EVENT" = "workflow_dispatch" ] && [ "$SELECTED" != "all" ] && [ "$SELECTED" != "$name" ]; then
-              continue
+            # SELECTED may be "all", a single name, or a space-separated list.
+            if [ "$EVENT" = "workflow_dispatch" ] && [ "$SELECTED" != "all" ]; then
+              case " $SELECTED " in
+                *" $name "*) : ;;   # explicitly selected — keep
+                *) continue ;;      # not selected — skip
+              esac
             fi
 
             version=$(yq ".${name}.version // \"\"" versions.yml)
