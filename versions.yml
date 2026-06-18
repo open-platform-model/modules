@@ -41,8 +41,8 @@ garage:
   version: v0.0.4
   checksum: 2386c6a34cee08738153d9b2e513644d430fa91e765a397671b7b3378556a14e
 k8up:
-  version: v1.0.20
-  checksum: 590174e0348ab3789c4767273948e3ad2cf472600d7ffcc2fa2fc3edbe1e9a61
+  version: v1.0.21
+  checksum: c9b3ede08f438428b65858710ef9147d18c85016a6ab3711c9dd0ff5130b9469
 seerr:
   version: v1.0.2
   checksum: 82216e21c196444b77be9e3f5aadceb016ad90eecc401971953e1b9a64dfc1e0
