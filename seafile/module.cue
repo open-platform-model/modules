@@ -25,7 +25,7 @@ m.#Module
 metadata: {
 	modulePath:       "opmodel.dev/modules"
 	name:             "seafile"
-	version:          "0.1.0"
+	version:          "0.2.0"
 	description:      "Seafile Community Edition — self-hosted file sync & share with MariaDB + Memcached"
 	defaultNamespace: "seafile"
 	labels: {

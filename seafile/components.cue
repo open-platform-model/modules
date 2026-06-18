@@ -42,22 +42,68 @@ import (
 			labels: "core.opmodel.dev/workload-type": "stateful"
 		}
 
+		// Override block appended to the generated seahub_settings.py so Seafile
+		// works behind a TLS-terminating gateway. bootstrap.py only writes the
+		// settings file on first boot (and serves plain http with the wrong cache
+		// host), so these are injected idempotently by an init container; Python
+		// applies the last assignment, so these win over the generated values.
+		//   - https SERVICE_URL / FILE_SERVER_ROOT       (downloads behind proxy)
+		//   - CSRF_TRUSTED_ORIGINS + SECURE_PROXY_SSL_HEADER (Django 4.2 CSRF 403)
+		//   - CACHES pointed at the real <release>-memcached Service (hardcoded to
+		//     "memcached:11211" by the image, which does not resolve under OPM)
+		_seahubSettings:     "\(#config.storage.data.mountPath)/seafile/conf/seahub_settings.py"
+		_seahubConfigScript: """
+			set -e
+			f=\(_seahubSettings)
+			if [ ! -f "$f" ]; then
+			  echo "seahub-config: settings file absent (fresh boot); overrides apply on next restart"
+			  exit 0
+			fi
+			if grep -q OPM-MANAGED-OVERRIDES "$f"; then
+			  echo "seahub-config: overrides already present"
+			  exit 0
+			fi
+			{
+			  printf '%s\\n' ''
+			  printf '%s\\n' '# OPM-MANAGED-OVERRIDES'
+			  printf '%s\\n' 'SERVICE_URL = "https://\(#config.seafileServerHostname)"'
+			  printf '%s\\n' 'FILE_SERVER_ROOT = "https://\(#config.seafileServerHostname)/seafhttp"'
+			  printf '%s\\n' 'CSRF_TRUSTED_ORIGINS = ["https://\(#config.seafileServerHostname)"]'
+			  printf '%s\\n' 'SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")'
+			  printf '%s\\n' 'CACHES = {"default": {"BACKEND": "django_pylibmc.memcached.PyLibMCCache", "LOCATION": "\(#config.releaseName)-memcached:\(#config.cachePort)"}, "locmem": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}'
+			  printf '%s\\n' 'COMPRESS_CACHE_BACKEND = "locmem"'
+			} >> "$f"
+			echo "seahub-config: appended OPM overrides"
+			"""
+
 		spec: {
 			scaling: count: 1
 			restartPolicy: "Always"
 			// Recreate — the /shared PVC is ReadWriteOnce; two pods cannot mount it.
 			updateStrategy: type: "Recreate"
 
-			// Block startup until MariaDB accepts TCP connections. Seafile's
-			// first-boot DB initialisation fails fast if MariaDB is not ready.
-			initContainers: [{
-				name:  "wait-for-mariadb"
-				image: #config.initImage
-				command: [
-					"/bin/sh", "-c",
-					"until nc -z \(#config.releaseName)-mariadb \(#config.dbPort); do echo 'waiting for mariadb...'; sleep 2; done",
-				]
-			}]
+			// 1) Block startup until MariaDB accepts TCP connections (Seafile's
+			//    first-boot DB init fails fast otherwise).
+			// 2) Inject the seahub_settings.py overrides (https/CSRF/cache) once
+			//    the settings file exists, before the server starts.
+			initContainers: [
+				{
+					name:  "wait-for-mariadb"
+					image: #config.initImage
+					command: [
+						"/bin/sh", "-c",
+						"until nc -z \(#config.releaseName)-mariadb \(#config.dbPort); do echo 'waiting for mariadb...'; sleep 2; done",
+					]
+				},
+				{
+					name:  "seahub-config"
+					image: #config.initImage
+					command: ["/bin/sh", "-c", _seahubConfigScript]
+					volumeMounts: data: volumes.data & {
+						mountPath: #config.storage.data.mountPath
+					}
+				},
+			]
 
 			container: {
 				name:  "seafile"
@@ -95,6 +141,12 @@ import (
 					SEAFILE_SERVER_LETSENCRYPT: {
 						name:  "SEAFILE_SERVER_LETSENCRYPT"
 						value: "false"
+					}
+					// Make first-boot config use https URLs even with Let's Encrypt
+					// off (TLS is at the gateway). bootstrap.py honours this flag.
+					FORCE_HTTPS_IN_CONF: {
+						name:  "FORCE_HTTPS_IN_CONF"
+						value: "true"
 					}
 				}
 

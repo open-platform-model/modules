@@ -3,45 +3,37 @@
 Issues and operational details discovered while deploying this module. Update as
 new ones surface.
 
-## Behind a reverse proxy / TLS terminated upstream (gateway)
+## Behind a reverse proxy / TLS terminated upstream (gateway) — handled
 
-This module sets `SEAFILE_SERVER_LETSENCRYPT=false` because TLS is expected to be
-terminated by an upstream gateway (Istio/Gateway API) and the pod serves plain
-HTTP on `:80`. With Let's Encrypt disabled, the `seafile-mc` entrypoint derives
-`SERVICE_URL`/`FILE_SERVER_ROOT` using the **http** scheme.
+TLS is terminated by an upstream gateway (Istio/Gateway API); the pod serves
+plain HTTP on `:80`, so `SEAFILE_SERVER_LETSENCRYPT=false`. Two image behaviours
+break Seafile in this setup, and the module fixes both automatically:
 
-When users reach Seafile over **https**, file up/download links and CSRF checks
-break unless the external scheme is corrected. After the first boot, set the
-external URL via **one** of:
+1. `bootstrap.py` derives `SERVICE_URL`/`FILE_SERVER_ROOT` from the scheme and
+   only writes the config on **first boot**. Seahub runs **Django 4.2**, which
+   rejects the `https://` login POST with **CSRF 403** unless the request scheme
+   and `CSRF_TRUSTED_ORIGINS` agree.
+2. The cache host is **hardcoded** to `memcached:11211`, which does not resolve —
+   OPM emits the Service as `<release>-memcached`.
 
-- **Admin UI** (simplest, persists to DB): System Admin → Settings →
-  `SERVICE_URL = https://<host>` and `FILE_SERVER_ROOT = https://<host>/seafhttp`.
-- **Config files** on the `/shared` PVC:
-  - `conf/seahub_settings.py`: `SERVICE_URL = 'https://<host>'`,
-    `CSRF_TRUSTED_ORIGINS = ['https://<host>']`
-  - `conf/seafile.conf` `[fileserver]`: derived from `SERVICE_URL`; set
-    `FILE_SERVER_ROOT = https://<host>/seafhttp` if needed.
-  Then restart the seafile pod.
+Fixes baked into the module:
 
-## Memcached host
+- `FORCE_HTTPS_IN_CONF=true` (env, honoured by `bootstrap.py`) so first-boot URLs
+  use `https`.
+- A **`seahub-config` init container** idempotently appends an
+  `# OPM-MANAGED-OVERRIDES` block to `conf/seahub_settings.py` (Python
+  last-assignment-wins), setting:
+  - `SERVICE_URL` / `FILE_SERVER_ROOT` → `https://<hostname>`
+  - `CSRF_TRUSTED_ORIGINS = ["https://<hostname>"]`
+  - `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")`
+  - `CACHES` default `LOCATION` → `<release>-memcached:11211`
 
-The official `seafile-mc` config points Seahub's cache at host `memcached:11211`.
-OPM emits the cache Service as `<release>-memcached`, which does **not** match.
-Options:
-
-- Point Seahub at the real Service by editing `conf/seahub_settings.py` on the
-  `/shared` PVC:
-
-  ```python
-  CACHES = {'default': {
-      'BACKEND': 'django_pylibmc.memcached.PyLibMCCache',
-      'LOCATION': '<release>-memcached:11211',
-  }}
-  ```
-
-  then restart the seafile pod.
-- Memcached is a performance optimisation; Seafile remains functional if the
-  cache is unreachable (degraded session/metadata caching only).
+The init container only patches once the settings file exists. On a **brand-new
+install**, the file is generated during first boot (after init containers run),
+so the override lands on the **first pod restart** — `FORCE_HTTPS_IN_CONF` keeps
+the URLs https in the meantime, but the CSRF/cache fix needs that one restart.
+On any redeploy of an existing instance (config already on the Retain PVC) the
+override applies immediately, before the server starts.
 
 ## First boot is slow
 
