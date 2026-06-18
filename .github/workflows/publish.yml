@@ -246,6 +246,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          head=$(git rev-parse HEAD)
           for entry in ${{ steps.publish.outputs.published }}; do
             name="${entry%%:*}"
             version="${entry##*:}"
@@ -253,17 +254,20 @@ jobs:
 
             if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
               existing=$(git rev-parse "refs/tags/${tag}")
-              head=$(git rev-parse HEAD)
               if [ "$existing" != "$head" ]; then
-                echo "::error::${tag} already exists at ${existing}, but HEAD is ${head}. Refusing to move tag."
-                exit 1
+                # A published version is immutable. The package was (re)published,
+                # but the release tag must keep pointing at the commit that first
+                # cut it — never move it, and never fail the release over it.
+                echo "::warning::${tag} already exists at ${existing} (HEAD ${head}); keeping existing tag."
+              else
+                echo "  ${tag}: already at HEAD"
               fi
-              echo "  ${tag}: already at HEAD"
-            else
-              git tag "${tag}"
-              echo "  ${tag}: created"
+              continue
             fi
+
+            git tag "${tag}"
             git push origin "refs/tags/${tag}"
+            echo "  ${tag}: created"
           done
 
       - name: Pick release tag
