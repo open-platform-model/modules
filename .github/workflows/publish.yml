@@ -25,7 +25,14 @@ permissions:
   packages: write
 
 env:
-  CUE_VERSION: 'v0.17.0-alpha.1'
+  # Two CUE toolchains are installed side by side. Each module is built with the
+  # binary matching its cue.mod `language.version`:
+  #   - STABLE (v0.16.x): modules on the opm/v1alpha1 + core/v1alpha1 catalog,
+  #     whose schemas use the `div` operator (removed in v0.17-alpha).
+  #   - NEXT (v0.17.0-alpha.x): modules on the catalogs/opm@v0 + core@v0 catalog,
+  #     which declare language.version v0.17.0-alpha.1.
+  CUE_VERSION_STABLE: 'v0.16.0'
+  CUE_VERSION_NEXT: 'v0.17.0-alpha.1'
   CUE_REGISTRY: 'opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
   ORG: 'open-platform-model'
   REPO: 'modules'
@@ -47,9 +54,13 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           yq --version
 
-      - uses: cue-lang/setup-cue@a93fa358375740cd8b0078f76355512b9208acb1 # v1.0.1
-        with:
-          version: ${{ env.CUE_VERSION }}
+      - name: Install CUE toolchains (stable + next)
+        run: |
+          set -euo pipefail
+          GOBIN="$HOME/cuebin/stable" go install "cuelang.org/go/cmd/cue@${CUE_VERSION_STABLE}"
+          GOBIN="$HOME/cuebin/next"   go install "cuelang.org/go/cmd/cue@${CUE_VERSION_NEXT}"
+          echo "stable: $("$HOME/cuebin/stable/cue" version | head -1)"
+          echo "next:   $("$HOME/cuebin/next/cue" version | head -1)"
 
       - name: Discover modules
         id: discover
@@ -135,8 +146,18 @@ jobs:
         if: steps.check.outputs.has_changes == 'true'
         run: |
           set -euo pipefail
+          # Print the cue binary matching a module's declared language.version.
+          pick_cue() {
+            local lv
+            lv=$(sed -n '/^language:/,/}/{s/.*version:[[:space:]]*"\([^"]*\)".*/\1/p;}' "$1/cue.mod/module.cue" | head -1)
+            case "$lv" in
+              v0.17*|v0.18*|v0.19*) echo "$HOME/cuebin/next/cue" ;;
+              *) echo "$HOME/cuebin/stable/cue" ;;
+            esac
+          }
           for name in ${{ steps.discover.outputs.modules }}; do
-            (cd "$name" && cue fmt ./...)
+            cuebin="$(pick_cue "$name")"
+            (cd "$name" && "$cuebin" fmt ./...)
           done
           if ! git diff --quiet; then
             echo "::error::CUE files are not formatted. Run 'cue fmt ./...' locally."
@@ -158,35 +179,65 @@ jobs:
           CHANGED="${{ steps.check.outputs.changed }}"
           PUBLISHED=""
 
+          # Print the cue binary matching a module's declared language.version.
+          pick_cue() {
+            local lv
+            lv=$(sed -n '/^language:/,/}/{s/.*version:[[:space:]]*"\([^"]*\)".*/\1/p;}' "$1/cue.mod/module.cue" | head -1)
+            case "$lv" in
+              v0.17*|v0.18*|v0.19*) echo "$HOME/cuebin/next/cue" ;;
+              *) echo "$HOME/cuebin/stable/cue" ;;
+            esac
+          }
+
+          # Each module is validated/published independently so one failure
+          # (e.g. a module whose catalog deps are not yet on GHCR) does not
+          # abort the rest. Any failure is recorded and the job exits non-zero
+          # at the end.
+          FAILED=""
           for name in $CHANGED; do
             echo "=== ${name} ==="
             version=$(yq ".${name}.version" versions.yml)
+            cuebin="$(pick_cue "$name")"
+            echo "  cue: $("$cuebin" version | head -1)"
 
-            echo "  vet..."
-            (cd "$name" && cue vet ./...)
+            if ! (
+              cd "$name"
+              echo "  vet..."
+              "$cuebin" vet ./...
 
-            test_out=$(cd "$name" && cue vet -t test ./... 2>&1) && echo "  test: pass" || {
-              if echo "$test_out" | grep -q 'tag "test" not used in any file'; then
-                echo "  test: skip (no tests)"
-              else
-                echo "$test_out" >&2
-                echo "::error::${name}: tests failed"
-                exit 1
+              test_out=$("$cuebin" vet -t test ./... 2>&1) && echo "  test: pass" || {
+                if echo "$test_out" | grep -q 'tag "test" not used in any file'; then
+                  echo "  test: skip (no tests)"
+                else
+                  echo "$test_out" >&2
+                  echo "  tests failed"
+                  exit 1
+                fi
+              }
+
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "  publish: skipped (dry run)"
+                exit 0
               fi
-            }
 
-            if [ "$DRY_RUN" = "true" ]; then
-              echo "  publish: skipped (dry run)"
+              echo "  publish: ${name}@${version}..."
+              "$cuebin" mod publish "${version}"
+            ); then
+              echo "::error::${name}: validate/publish failed"
+              FAILED="${FAILED} ${name}"
               continue
             fi
 
-            echo "  publish: ${name}@${version}..."
-            (cd "$name" && cue mod publish "${version}")
-            PUBLISHED="${PUBLISHED} ${name}:${version}"
+            [ "$DRY_RUN" = "true" ] || PUBLISHED="${PUBLISHED} ${name}:${version}"
           done
 
           PUBLISHED="${PUBLISHED# }"
           echo "published=${PUBLISHED}" >> "$GITHUB_OUTPUT"
+
+          if [ -n "$FAILED" ]; then
+            echo "::error::Failed modules:${FAILED}"
+            exit 1
+          fi
 
       - name: Tag published modules
         if: steps.check.outputs.has_changes == 'true' && inputs.dry_run != true
