@@ -13,7 +13,7 @@ This module deliberately owns only two things:
 | Owned by this OPM module | Owned by the release `bootstrap/` dir |
 | --- | --- |
 | The 4 `piraeus.io` CRDs (`crds` component) | Operator runtime: controller-manager + gencert Deployments, validating webhook + Service, `image-config` ConfigMap, RBAC, Namespace |
-| The `linstor.csi.linbit.com` StorageClass (`storage` component) | `LinstorCluster` + `LinstorSatelliteConfiguration` config CRs |
+| One `linstor.csi.linbit.com` StorageClass per `#config.storageClasses` entry (one component per key) | `LinstorCluster` + `LinstorSatelliteConfiguration` config CRs (incl. the storage-pool definitions) |
 
 **Why split?** The Piraeus operator install ships a runtime TLS cert-generator,
 a fail-closed `ValidatingWebhookConfiguration`, and a 250-line `image-config`
@@ -33,14 +33,19 @@ CRD documents stripped, so this module is the single owner of the CRDs.
   `LinstorSatelliteConfiguration`, `LinstorSatellite` (group `piraeus.io`).
   Vendored trimmed (`x-kubernetes-preserve-unknown-fields`); structural
   validation is enforced by the operator's admission webhook.
-- **StorageClass:** provisioner `linstor.csi.linbit.com`, configurable storage
-  pool / replica placement count / DRBD layer stack / filesystem.
+- **StorageClasses:** one per `#config.storageClasses` entry, provisioner
+  `linstor.csi.linbit.com`, each with its own storage pool / replica placement
+  count / DRBD layer stack / filesystem.
 
-## Configuration (`#config.storageClass`)
+## Configuration (`#config.storageClasses`)
 
-> The emitted StorageClass **name is not configurable** — the OPM transformer
-> names it `<release-name>-<component-name>` = `<release>-storage` (e.g.
-> `linstor-storage` for the `gon1_nas2/linstor` release). PVCs reference that.
+`storageClasses` is a map — one `linstor.csi.linbit.com` StorageClass is emitted
+per entry. The map **key** becomes the StorageClass name suffix: the OPM
+transformer names each rendered resource `<release-name>-<key>`. So on the
+`linstor` release, key `storage` → `linstor-storage`, key `nvme` → `linstor-nvme`.
+PVCs reference those names. At most one entry should set `isDefault: true`.
+
+Each entry (`#storageClassConfig`) takes:
 
 | Field | Default | Notes |
 | --- | --- | --- |
@@ -60,14 +65,14 @@ The StorageClass is validated by the operator's `vstorageclass.kb.io` webhook,
 so the **operator runtime must be up first**:
 
 1. `kubectl apply --server-side -f bootstrap/operator-v2.10.7.yaml`
-2. Apply this module's release (creates CRDs + StorageClass). CRDs can also be
-   applied before the operator; the StorageClass must follow the operator.
-3. `kubectl apply -f bootstrap/linstorcluster.yaml -f bootstrap/talos-loader-override.yaml`
+2. Apply this module's release (creates CRDs + StorageClasses). CRDs can also be
+   applied before the operator; the StorageClasses must follow the operator.
+3. `kubectl apply -f bootstrap/linstorcluster.yaml -f bootstrap/talos-loader-override.yaml -f bootstrap/storage-pool.yaml`
 4. Verify: `kubectl -n piraeus-datastore get pods`, then
    `linstor node list` / `linstor storage-pool list` via the controller pod.
 
-See the release `bootstrap/README.md` for the gon1-nas2 specifics (Talos +
-`zfspv-pool` backend).
+See the release `bootstrap/README.md` for the gon1-nas2 specifics (Talos + ZFS
+pools `linstor-pool` / `nvme-pool`).
 
 ## Validate
 

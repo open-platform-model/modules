@@ -309,6 +309,16 @@ let _serviceAccountName = {
 					resources: ["persistentvolumeclaims"]
 					verbs: ["get", "list", "watch"]
 				},
+				// Watch PersistentVolumes — the operator resolves PVC→PV to
+				// determine backup eligibility (RWO/RWX, CSI driver). Without this
+				// the PV informer fails to list at cluster scope and backups never
+				// start (observed on gon1-nas2: all k8up backups stalled with
+				// "persistentvolumes is forbidden" after the operator restarted).
+				{
+					apiGroups: [""]
+					resources: ["persistentvolumes"]
+					verbs: ["get", "list", "watch"]
+				},
 				// Read Secrets referenced by Repository CRs (restic credentials).
 				{
 					apiGroups: [""]

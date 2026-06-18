@@ -69,41 +69,45 @@ import (
 	}
 
 	/////////////////////////////////////////////////////////////////
-	//// StorageClass — user-facing PVC entrypoint
+	//// StorageClasses — user-facing PVC entrypoints (one per pool)
 	////
-	//// provisioner: linstor.csi.linbit.com
-	//// parameters select the storage pool, replica placement count, DRBD
-	//// layer stack, and filesystem. The operator's vstorageclass.kb.io
-	//// webhook validates this object, so the operator runtime must be up
-	//// before the StorageClass is applied.
+	//// One component per entry in #config.storageClasses. The OPM k8s
+	//// transformer names each rendered StorageClass "<release>-<key>", so the
+	//// map key IS the StorageClass suffix (key "storage" → "linstor-storage",
+	//// key "nvme" → "linstor-nvme"). provisioner: linstor.csi.linbit.com;
+	//// parameters select the storage pool, replica placement count, DRBD layer
+	//// stack, and filesystem. The operator's vstorageclass.kb.io webhook
+	//// validates these objects, so the operator runtime must be up before they
+	//// are applied.
 	////
-	//// Component name "storage" so the OPM k8s transformer renders the
-	//// StorageClass; the metadata.name override (#config.storageClass.name)
-	//// sets the final resource name.
+	//// (Keys must not collide with other component names in this module — e.g.
+	//// the reserved "crds" component above.)
 	/////////////////////////////////////////////////////////////////
 
-	storage: {
-		resources_storage_k8s.#StorageClass
+	for _scName, _sc in #config.storageClasses {
+		(_scName): {
+			resources_storage_k8s.#StorageClass
 
-		spec: storageclass: {
-			// The transformer derives the StorageClass name from
-			// <release>-<component> ("storage"), so metadata.name here is not
-			// emitted — only the default-class annotation is honored.
-			if #config.storageClass.isDefault {
-				metadata: annotations: {
-					"storageclass.kubernetes.io/is-default-class": "true"
+			spec: storageclass: {
+				// Name is derived from <release>-<component> (the map key), so
+				// metadata.name is not emitted — only the default-class
+				// annotation is honored.
+				if _sc.isDefault {
+					metadata: annotations: {
+						"storageclass.kubernetes.io/is-default-class": "true"
+					}
 				}
-			}
-			provisioner:          "linstor.csi.linbit.com"
-			reclaimPolicy:        #config.storageClass.reclaimPolicy
-			volumeBindingMode:    #config.storageClass.volumeBindingMode
-			allowVolumeExpansion: #config.storageClass.allowVolumeExpansion
-			parameters: {
-				"linstor.csi.linbit.com/storagePool":             #config.storageClass.storagePool
-				"linstor.csi.linbit.com/placementCount":          "\(#config.storageClass.placementCount)"
-				"linstor.csi.linbit.com/layerList":               #config.storageClass.layerList
-				"linstor.csi.linbit.com/allowRemoteVolumeAccess": #config.storageClass.allowRemoteVolumeAccess
-				"csi.storage.k8s.io/fstype":                      #config.storageClass.fsType
+				provisioner:          "linstor.csi.linbit.com"
+				reclaimPolicy:        _sc.reclaimPolicy
+				volumeBindingMode:    _sc.volumeBindingMode
+				allowVolumeExpansion: _sc.allowVolumeExpansion
+				parameters: {
+					"linstor.csi.linbit.com/storagePool":             _sc.storagePool
+					"linstor.csi.linbit.com/placementCount":          "\(_sc.placementCount)"
+					"linstor.csi.linbit.com/layerList":               _sc.layerList
+					"linstor.csi.linbit.com/allowRemoteVolumeAccess": _sc.allowRemoteVolumeAccess
+					"csi.storage.k8s.io/fstype":                      _sc.fsType
+				}
 			}
 		}
 	}

@@ -78,8 +78,8 @@ istio_ambient:
   version: v0.0.4
   checksum: 3bfc53ad3b2c2c919ddef5d2c0924491e696dda76d3026971970a2c44d3b7d76
 linstor:
-  version: v0.0.1
-  checksum: ecd2d46c305954ddb742d2c4f9f6fcb3a22ff948eddadbe235743163646f5ba5
+  version: v0.1.2
+  checksum: 2892f8fa228bb01cc825ae6d1914e430b6913c88e5b5b0abe2616f80729642d9
 web_app:
   version: v0.0.2
   checksum: 7a062e151154b2724659cd3e796396cb59c1453dda88ffb2e0c6666ce91f4d06
