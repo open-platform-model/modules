@@ -83,3 +83,6 @@ linstor:
 web_app:
   version: v0.0.2
   checksum: 7a062e151154b2724659cd3e796396cb59c1453dda88ffb2e0c6666ce91f4d06
+seafile:
+  version: v0.0.1
+  checksum: f053969b498b7c8607683ed34a587bbc271cb5ef59741b0209034d0fd5cb51c0
