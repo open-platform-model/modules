@@ -955,10 +955,40 @@ import (
 									value: strings.Join(_c.modrinth.projects, ",")
 								}
 							}
+							if _c.modrinth.urls != _|_ {
+								MODS: {
+									name:  "MODS"
+									value: strings.Join(_c.modrinth.urls, ",")
+								}
+							}
 							if _c.modrinth.downloadDependencies != _|_ {
 								MODRINTH_DOWNLOAD_DEPENDENCIES: {
 									name:  "MODRINTH_DOWNLOAD_DEPENDENCIES"
 									value: _c.modrinth.downloadDependencies
+								}
+							}
+						}
+
+						// === Whitelist ===
+						if _c.whitelist != _|_ {
+							if _c.whitelist.enabled {
+								// Fleet-wide baseline (#config.globalWhitelist) merged
+								// with this server's local additions (_c.whitelist.players).
+								WHITELIST: {
+									name: "WHITELIST"
+									value: strings.Join(list.Concat([#config.globalWhitelist, _c.whitelist.players]), ",")
+								}
+								ENABLE_WHITELIST: {
+									name:  "ENABLE_WHITELIST"
+									value: "true"
+								}
+								ENFORCE_WHITELIST: {
+									name:  "ENFORCE_WHITELIST"
+									value: "\(_c.whitelist.enforce)"
+								}
+								EXISTING_WHITELIST_FILE: {
+									name:  "EXISTING_WHITELIST_FILE"
+									value: strings.ToUpper(_c.whitelist.existingFile)
 								}
 							}
 						}
@@ -1329,6 +1359,18 @@ import (
 							protocol:    "TCP"
 							exposedPort: _c.port
 						}
+						// Publish RCON on the Service so cross-pod tools (e.g. the
+						// rcon-web-admin panel) can reach it at
+						// {releaseName}-server-{name}.{ns}.svc:{rcon.port}. In-pod
+						// sidecars use localhost; this exposes it cluster-wide
+						// (ClusterIP, password-gated).
+						if _c.rcon.enabled {
+							rcon: {
+								targetPort:  _c.rcon.port
+								protocol:    "TCP"
+								exposedPort: _c.rcon.port
+							}
+						}
 						if _c.monitor.enabled {
 							metrics: {
 								targetPort:  _c.monitor.port
@@ -1636,7 +1678,8 @@ import (
 	//
 	// hostPath volumes are shared by pointing at the same host path as the
 	// server StatefulSets — no PVC ownership conflicts.
-	// pvc storage: code-server gets a separate new PVC per server (data not shared).
+	// pvc storage: code-server references each server's existing data PVC by
+	// name and mounts it read-write (single-node RWO sharing) — live data.
 	if #config.codeServer != _|_ {
 		if #config.codeServer.enabled {
 			let _cs = #config.codeServer
@@ -1731,17 +1774,17 @@ import (
 						}
 						// Server data volumes — mirrors each server's storage config.
 						// hostPath: shares the host path directly (recommended).
-						// pvc/emptyDir: creates a separate volume (data not shared).
+						// pvc: references the server's EXISTING data PVC by name
+						//   ({releaseName}-server-{name}-data) so code-server sees the
+						//   live world files. The server StatefulSet owns that claim;
+						//   on a single node a ReadWriteOnce PVC can be mounted by both
+						//   pods, so this mount is read-write (edit configs/worlds).
+						// emptyDir: creates a separate (empty) volume — not shared.
 						for _srvName, _srvCfg in #config.servers {
 							"\(_srvName)-data": {
 								name: "\(_srvName)-data"
 								if _srvCfg.storage.data.type == "pvc" {
-									persistentClaim: {
-										size: _srvCfg.storage.data.size
-										if _srvCfg.storage.data.storageClass != _|_ {
-											storageClass: _srvCfg.storage.data.storageClass
-										}
-									}
+									persistentClaim: claimName: "\(#config.releaseName)-server-\(_srvName)-data"
 								}
 								if _srvCfg.storage.data.type == "hostPath" {
 									hostPath: {
@@ -1982,6 +2025,158 @@ import (
 							exposedPort: _rg.port
 						}
 						type: _rg.serviceType
+					}
+				}
+			}
+		}
+	}
+
+	// ── rcon-web-admin ──────────────────────────────────────────────────────────
+	// Optional single rcon-web-admin Deployment: a browser RCON panel for the whole
+	// fleet. The first server is loaded from env (initialServer); the rest are added
+	// in the web UI and persisted on the db PVC. Ports 4326 (web) and 4327 (websocket)
+	// are both exposed — the browser opens a WebSocket to {host}:{websocketPort}.
+	if #config.rconWebAdmin != _|_ {
+		if #config.rconWebAdmin.enabled {
+			let _rwa = #config.rconWebAdmin
+
+			"rcon-web-admin": {
+				resources_workload.#Container
+				resources_storage.#Volumes
+				traits_workload.#Scaling
+				traits_workload.#RestartPolicy
+				traits_workload.#UpdateStrategy
+				traits_network.#Expose
+				traits_security.#SecurityContext
+
+				metadata: labels: "core.opmodel.dev/workload-type": "stateless"
+
+				spec: {
+					scaling: count: 1
+					restartPolicy: "Always"
+					updateStrategy: type: "Recreate"
+
+					// rcon-web-admin runs as the node user (UID 1000). It writes its
+					// lowdb database under /opt/rcon-web-admin/db and may write widget
+					// files under its app dir, so readOnlyRootFilesystem stays false.
+					securityContext: {
+						runAsNonRoot:             true
+						runAsUser:                1000
+						runAsGroup:               1000
+						fsGroup:                  1000
+						readOnlyRootFilesystem:   false
+						allowPrivilegeEscalation: false
+						capabilities: drop: ["ALL"]
+					}
+
+					container: {
+						name:  "rcon-web-admin"
+						image: _rwa.image
+
+						ports: {
+							web: {
+								targetPort: _rwa.port
+								protocol:   "TCP"
+							}
+							websocket: {
+								targetPort: _rwa.websocketPort
+								protocol:   "TCP"
+							}
+						}
+
+						env: {
+							RWA_USERNAME: {name: "RWA_USERNAME", value: _rwa.username}
+							RWA_PASSWORD: {name: "RWA_PASSWORD", from: _rwa.password}
+							RWA_ADMIN: {name: "RWA_ADMIN", value: "TRUE"}
+
+							// First server, auto-loaded. RCON auth is the shared fleet
+							// password (identical on every server).
+							if _rwa.initialServer != _|_ {
+								RWA_RCON_HOST: {name: "RWA_RCON_HOST", value: _rwa.initialServer.host}
+								RWA_RCON_PORT: {name: "RWA_RCON_PORT", value: "\(_rwa.initialServer.port)"}
+								RWA_SERVER_NAME: {name: "RWA_SERVER_NAME", value: _rwa.initialServer.name}
+								RWA_RCON_PASSWORD: {name: "RWA_RCON_PASSWORD", from: #config.rconPassword}
+							}
+
+							// External websocket URL — only behind a TLS reverse proxy.
+							if _rwa.websocketUrl != _|_ {
+								RWA_WEBSOCKET_URL: {name: "RWA_WEBSOCKET_URL", value: _rwa.websocketUrl}
+							}
+							if _rwa.websocketUrlSsl != _|_ {
+								RWA_WEBSOCKET_URL_SSL: {name: "RWA_WEBSOCKET_URL_SSL", value: _rwa.websocketUrlSsl}
+							}
+
+							// Optional per-(non-admin-)user restrictions.
+							if _rwa.restrictCommands != _|_ {
+								RWA_RESTRICT_COMMANDS: {name: "RWA_RESTRICT_COMMANDS", value: strings.Join(_rwa.restrictCommands, ",")}
+							}
+							if _rwa.restrictWidgets != _|_ {
+								RWA_RESTRICT_WIDGETS: {name: "RWA_RESTRICT_WIDGETS", value: strings.Join(_rwa.restrictWidgets, ",")}
+							}
+							if _rwa.readOnlyWidgetOptions != _|_ {
+								if _rwa.readOnlyWidgetOptions {
+									RWA_READ_ONLY_WIDGET_OPTIONS: {name: "RWA_READ_ONLY_WIDGET_OPTIONS", value: "TRUE"}
+								}
+							}
+						}
+
+						// lowdb database (users, servers, settings, widgets).
+						volumeMounts: db: volumes.db & {
+							mountPath: "/opt/rcon-web-admin/db"
+						}
+
+						if _rwa.resources != _|_ {
+							resources: _rwa.resources
+						}
+
+						// The UI is served on the web port as soon as the app starts.
+						livenessProbe: {
+							httpGet: {path: "/", port: _rwa.port}
+							initialDelaySeconds: 10
+							periodSeconds:       30
+						}
+						readinessProbe: {
+							httpGet: {path: "/", port: _rwa.port}
+							initialDelaySeconds: 5
+							periodSeconds:       10
+						}
+					}
+
+					volumes: db: {
+						name: "db"
+						if _rwa.storage.db.type == "pvc" {
+							persistentClaim: {
+								size: _rwa.storage.db.size
+								if _rwa.storage.db.storageClass != _|_ {
+									storageClass: _rwa.storage.db.storageClass
+								}
+							}
+						}
+						if _rwa.storage.db.type == "hostPath" {
+							hostPath: {
+								path: _rwa.storage.db.path
+								type: _rwa.storage.db.hostPathType
+							}
+						}
+						if _rwa.storage.db.type == "emptyDir" {
+							emptyDir: {}
+						}
+					}
+
+					expose: {
+						ports: {
+							web: {
+								targetPort:  _rwa.port
+								protocol:    "TCP"
+								exposedPort: _rwa.port
+							}
+							websocket: {
+								targetPort:  _rwa.websocketPort
+								protocol:    "TCP"
+								exposedPort: _rwa.websocketPort
+							}
+						}
+						type: _rwa.serviceType
 					}
 				}
 			}

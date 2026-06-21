@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/mc_java_fleet@v0"
+module: "opmodel.dev/modules/seerr@v0"
 language: {
 	version: "v0.16.0"
 }
@@ -9,7 +9,10 @@ deps: {
 	"opmodel.dev/core/v1alpha1@v1": {
 		v: "v1.3.10"
 	}
+	"opmodel.dev/k8up/v1alpha1@v1": {
+		v: "v1.0.3"
+	}
 	"opmodel.dev/opm/v1alpha1@v1": {
-		v: "v1.6.0"
+		v: "v1.5.9"
 	}
 }

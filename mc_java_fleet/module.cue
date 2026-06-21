@@ -231,6 +231,13 @@ _#config: {
 		// Format: "slug" or "slug:versionId" (e.g. "bluemap:lHRktt6S")
 		projects?: [...string]
 
+		// Extra individual mods to sideload by direct jar URL, layered on top
+		// of the modpack via itzg's MODS auto-downloader (same subsystem as
+		// MODRINTH_PROJECTS, runs alongside the modpack). Use for jars not
+		// published to Modrinth (e.g. LuckPerms NeoForge builds from
+		// download.luckperms.net).
+		urls?: [...string]
+
 		// Whether to also download dependency projects
 		downloadDependencies?: "none" | "required" | "optional"
 	}
@@ -323,6 +330,34 @@ _#config: {
 	rcon: {
 		enabled: bool | *true
 		port:    _#portSchema | *25575
+	}
+
+	// === Whitelist ===
+	// When enabled, only listed players may connect (itzg WHITELIST + white-list
+	// server property). Usernames are resolved to UUIDs in online-mode. This is
+	// the simplest, loader-agnostic anti-grief for trusted-only servers — no
+	// per-loader claim mods required.
+	//
+	// The effective whitelist is #config.globalWhitelist (fleet-wide baseline)
+	// merged with this server's `players` (local additions). See globalWhitelist.
+	whitelist?: {
+		enabled: bool | *true
+
+		// Trusted players LOCAL to this server, merged on top of
+		// #config.globalWhitelist. Usernames and/or UUIDs. Defaults to empty —
+		// a server with only the global baseline needs nothing here.
+		players: [...string] | *[]
+
+		// enforce-whitelist: kick connected non-whitelisted players when the
+		// whitelist reloads or is edited via commands.
+		enforce: bool | *true
+
+		// How `players` reconciles with an existing whitelist.json on the volume
+		// (itzg EXISTING_WHITELIST_FILE):
+		//   "merge"       — ensure `players` are present, KEEP live `/whitelist add`
+		//   "synchronize" — CUE authoritative; drop anyone not in `players`
+		//   "skip"        — only seed when no whitelist.json exists yet
+		existingFile: *"merge" | "synchronize" | "skip"
 	}
 
 	// === Query Port ===
@@ -618,14 +653,24 @@ _#config: {
 		$dataKey:    "rcon-password"
 	}
 
+	// === Shared Whitelist ===
+	// Fleet-wide baseline players merged into EVERY server's whitelist, in
+	// addition to that server's own whitelist.players (local additions).
+	// Usernames and/or UUIDs. Only takes effect on servers where
+	// whitelist.enabled is true; a server with whitelist.enabled=false runs
+	// with no whitelist at all (global included).
+	globalWhitelist: [...string] | *[]
+
 	// === Code Server ===
 	// Optional single web-based editor (VS Code in the browser) that mounts
 	// all server data volumes at /servers/{name} for direct file access.
 	//
-	// Works best with hostPath storage — the code-server pod shares the same
-	// host paths as the server pods without PVC ownership conflicts.
-	// For pvc storage, code-server gets a separate (empty) PVC per server —
-	// data will NOT be shared with the running server.
+	// hostPath storage: the code-server pod shares the same host paths as the
+	// server pods. pvc storage: code-server references each server's existing
+	// data PVC by name and mounts it read-write, so it sees the live world
+	// files. On a single node a ReadWriteOnce PVC can be mounted by both the
+	// server and code-server pods; on multi-node clusters this requires the
+	// pods to co-locate (the server pod holds the RWO attachment).
 	codeServer?: {
 		enabled: bool | *false
 		image: schemas.#Image & {
@@ -699,6 +744,76 @@ _#config: {
 			keyId:   string // "ecdsa.<base64url(sha256(X+Y))>"
 			privKey: string // PEM "EC PRIVATE" (SEC1/x509.MarshalECPrivateKey)
 			pubKey:  string // PEM "EC PUBLIC"  (SPKI/x509.MarshalPKIXPublicKey)
+		}
+		resources?: schemas.#ResourceRequirementsSchema
+	}
+
+	// === RCON Web Admin ===
+	// Optional single rcon-web-admin (https://github.com/rcon-web-admin/rcon-web-admin)
+	// web panel for managing the fleet over RCON from a browser — console,
+	// scheduled commands, and limited multi-user access.
+	//
+	// ONE instance manages the WHOLE fleet. The first server is auto-loaded from
+	// env (initialServer); the remaining servers are added once in the web UI and
+	// persisted on the db PVC. All servers share #config.rconPassword, differing
+	// only by host, so the RCON auth is wired automatically.
+	//
+	// Ports: the web UI (port, default 4326) AND the websocket (websocketPort,
+	// default 4327) must BOTH be reachable by the browser — the client opens a
+	// WebSocket to ws://{page-host}:{websocketPort}. With ClusterIP + a
+	// `kubectl port-forward` of both ports this works with no extra config.
+	// Behind a TLS reverse proxy, set websocketUrlSsl and route the ws path.
+	rconWebAdmin?: {
+		enabled: bool | *false
+		// The itzg/docker-rcon-web-admin repo publishes its image as `itzg/rcon`
+		// on Docker Hub (NOT itzg/rcon-web-admin, which does not exist).
+		image: schemas.#Image & {
+			repository: string | *"itzg/rcon"
+			tag:        string | *"latest"
+			digest:     string | *""
+		}
+		// Web UI port (RWA serves HTTP here).
+		port: _#portSchema | *4326
+		// WebSocket port — the browser connects here directly, so it must also be
+		// reachable by the client (port-forward both, or expose both on the LB).
+		websocketPort: _#portSchema | *4327
+		serviceType:   *"ClusterIP" | "LoadBalancer" | "NodePort"
+
+		// Initial admin user. Additional users are managed in the web UI.
+		username: string | *"admin"
+		password: schemas.#Secret & {
+			$secretName: "rcon-web-admin-secrets"
+			$dataKey:    "password"
+		}
+
+		// First RCON server, auto-loaded via env (RWA_RCON_HOST/PORT/SERVER_NAME).
+		// RCON auth uses the shared #config.rconPassword (wired in the component,
+		// not duplicated here). Omit to configure all servers in the UI instead.
+		initialServer?: {
+			host: string
+			port: _#portSchema | *25575
+			name: string | *"minecraft"
+		}
+
+		// External websocket URL overrides — only needed behind a TLS reverse
+		// proxy. Leave unset for ClusterIP+port-forward / LoadBalancer (the browser
+		// derives ws://{host}:{websocketPort} automatically).
+		websocketUrl?:    string // → RWA_WEBSOCKET_URL     (ws://...)
+		websocketUrlSsl?: string // → RWA_WEBSOCKET_URL_SSL (wss://...)
+
+		// Optional restrictions applied to non-admin users.
+		restrictCommands?: [...string] // → RWA_RESTRICT_COMMANDS (comma-joined)
+		restrictWidgets?: [...string] // → RWA_RESTRICT_WIDGETS  (comma-joined)
+		readOnlyWidgetOptions?:       bool // → RWA_READ_ONLY_WIDGET_OPTIONS
+
+		// Persistent state (users, servers, settings, widgets) at
+		// /opt/rcon-web-admin/db. lowdb JSON files — safe as a single volume.
+		storage: db: {
+			type:          *"pvc" | "hostPath" | "emptyDir"
+			size:          string | *"1Gi"
+			storageClass?: string
+			path?:         string
+			hostPathType?: "Directory" | "DirectoryOrCreate"
 		}
 		resources?: schemas.#ResourceRequirementsSchema
 	}
@@ -776,6 +891,21 @@ debugValues: {
 			keyId:   "ecdsa.debugKeyIdForCueVetOnlyNotReal"
 			privKey: "-----BEGIN EC PRIVATE-----\ndebug\n-----END EC PRIVATE-----\n"
 			pubKey:  "-----BEGIN EC PUBLIC-----\ndebug\n-----END EC PUBLIC-----\n"
+		}
+	}
+
+	rconWebAdmin: {
+		enabled:     true
+		serviceType: "ClusterIP"
+		username:    "admin"
+		password: value: "debug-rwa-password"
+		initialServer: {
+			host: "my-fleet-server-lobby.minecraft.svc"
+			name: "lobby"
+		}
+		storage: db: {
+			type: "pvc"
+			size: "1Gi"
 		}
 	}
 }

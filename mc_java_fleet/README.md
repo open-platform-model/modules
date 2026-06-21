@@ -44,6 +44,7 @@ Adding a server to `servers` automatically:
 | Prometheus monitor sidecar | `monitor.enabled` | `true` |
 | VS Code in browser | `codeServer.enabled` | — |
 | Restic snapshot browser | `resticGui.enabled` | — |
+| Web RCON panel (fleet-wide) | `rconWebAdmin.enabled` | — |
 | Router auto-scale | `router.autoScale` | — |
 | NFS / CIFS / hostPath / PVC | `storage.data.type` | `"pvc"` |
 
@@ -57,6 +58,7 @@ Adding a server to `servers` automatically:
 | `servers` | [x] | Map of server name → per-server config |
 | `router` | [x] | Router image, port, serviceType, defaultServer, autoScale, etc. |
 | `rconPassword` | [x] | Shared RCON password — K8s Secret reference |
+| `globalWhitelist` | [ ] | Fleet-wide whitelist baseline (usernames/UUIDs), merged into every server whose `whitelist.enabled` is true (default: `[]`) |
 | `codeServer` | [ ] | Optional VS Code-in-browser Deployment |
 | `resticGui` | [ ] | Optional Backrest web UI for restic snapshots |
 
@@ -205,6 +207,44 @@ in addition to the auto-generated `{serverName}.{domain}` mapping:
 
 Aliases use the same backend DNS as the primary mapping:
 `{releaseName}-server-{serverName}.{namespace}.svc:{port}`
+
+### Whitelist (global + per-server)
+
+When enabled, only listed players may connect. The effective whitelist for a
+server is the fleet-wide baseline (`globalWhitelist`, top-level) **merged** with
+that server's own local additions (`whitelist.players`):
+
+```cue
+// Top-level — applies to EVERY server whose whitelist is enabled
+globalWhitelist: ["Topix", "AvanR", "LudvigA"]
+
+servers: {
+    // Inherits the global baseline only
+    "survival": {
+        whitelist: enabled: true
+    }
+    // Global baseline + this server's local-only players
+    "creative": {
+        whitelist: {
+            enabled: true
+            players: ["CreativeGuest"]   // merged on top of globalWhitelist
+        }
+    }
+    // Opt out entirely (global included)
+    "public": {
+        whitelist: enabled: false
+    }
+}
+```
+
+Resulting itzg `WHITELIST` env = `globalWhitelist ++ whitelist.players`.
+
+| Field | Default | Description |
+|---|---|---|
+| `whitelist.enabled` | `true` | Master toggle; `false` runs with no whitelist (global included) |
+| `whitelist.players` | `[]` | Local-only players, merged on top of `globalWhitelist` |
+| `whitelist.enforce` | `true` | Kick connected non-whitelisted players on reload (`ENFORCE_WHITELIST`) |
+| `whitelist.existingFile` | `"merge"` | Reconcile with existing `whitelist.json`: `"merge"` keeps live `/whitelist add`; `"synchronize"` is CUE-authoritative; `"skip"` only seeds when absent |
 
 ### Bootstrap
 
@@ -578,6 +618,79 @@ The identity only matters for Backrest's peer-to-peer sync feature (not used her
 It can be a fixed value per deployment — generate it once and commit it alongside
 your other values. The private key material is stored in the same K8s Secret as
 the restic repo passwords, protected by the same access controls.
+
+## RCON Web Admin
+
+Optional single [rcon-web-admin](https://github.com/rcon-web-admin/rcon-web-admin)
+Deployment (`itzg/rcon-web-admin`) — a browser RCON panel for the whole fleet:
+live console, scheduled commands, and limited multi-user access with per-user
+command/widget restrictions.
+
+**One instance manages every server.** The first server is auto-loaded from env
+(`initialServer`); the remaining servers are added once in the web UI and persisted
+on the db PVC. Because all servers share the module-level `rconPassword`, the RCON
+auth is wired automatically — each extra server differs only by host.
+
+```cue
+rconWebAdmin: {
+    enabled:     true
+    serviceType: "ClusterIP"
+    username:    "admin"
+    password: { value: "changeme" }
+
+    // First server, loaded at startup. RCON auth uses the shared rconPassword.
+    initialServer: {
+        host: "my-fleet-server-lobby.minecraft.svc"
+        port: 25575          // default
+        name: "lobby"
+    }
+
+    storage: db: { type: "pvc", size: "1Gi", storageClass: "local-path" }
+}
+```
+
+### Ports — both must reach the browser
+
+rcon-web-admin serves the UI on `port` (default **4326**) and a WebSocket on
+`websocketPort` (default **4327**). The browser opens the WebSocket to
+`ws://{page-host}:{websocketPort}` **directly**, so the client must reach *both*
+ports. The simplest, safe access is ClusterIP + port-forward of both:
+
+```sh
+kubectl -n <ns> port-forward svc/<releaseName>-rcon-web-admin 4326:4326 4327:4327
+# browser → http://localhost:4326   (websocket auto → ws://localhost:4327)
+```
+
+A `LoadBalancer` exposing both ports works the same way (browser derives
+`ws://<lb-ip>:4327`) with no extra config.
+
+### Behind a TLS reverse proxy
+
+Only when fronting it with TLS (e.g. a gateway/ingress) do you need to tell the
+client where the secure WebSocket lives. Set `websocketUrlSsl` (→ `RWA_WEBSOCKET_URL_SSL`)
+and route the ws path through the proxy:
+
+```cue
+rconWebAdmin: {
+    enabled:         true
+    serviceType:     "ClusterIP"          // + an HTTPRoute / Ingress
+    websocketUrlSsl: "wss://rcon.example.com/ws"
+    // ...
+}
+```
+
+### Optional restrictions
+
+`restrictCommands` / `restrictWidgets` (comma-joined into `RWA_RESTRICT_COMMANDS` /
+`RWA_RESTRICT_WIDGETS`) and `readOnlyWidgetOptions` limit what non-admin users can
+do — useful when giving other staff limited console access.
+
+### Caveat: the extra-server list is not declarative
+
+Only `initialServer` is in CUE. Servers added in the UI live in rcon-web-admin's
+lowdb database under `/opt/rcon-web-admin/db` (the PVC), not in CUE — they can't be
+declared up front. They persist across pod restarts via the PVC, but adding/removing
+servers is a one-time manual UI step, unlike the rest of the fleet config.
 
 ## Router
 

@@ -14,6 +14,12 @@ zot_registry_ttl:
 jellyfin:
   version: v2.0.2
   checksum: 8664ccbf492fb8f9884e915c1c0fb5776c2ea9750ed2abe764da163d2509af91
+jellyfin_v016:
+  version: v1.0.32
+  checksum: 0493480aaba804e2ac556ec8f3537d638b175e393fe93667fc1606e08b3fe1a8
+seerr_v016:
+  version: v0.0.9
+  checksum: 4fe30d5130d0e784cbf5bfc3b4f1100437ba6f42ee41a3f6e46c24790800ccc1
 gateway_api:
   version: v1.1.13
 openebs_zfs:
@@ -49,8 +55,8 @@ seerr:
 olaris:
   version: v0.0.2
 mc_java_fleet:
-  version: v0.1.3
-  checksum: 09b949ab2d508859a30e529cbaeefbb707a4de5303c72409c6fd1f60e8eebd47
+  version: v0.1.10
+  checksum: 5248c28db3cbd6d7f1d3f80151cc3bd3d2f5cfdd9ec1e5035b8b2ff1600851e0
 streamio:
   version: v0.0.3
 openebs:

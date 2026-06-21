@@ -1,0 +1,230 @@
+// Package main defines the Jellyfin media server module.
+// A single-container stateful application using the LinuxServer.io image:
+// - module.cue: metadata and config schema
+// - components.cue: component definitions
+// - values.cue: default values
+package jellyfin
+
+import (
+	m "opmodel.dev/core/v1alpha1/module@v1"
+	schemas "opmodel.dev/opm/v1alpha1/schemas@v1"
+)
+
+// Module definition
+m.#Module
+
+// Module metadata
+metadata: {
+	modulePath:       "opmodel.dev/modules"
+	name:             "jellyfin"
+	version:          "0.1.0"
+	description:      "Jellyfin media server - a free software media system"
+	defaultNamespace: "jellyfin"
+}
+
+// #storageVolume is the shared schema for all storage entries.
+// Every volume — config, backup, and media — uses this same shape.
+#storageVolume: {
+	mountPath:     string
+	type:          "pvc" | "emptyDir" | "nfs"
+	size?:         string // required when type == "pvc"
+	storageClass?: string // optional, only used when type == "pvc"
+	server?:       string // required when type == "nfs"
+	path?:         string // required when type == "nfs"
+}
+
+// Schema only - constraints for users, no defaults
+#config: {
+	// Container image
+	image: schemas.#Image & {
+		repository: string | *"linuxserver/jellyfin"
+		tag:        string | *"latest"
+		digest:     string | *""
+	}
+
+	// Exposed service port for the web UI
+	port: int & >0 & <=65535 | *8096
+
+	// LinuxServer.io user/group identity
+	puid: int | *1000
+	pgid: int | *1000
+
+	// Container timezone
+	timezone: string | *"Europe/Stockholm"
+
+	// Optional: published server URL for client auto-discovery
+	publishedServerUrl?: string
+
+	// All storage definitions in one place: config, optional backup, and media mounts.
+	// Every entry uses #storageVolume; config applies sensible defaults.
+	storage: {
+		// Application data — defaults to a 10Gi PVC mounted at /config
+		config: #storageVolume & {
+			mountPath: *"/config" | string
+			type:      *"pvc" | "emptyDir" | "nfs"
+			size:      string | *"10Gi"
+		}
+		// Optional backup volume — defaults to Jellyfin's built-in backup path
+		backup?: #storageVolume & {
+			mountPath: *"/config/data/backups" | string
+		}
+		// Media library mounts keyed by library name (e.g. "movies", "series")
+		media?: [Name=string]: #storageVolume
+	}
+
+	// Kubernetes Service type for the Jellyfin web UI
+	serviceType: "ClusterIP" | "NodePort" | "LoadBalancer" | *"ClusterIP"
+
+	// Optional Gateway API HTTPRoute for ingress routing.
+	// When set, an HTTPRoute resource is created pointing to the jellyfin service.
+	httpRoute?: {
+		hostnames: [...string]
+		gatewayRef?: {
+			name:      string
+			namespace: string
+		}
+	}
+
+	// Container resource requests and limits.
+	// When absent, no resource constraints are applied to the container.
+	resources?: schemas.#ResourceRequirementsSchema & {
+		requests: {
+			cpu:    *"500m" | _
+			memory: *"1Gi" | _
+		}
+		limits: {
+			cpu:    *"4000m" | _
+			memory: *"4Gi" | _
+		}
+	}
+
+	// Optional Serilog structured logging configuration.
+	// When set, a ConfigMap is created and mounted at /config/logging.json.
+	logging?: {
+		defaultLevel: *"Information" | "Debug" | "Warning" | "Error"
+		overrides?: [string]: "Debug" | "Information" | "Warning" | "Error"
+	}
+
+	// Optional K8up backup configuration.
+	// When set, creates a K8up Schedule CR and a PreBackupPod CR for SQLite consistency.
+	backup?: {
+		// Name of the config PVC as rendered by OPM (e.g. "jellyfin-jellyfin-config").
+		// Required so the PreBackupPod can mount the correct volume.
+		configPvcName: string
+		// Cron schedule for backups (default: 2 AM daily)
+		schedule: *"0 2 * * *" | string
+		// S3 backend configuration
+		s3: {
+			endpoint: string
+			bucket:   string
+			accessKeyID: schemas.#Secret & {
+				$secretName:  "backup-s3"
+				$dataKey:     "access-key-id"
+				$description: "S3 access key ID for K8up backup"
+			}
+			secretAccessKey: schemas.#Secret & {
+				$secretName:  "backup-s3"
+				$dataKey:     "secret-access-key"
+				$description: "S3 secret access key for K8up backup"
+			}
+		}
+		// Restic repository password secret
+		repoPassword: schemas.#Secret & {
+			$secretName:  "backup-restic"
+			$dataKey:     "password"
+			$description: "Restic repository encryption password"
+		}
+		// Retention policy for prune
+		retention: {
+			keepDaily:   *7 | int
+			keepWeekly:  *4 | int
+			keepMonthly: *6 | int
+		}
+		// Cron schedule for repository integrity checks (default: 4 AM Sundays)
+		checkSchedule: *"0 4 * * 0" | string
+		// Cron schedule for pruning old snapshots (default: 5 AM Sundays)
+		pruneSchedule: *"0 5 * * 0" | string
+	}
+}
+
+debugValues: {
+	image: {
+		repository: "linuxserver/jellyfin"
+		tag:        "latest"
+		digest:     ""
+	}
+	port:        8096
+	puid:        3005
+	pgid:        3005
+	timezone:    "Europe/Stockholm"
+	serviceType: "ClusterIP"
+	resources: {
+		requests: {
+			cpu:    "500m"
+			memory: "1Gi"
+		}
+		limits: {
+			cpu:    "4000m"
+			memory: "4Gi"
+		}
+		gpu: {
+			resource: "gpu.intel.com/i915"
+			count:    1
+		}
+	}
+	httpRoute: {
+		hostnames: ["jellyfin.example.com"]
+		gatewayRef: {
+			name:      "gateway-gateway"
+			namespace: "istio-ingress"
+		}
+	}
+	logging: {
+		defaultLevel: "Information"
+		overrides: {
+			"Microsoft": "Warning"
+			"System":    "Warning"
+		}
+	}
+	storage: {
+		config: {
+			mountPath:    "/config"
+			type:         "pvc"
+			size:         "10Gi"
+			storageClass: "local-path"
+		}
+		media: {
+			movies: {
+				mountPath: "/media/movies"
+				type:      "pvc"
+				size:      "1Gi"
+			}
+			tvshows: {
+				mountPath: "/media/tvshows"
+				type:      "pvc"
+				size:      "1Gi"
+			}
+			nas: {
+				mountPath: "/media/nas"
+				type:      "nfs"
+				server:    "192.168.1.1"
+				path:      "/mnt/data/media"
+			}
+		}
+	}
+	backup: {
+		configPvcName: "jellyfin-jellyfin-config"
+		s3: {
+			endpoint: "http://10.10.0.2:30304"
+			bucket:   "jellyfin-backup"
+			accessKeyID: {value: "debug-access-key-id-value"}
+			secretAccessKey: {value: "debug-secret-access-key-value"}
+		}
+		repoPassword: {value: "debug-restic-password-32chars!!"}
+		retention: {
+			keepDaily:   7
+			keepWeekly:  4
+			keepMonthly: 6
+		}
+	}
+}

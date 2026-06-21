@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/mc_java_fleet@v0"
+module: "opmodel.dev/modules/northbyte_web@v0"
 language: {
 	version: "v0.16.0"
 }
@@ -10,6 +10,6 @@ deps: {
 		v: "v1.3.10"
 	}
 	"opmodel.dev/opm/v1alpha1@v1": {
-		v: "v1.6.0"
+		v: "v1.5.9"
 	}
 }
