@@ -1,12 +1,12 @@
 // Package web_app defines a minimal stateless web application module.
 // Modeled on the opm-operator hello-web test fixture, extended with an Expose
 // trait so it renders a Service alongside the Deployment. Used to exercise the
-// authored-#ModuleRelease (Release CR) render path on the OPM core catalog
-// (opmodel.dev/catalogs/opm@v0).
+// authored-#ModuleInstance (ModulePackage CR) render path on the OPM core
+// catalog (opmodel.dev/catalogs/opm@v1).
 package web_app
 
 import (
-	m "opmodel.dev/core@v0"
+	m "opmodel.dev/core@v1"
 	res "opmodel.dev/catalogs/opm/resources"
 )
 

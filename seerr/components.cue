@@ -85,25 +85,29 @@ import (
 							}
 						}
 					}
+					// Seerr's /api/v1/status handler blocks on an upstream
+					// api.github.com version check; when the cluster has no egress
+					// to GitHub that lookup stalls ~5s, so the probes are tolerant
+					// (10s timeout, 5 failures) to avoid killing a healthy app.
 					livenessProbe: {
 						httpGet: {
 							path: "/api/v1/status"
 							port: #config.port
 						}
-						initialDelaySeconds: 30
+						initialDelaySeconds: 60
 						periodSeconds:       10
-						timeoutSeconds:      5
-						failureThreshold:    3
+						timeoutSeconds:      10
+						failureThreshold:    5
 					}
 					readinessProbe: {
 						httpGet: {
 							path: "/api/v1/status"
 							port: #config.port
 						}
-						initialDelaySeconds: 10
+						initialDelaySeconds: 30
 						periodSeconds:       10
-						timeoutSeconds:      3
-						failureThreshold:    3
+						timeoutSeconds:      10
+						failureThreshold:    5
 					}
 					if #config.resources != _|_ {
 						resources: #config.resources

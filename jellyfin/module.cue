@@ -3,14 +3,14 @@
 // - module.cue:     metadata and config schema
 // - components.cue: component definitions (catalog_opm blueprints/traits)
 //
-// Rebased onto the OPM core catalog (opmodel.dev/catalogs/opm@v0). The previous
+// Rebased onto the OPM core catalog (opmodel.dev/catalogs/opm@v1). The previous
 // K8up backup feature has been dropped — the core catalog has no backup
 // resource. Config storage, media mounts, the web Service, optional GPU
 // passthrough, optional Gateway HTTPRoute, and optional Serilog logging remain.
 package jellyfin
 
 import (
-	m "opmodel.dev/core@v0"
+	m "opmodel.dev/core@v1"
 	res "opmodel.dev/catalogs/opm/resources"
 )
 

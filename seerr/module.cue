@@ -3,14 +3,14 @@
 // - module.cue:     metadata and config schema
 // - components.cue: component definitions (catalog_opm blueprints/traits)
 //
-// Rebased onto the OPM core catalog (opmodel.dev/catalogs/opm@v0) and
+// Rebased onto the OPM core catalog (opmodel.dev/catalogs/opm@v1) and
 // simplified: the K8up backup, external PostgreSQL, and API-key-secret options
 // were dropped. Seerr stores its settings in a SQLite database on the config
 // PVC; service integrations are configured via the web UI after deploy.
 package seerr
 
 import (
-	m "opmodel.dev/core@v0"
+	m "opmodel.dev/core@v1"
 	res "opmodel.dev/catalogs/opm/resources"
 )
 
