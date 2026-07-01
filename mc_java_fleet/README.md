@@ -899,6 +899,52 @@ code-server     →  my-fleet-code-server.minecraft.svc.cluster.local
 restic-gui      →  my-fleet-restic-gui.minecraft.svc.cluster.local
 ```
 
+## Known gaps / roadmap
+
+### Arbitrary config injection & env passthrough (not yet supported)
+
+The per-server `server:` block exposes a **curated** allowlist of
+`server.properties` mapped to specific itzg env vars (`motd`, `difficulty`,
+`maxWorldSize`, `maxTickTime`, `levelType`, …). Two things are deliberately
+**not** reachable from a release's `values` today:
+
+1. **Arbitrary itzg env vars / server properties** outside the curated schema.
+   Adding one currently requires editing this module — the `server:` schema in
+   `module.cue` *and* the env block in `components.cue` — not just the release
+   `values`.
+2. **Mod / plugin config files** (e.g. `config/<mod>/*.json`, `*.toml`). The
+   only injection path is the heavyweight **`bootstrap`** tar archive, which
+   ships whole-directory *state* from a hosted URL (see [Bootstrap](#bootstrap)).
+   There is no lightweight "write or patch a single config file" mechanism.
+
+**Why this matters (motivating case).** Disabling one mod provider — e.g.
+Jade's `item_storage` (the block-inventory tooltip), which can stall the server
+tick on large modded inventories (AE2 / Refined Storage / Sophisticated Storage
+/ Create) until the watchdog force-kills the server — comes down to flipping a
+single JSON file under `config/jade/`. With no file-level mechanism, the only
+ways to do it are:
+
+- build and host a full `bootstrap` archive just to carry one small file, or
+- edit the file ad-hoc on the live PVC — which is **out of git and lost if the
+  PVC is ever regenerated**.
+
+Neither is declarative-from-`values`.
+
+**Proposed directions** (any one closes the gap; they compose):
+
+- **Generic env passthrough** — a `server.env: {NAME: "value"}` map merged into
+  the server container env. Covers any itzg-supported env var (including
+  server properties) without growing the curated schema.
+- **Expose itzg's built-in file patching** — surface `PATCH_DEFINITIONS` and the
+  `*_REPLACE` / `REPLACE_ENV_*` family (and/or the `/config` →
+  `COPY_CONFIG_DEST` copy) so individual config files can be written or patched
+  declaratively at startup.
+- **Config generation** — a `files: {"config/jade/...": "<contents>"}` map
+  rendered into a ConfigMap and mounted (or copied in via an init step).
+
+Until one lands, prefer `bootstrap` for durable state, and treat any live PVC
+edit as documented, re-appliable tech debt.
+
 ## Differences from the gamestack bundle
 
 | Feature | mc_java_fleet | gamestack bundle |

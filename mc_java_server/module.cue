@@ -1,36 +1,29 @@
-// Package mc_java_fleet defines a Minecraft Java server fleet module.
+// Package mc_java_server defines a single Minecraft Java server module.
 //
-// Combines a dynamic fleet of Minecraft Java servers with a single shared
-// mc-router that routes player connections by hostname.
+// One release == one Minecraft server: its own StatefulSet + Service, optional
+// backup/monitor sidecars, bootstrap init container, and optional per-server ops
+// tooling (code-server, restic-gui, rcon-web-admin).
 //
-// ## Concept
+// ## Router awareness (decoupled)
 //
-// Define N servers in `servers` map — each gets its own StatefulSet and
-// Kubernetes Service. A single mc-router (LoadBalancer) routes incoming
-// TCP connections by hostname to the correct server:
+// This module does NOT contain a router. Instead, the server's Service is
+// annotated for mc-router's Kubernetes service-discovery mode:
 //
-//   lobby.mc.example.com    →  router  →  {releaseName}-server-lobby.{namespace}.svc
-//   survival.mc.example.com →  router  →  {releaseName}-server-survival.{namespace}.svc
+//   metadata.annotations:
+//     mc-router.itzg.me/externalServerName: "{name}.{domain}[,{alias}…]"
+//     mc-router.itzg.me/defaultServer:       "true"   (when defaultServer)
 //
-// ## Auto-wiring
-//
-// Adding a server to the `servers` map automatically:
-//   - Creates a StatefulSet + Service for that server
-//   - Adds a --mapping entry to the shared mc-router
+// A separate mc_router release running with IN_KUBE_CLUSTER watches Services in
+// the namespace and auto-registers each annotated server — no static mappings,
+// no central server list. Add/remove/update a server by applying just its own
+// release; the router picks it up at runtime.
 //
 // ## Service DNS convention
 //
 // Set `releaseName` to exactly match the ModuleRelease `metadata.name`.
-// The K8s Service for each server is reachable at:
-//   {releaseName}-server-{serverName}.{namespace}.svc
-// The router Service:
-//   {releaseName}-router.{namespace}.svc
-//
-// ## RCON password
-//
-// A single `rconPassword` is shared across all servers. Define it once at
-// the module level; the components automatically inject it into each server.
-package mc_java_fleet
+// The K8s Service for this server is reachable at:
+//   {releaseName}-server-{name}.{namespace}.svc
+package mc_java_server
 
 import (
 	m "opmodel.dev/core/v1alpha1/module@v1"
@@ -42,10 +35,10 @@ m.#Module
 
 // Module metadata
 metadata: {
-	modulePath:       "example.com/modules"
-	name:             "mc-java-fleet"
+	modulePath:       "opmodel.dev/modules"
+	name:             "mc-java-server"
 	version:          "0.1.0"
-	description:      "Dynamic Minecraft Java server fleet with a shared mc-router for hostname-based routing"
+	description:      "Single Minecraft Java server with optional per-server ops tooling; self-advertises to mc-router via Service annotations"
 	defaultNamespace: "default"
 }
 
@@ -92,12 +85,13 @@ _#pluginsConfig: {
 	removeOldMods: bool | *false
 }
 
-// _#config — full per-server configuration.
-// The rcon.password field is always provided at module level via #config.rconPassword
-// and injected into each server component — it is intentionally absent here.
-_#config: {
+// #config — full server configuration. This struct is declared in two parts that
+// CUE unifies: the per-server fields below, and the routing/identity/ops fields in
+// the second #config block further down.
+#config: {
 
-	// name used so that router can reference this server in its defaultServer config when hostname doesn't match any server (e.g. lobby.mc.example.com → defaultServer)
+	// DNS-label server name. Forms the primary router hostname {name}.{domain}
+	// and the Service name {releaseName}-server-{name}.
 	name: string
 
 	// enabled controls whether the server is running (replicas=1) or stopped (replicas=0).
@@ -324,17 +318,6 @@ _#config: {
 		// Container timezone (TZ env var, e.g. "Europe/Stockholm")
 		tz?: string
 	}
-
-	// TODO(config-passthrough): the `server:` fields above are a curated
-	// allowlist of server.properties → itzg env vars. There is no passthrough
-	// for arbitrary itzg env vars, nor any way to write/patch individual
-	// mod/plugin config files (e.g. config/jade/*.json) short of a full
-	// `bootstrap` archive. Motivating case: disabling Jade's item_storage
-	// provider needs one JSON file under config/jade/, which today forces either
-	// a bootstrap tarball or an out-of-git PVC edit (lost on PVC regeneration).
-	// Consider a generic `env:` map and/or exposing itzg PATCH_DEFINITIONS /
-	// *_REPLACE file patching, or a `files:` config-generation map.
-	// See README "Known gaps / roadmap".
 
 	// === RCON Configuration ===
 	// Note: password is absent here — always injected from #config.rconPassword.
@@ -576,86 +559,29 @@ _#config: {
 	securityContext?: schemas.#SecurityContextSchema
 }
 
-// Module config schema
+// Module config schema — routing identity, shared injected values, and per-server
+// ops tooling. Unifies with the per-server #config block above.
 #config: {
 	// === Routing Identity ===
 
 	// Must match the ModuleRelease metadata.name exactly.
-	// Used to compute K8s Service DNS names:
-	//   {releaseName}-server-{serverName}.{namespace}.svc
+	// Used to compute the K8s Service DNS name:
+	//   {releaseName}-server-{name}.{namespace}.svc
 	releaseName: string
 
-	// Base domain for all server hostnames.
-	// Each server is accessible at {serverName}.{domain}.
-	// Example: domain: "mc.example.com" → lobby.mc.example.com
+	// Base domain for this server's hostname.
+	// The server is reachable at {name}.{domain}.
+	// Example: domain: "mc.example.com" + name "lobby" → lobby.mc.example.com
 	domain: string
 
-	// Kubernetes namespace for all components
+	// Kubernetes namespace for all components.
 	namespace: string
 
-	// === Server Fleet ===
-	// Each entry produces one Minecraft server + auto-wires it into the router.
-	// Key = server name (e.g. "lobby", "survival"). Must be a valid DNS label.
-	servers: [sName=string]: _#config & {name: sName}
-
-	// === Router Configuration ===
-	router: {
-		// Container image for mc-router
-		image: schemas.#Image & {
-			repository: string | *"itzg/mc-router"
-			tag:        string | *"1.40.3"
-			digest:     string | *""
-		}
-
-		// Minecraft listening port on the router Service
-		port: _#portSchema | *25565
-
-		// Service type for the router (typically LoadBalancer for public access)
-		serviceType: *"LoadBalancer" | "ClusterIP" | "NodePort"
-
-		// Maximum connection rate per second
-		connectionRateLimit: int & >0 | *1
-
-		// Enable debug logging
-		debug: bool | *false
-
-		// Simplify SRV record lookup
-		simplifySrv: bool | *false
-
-		// Enable PROXY protocol for downstream servers
-		useProxyProtocol: bool | *false
-
-		// Default server when no hostname matches (optional)
-		defaultServer?: {
-			host: string
-			port: _#portSchema
-		}
-
-		// Auto-scale configuration (wake/sleep StatefulSets on player connect/disconnect)
-		autoScale?: {
-			up?: {
-				enabled: bool
-			}
-			down?: {
-				enabled: bool
-				after?:  string
-			}
-		}
-
-		// Metrics backend configuration
-		metrics?: {
-			backend: "discard" | "expvar" | "influxdb" | "prometheus"
-		}
-
-		// REST API configuration
-		api: {
-			enabled: bool | *false
-			port:    _#portSchema | *8080
-		}
-
-		// Resource limits for the router container
-		resources?: schemas.#ResourceRequirementsSchema
-	}
+	// === Router default-server flag ===
+	// When true, this server's Service carries mc-router.itzg.me/defaultServer
+	// = "true", so players connecting without a matching hostname land here.
+	// At most one server per namespace should set this.
+	defaultServer: bool | *false
 
 	// === Shared RCON Secret ===
 	// Shared across all Minecraft server instances in the fleet.
@@ -797,14 +723,9 @@ _#config: {
 			$dataKey:    "password"
 		}
 
-		// First RCON server, auto-loaded via env (RWA_RCON_HOST/PORT/SERVER_NAME).
-		// RCON auth uses the shared #config.rconPassword (wired in the component,
-		// not duplicated here). Omit to configure all servers in the UI instead.
-		initialServer?: {
-			host: string
-			port: _#portSchema | *25575
-			name: string | *"minecraft"
-		}
+		// This server is auto-loaded over RCON via env (RWA_RCON_HOST/PORT/SERVER_NAME),
+		// derived from the release; auth uses the shared #config.rconPassword. Any
+		// additional servers are added manually in the web UI.
 
 		// External websocket URL overrides — only needed behind a TLS reverse
 		// proxy. Leave unset for ClusterIP+port-forward / LoadBalancer (the browser
@@ -832,52 +753,30 @@ _#config: {
 
 // debugValues exercises the full #config surface for local cue vet / cue eval.
 debugValues: {
-	releaseName: "my-fleet"
-	domain:      "mc.example.com"
-	namespace:   "minecraft"
+	releaseName:   "my-fleet"
+	domain:        "mc.example.com"
+	namespace:     "minecraft"
+	name:          "survival"
+	defaultServer: true
 
-	servers: {
-		lobby: {
-			server: {
-				motd:       "Welcome to the Lobby!"
-				maxPlayers: 50
-				mode:       "adventure"
-				pvp:        false
-				difficulty: "peaceful"
-			}
-			paper: {}
-			jvm: memory:    "1G"
-			bootstrap: url: "https://example.com/bootstrap/lobby.tar.gz"
-		}
-		survival: {
-			server: {
-				maxPlayers: 20
-				difficulty: "hard"
-			}
-			fabric: {
-				loaderVersion: "0.15.11"
-				mods: {
-					modrinth: {
-						projects: ["lithium", "starlight"]
-					}
-				}
-			}
-			jvm: maxMemory: "4G"
-			backup: {
-				enabled: true
-				method:  "tar"
-				tar: {}
+	server: {
+		maxPlayers: 20
+		difficulty: "hard"
+	}
+	fabric: {
+		loaderVersion: "0.15.11"
+		mods: {
+			modrinth: {
+				projects: ["lithium", "starlight"]
 			}
 		}
 	}
-
-	router: {
-		port:        25565
-		serviceType: "LoadBalancer"
-		defaultServer: {
-			host: "my-fleet-server-lobby.minecraft.svc"
-			port: 25565
-		}
+	jvm: maxMemory: "4G"
+	aliases: ["survival.example.com"]
+	backup: {
+		enabled: true
+		method:  "tar"
+		tar: {}
 	}
 
 	rconPassword: value: "debug-rcon-password"
@@ -910,10 +809,6 @@ debugValues: {
 		serviceType: "ClusterIP"
 		username:    "admin"
 		password: value: "debug-rwa-password"
-		initialServer: {
-			host: "my-fleet-server-lobby.minecraft.svc"
-			name: "lobby"
-		}
 		storage: db: {
 			type: "pvc"
 			size: "1Gi"
