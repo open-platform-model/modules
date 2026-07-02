@@ -54,9 +54,6 @@ seerr:
   checksum: 953b9efd9c6fba278a9a5420c28eec128c702958a5a376f69a5efcc9486edc35
 olaris:
   version: v0.0.2
-mc_java_fleet:
-  version: v0.2.0
-  checksum: a67ae086b9682e15e0052622dc9487770ac5546441879646a995488335e0ff23
 streamio:
   version: v0.0.3
 openebs:
@@ -92,12 +89,6 @@ web_app:
 seafile:
   version: v0.2.0
   checksum: 2e569423dc9b35ed1bd4bceb9e4b3c977d5f5daa8abb9f0645b383e71bd8717a
-mc_java_server:
-  version: v0.2.0
-  checksum: fc0c4528ee8559e774b357673cbe54f6fe774133ba214f656d262f12c4c99cca
-mc_router:
-  version: v0.0.1
-  checksum: 4880d189b3b7a760ddc937cda94b0f1f87e10f67f444ff78595f73ed02f70832
 northbyte_web:
   version: v0.0.1
   checksum: 97a39c56ed90ac1386077056bade5346909d1753ac7e74289607cf9abc66a99f
