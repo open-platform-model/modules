@@ -36,11 +36,11 @@ import (
 	// ── Minecraft server component ───────────────────────────────────────────────
 	// Single StatefulSet + Service. Iterating a one-entry synthetic map keeps the
 	// (lifted-from-fleet) loop body intact while producing exactly one server.
-	// Component name: server-{name}  →  K8s Service: {releaseName}-server-{name}
+	// Component name: server  →  K8s Service: {releaseName}-server
 	for _srvName, _srvCfg in {"\(#config.name)": #config} {
 		let _c = _srvCfg
 
-		"server-\(_srvName)": {
+		"server": {
 			resources_workload.#Container
 			resources_storage.#Volumes
 			if _c.bootstrap != _|_ {
@@ -1068,6 +1068,19 @@ import (
 								value: "\(_c.query.port)"
 							}
 						}
+
+						// === Generic Environment Variable Passthrough ===
+						// _c.env is guarded with `!= _|_` because it's an optional field —
+						// a bare `for k, v in _c.env` over an unset optional field fails
+						// `cue vet -c`.
+						if _c.env != _|_ {
+							for k, v in _c.env {
+								(k): {
+									name:  k
+									value: v
+								}
+							}
+						}
 					}
 
 					volumeMounts: {
@@ -1651,7 +1664,7 @@ import (
 							"\(_srvName)-data": {
 								name: "\(_srvName)-data"
 								if _srvCfg.storage.data.type == "pvc" {
-									persistentClaim: claimName: "\(#config.releaseName)-server-\(_srvName)-data"
+									persistentClaim: claimName: "\(#config.releaseName)-server-data"
 								}
 								if _srvCfg.storage.data.type == "hostPath" {
 									hostPath: {
@@ -1959,7 +1972,7 @@ import (
 							// This server, auto-loaded over RCON. Host/port/name are derived
 							// from this release; auth uses the shared rconPassword.
 							if #config.rcon.enabled {
-								RWA_RCON_HOST: {name: "RWA_RCON_HOST", value: "\(_relName)-server-\(#config.name).\(_ns).svc"}
+								RWA_RCON_HOST: {name: "RWA_RCON_HOST", value: "\(_relName)-server.\(_ns).svc"}
 								RWA_RCON_PORT: {name: "RWA_RCON_PORT", value: "\(#config.rcon.port)"}
 								RWA_SERVER_NAME: {name: "RWA_SERVER_NAME", value: #config.name}
 								RWA_RCON_PASSWORD: {name: "RWA_RCON_PASSWORD", from: #config.rconPassword}

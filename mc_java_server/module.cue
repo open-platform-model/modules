@@ -22,7 +22,7 @@
 //
 // Set `releaseName` to exactly match the ModuleRelease `metadata.name`.
 // The K8s Service for this server is reachable at:
-//   {releaseName}-server-{name}.{namespace}.svc
+//   {releaseName}-server.{namespace}.svc
 package mc_java_server
 
 import (
@@ -37,7 +37,7 @@ m.#Module
 metadata: {
 	modulePath:       "opmodel.dev/modules"
 	name:             "mc-java-server"
-	version:          "0.1.0"
+	version:          "0.2.0"
 	description:      "Single Minecraft Java server with optional per-server ops tooling; self-advertises to mc-router via Service annotations"
 	defaultNamespace: "default"
 }
@@ -90,8 +90,8 @@ _#pluginsConfig: {
 // the second #config block further down.
 #config: {
 
-	// DNS-label server name. Forms the primary router hostname {name}.{domain}
-	// and the Service name {releaseName}-server-{name}.
+	// DNS-label server name. Forms the primary router hostname {name}.{domain}.
+	// K8s resource names derive from the release only: Service/STS {releaseName}-server.
 	name: string
 
 	// enabled controls whether the server is running (replicas=1) or stopped (replicas=0).
@@ -318,6 +318,31 @@ _#pluginsConfig: {
 		// Container timezone (TZ env var, e.g. "Europe/Stockholm")
 		tz?: string
 	}
+
+	// === Generic Environment Variable Passthrough ===
+	// Escape hatch for any itzg-supported env var not covered by the curated `server:`
+	// allowlist above (e.g. GENERATE_LOG4J2_CONFIG, LOG_CONSOLE_FORMAT, LOG_FILE_FORMAT).
+	// Wired into the container env LAST (components.cue), after every curated field, so
+	// this map can add new vars freely but can never silently clobber a module-managed
+	// one: a key colliding with a curated field unifies with that field's literal value —
+	// a harmless no-op if they agree, a hard `cue vet` build-time error if they don't.
+	//
+	// EXCEPTION: RCON_PASSWORD and CF_API_KEY are excluded below, not left to that
+	// unification safety net. Both are secret-sourced (`from:`, not `value:`) in
+	// components.cue; a colliding plain-string entry would NOT conflict at the CUE level
+	// (it would just add `value:` alongside the existing `from:`), producing a K8s EnvVar
+	// with BOTH `value` and `valueFrom` set — Kubernetes only rejects that at apply time
+	// ("may not specify both value and valueFrom"), not at `cue vet` time.
+	env?: {
+		[string]:       string
+		RCON_PASSWORD?: _|_
+		CF_API_KEY?:    _|_
+	}
+
+	// TODO(config-file-patching): writing/patching individual mod/plugin config files
+	// (e.g. config/jade/*.json) still has no lightweight mechanism short of a full
+	// `bootstrap` archive. Consider exposing itzg's PATCH_DEFINITIONS / *_REPLACE file
+	// patching, or a `files:` config-generation map. See README "Known gaps / roadmap".
 
 	// === RCON Configuration ===
 	// Note: password is absent here — always injected from #config.rconPassword.
@@ -773,6 +798,9 @@ debugValues: {
 	}
 	jvm: maxMemory: "4G"
 	aliases: ["survival.example.com"]
+	env: {
+		GENERATE_LOG4J2_CONFIG: "true"
+	}
 	backup: {
 		enabled: true
 		method:  "tar"
