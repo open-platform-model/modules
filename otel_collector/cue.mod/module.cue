@@ -10,6 +10,6 @@ deps: {
 		v: "v1.3.10"
 	}
 	"opmodel.dev/opm/v1alpha1@v1": {
-		v: "v1.5.9"
+		v: "v1.6.0"
 	}
 }
