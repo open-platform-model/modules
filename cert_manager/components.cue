@@ -21,7 +21,7 @@
 //   webhook-validating             — ValidatingWebhookConfiguration (cert-manager-webhook)
 //   webhook-mutating               — MutatingWebhookConfiguration (cert-manager-webhook)
 //
-// RBAC follows the cert-manager Helm chart v1.13.0 structure exactly.
+// RBAC follows the cert-manager Helm chart v1.21.0 structure exactly.
 package cert_manager
 
 import (
@@ -138,7 +138,7 @@ import (
 			container: {
 				name: "cert-manager-controller"
 				image: {
-					repository: "quay.io/jetstack/cert-manager-controller"
+					repository: "\(#config.image.repository)/cert-manager-controller"
 					tag:        #config.image.tag
 					digest:     ""
 					pullPolicy: #config.image.pullPolicy
@@ -148,7 +148,7 @@ import (
 					"--v=\(#config.controller.logLevel)",
 					"--cluster-resource-namespace=$(POD_NAMESPACE)",
 					"--leader-election-namespace=\(#config.leaderElection.namespace)",
-					"--acme-http01-solver-image=quay.io/jetstack/cert-manager-acmesolver:\(#config.image.tag)",
+					"--acme-http01-solver-image=\(#config.image.repository)/cert-manager-acmesolver:\(#config.image.tag)",
 				]
 
 				env: {
@@ -230,7 +230,7 @@ import (
 			container: {
 				name: "cert-manager-webhook"
 				image: {
-					repository: "quay.io/jetstack/cert-manager-webhook"
+					repository: "\(#config.image.repository)/cert-manager-webhook"
 					tag:        #config.image.tag
 					digest:     ""
 					pullPolicy: #config.image.pullPolicy
@@ -321,7 +321,7 @@ import (
 			container: {
 				name: "cert-manager-cainjector"
 				image: {
-					repository: "quay.io/jetstack/cert-manager-cainjector"
+					repository: "\(#config.image.repository)/cert-manager-cainjector"
 					tag:        #config.image.tag
 					digest:     ""
 					pullPolicy: #config.image.pullPolicy
@@ -390,7 +390,7 @@ import (
 				{
 					apiGroups: [""]
 					resources: ["secrets"]
-					verbs: ["get", "list", "watch"]
+					verbs: ["get", "list", "watch", "create", "update", "delete"]
 				},
 				{
 					apiGroups: [""]
@@ -431,7 +431,7 @@ import (
 				{
 					apiGroups: [""]
 					resources: ["secrets"]
-					verbs: ["get", "list", "watch"]
+					verbs: ["get", "list", "watch", "create", "update", "delete"]
 				},
 				{
 					apiGroups: [""]
@@ -527,8 +527,20 @@ import (
 				},
 				{
 					apiGroups: ["acme.cert-manager.io"]
-					resources: ["challenges", "orders/finalizers"]
-					verbs: ["create", "delete", "update"]
+					resources: ["challenges"]
+					verbs: ["create", "delete"]
+				},
+				// OwnerReferencesPermissionEnforcement support — the Orders controller sets
+				// owner refs on Challenges, so it needs update on the owners' finalizers.
+				{
+					apiGroups: ["acme.cert-manager.io"]
+					resources: ["orders/finalizers"]
+					verbs: ["update"]
+				},
+				{
+					apiGroups: ["cert-manager.io"]
+					resources: ["clusterissuers/finalizers", "issuers/finalizers"]
+					verbs: ["update"]
 				},
 				{
 					apiGroups: [""]
@@ -654,12 +666,12 @@ import (
 				},
 				{
 					apiGroups: ["gateway.networking.k8s.io"]
-					resources: ["gateways", "httproutes"]
+					resources: ["gateways", "httproutes", "listenersets"]
 					verbs: ["get", "list", "watch"]
 				},
 				{
 					apiGroups: ["gateway.networking.k8s.io"]
-					resources: ["gateways/finalizers", "httproutes/finalizers"]
+					resources: ["gateways/finalizers", "httproutes/finalizers", "listenersets/finalizers"]
 					verbs: ["update"]
 				},
 				{
@@ -692,6 +704,7 @@ import (
 					apiGroups: ["cert-manager.io"]
 					resources: ["signers"]
 					verbs: ["approve"]
+					resourceNames: ["issuers.cert-manager.io/*", "clusterissuers.cert-manager.io/*"]
 				},
 			]
 
@@ -728,6 +741,7 @@ import (
 					apiGroups: ["certificates.k8s.io"]
 					resources: ["signers"]
 					verbs: ["sign"]
+					resourceNames: ["issuers.cert-manager.io/*", "clusterissuers.cert-manager.io/*"]
 				},
 				{
 					apiGroups: ["authorization.k8s.io"]
@@ -806,17 +820,17 @@ import (
 				{
 					apiGroups: ["admissionregistration.k8s.io"]
 					resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
-					verbs: ["get", "list", "watch", "update"]
+					verbs: ["get", "list", "watch", "update", "patch"]
 				},
 				{
 					apiGroups: ["apiregistration.k8s.io"]
 					resources: ["apiservices"]
-					verbs: ["get", "list", "watch", "update"]
+					verbs: ["get", "list", "watch", "update", "patch"]
 				},
 				{
 					apiGroups: ["apiextensions.k8s.io"]
 					resources: ["customresourcedefinitions"]
-					verbs: ["get", "list", "watch", "update"]
+					verbs: ["get", "list", "watch", "update", "patch"]
 				},
 				{
 					apiGroups: ["batch"]
@@ -926,7 +940,7 @@ import (
 	//// annotation. Excludes the cert-manager namespace and namespaces that
 	//// opt out via the cert-manager.io/disable-validation label.
 	////
-	//// Source: cert-manager Helm chart v1.13.0 —
+	//// Source: cert-manager Helm chart v1.21.0 —
 	//// templates/webhook-validatingwebhookconfiguration.yaml
 	/////////////////////////////////////////////////////////////////
 
@@ -941,7 +955,7 @@ import (
 					"app.kubernetes.io/name":      "webhook"
 					"app.kubernetes.io/instance":  "cert-manager"
 					"app.kubernetes.io/component": "webhook"
-					"app.kubernetes.io/version":   "v1.13.0"
+					"app.kubernetes.io/version":   #config.image.tag
 				}
 				annotations: {
 					"cert-manager.io/inject-apiserver-ca": "true"
@@ -994,7 +1008,7 @@ import (
 	//// cert-manager.io resources. The cainjector injects the CA bundle
 	//// via the cert-manager.io/inject-apiserver-ca annotation.
 	////
-	//// Source: cert-manager Helm chart v1.13.0 —
+	//// Source: cert-manager Helm chart v1.21.0 —
 	//// templates/webhook-mutatingwebhookconfiguration.yaml
 	/////////////////////////////////////////////////////////////////
 
@@ -1009,7 +1023,7 @@ import (
 					"app.kubernetes.io/name":      "webhook"
 					"app.kubernetes.io/instance":  "cert-manager"
 					"app.kubernetes.io/component": "webhook"
-					"app.kubernetes.io/version":   "v1.13.0"
+					"app.kubernetes.io/version":   #config.image.tag
 				}
 				annotations: {
 					"cert-manager.io/inject-apiserver-ca": "true"

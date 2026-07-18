@@ -32,8 +32,8 @@ gateway:
   version: v0.0.28
   checksum: 7e4059b5f538273d921e1ef1e18cf6fd9f9fdf755ebabb7ad0767cff82b72240
 cert_manager:
-  version: v0.0.9
-  checksum: 87962b87beed0e8dec027ea1771ddf146e11a832b2709885509e796540697dd2
+  version: v0.1.0
+  checksum: 9ca3ed081cbb445d664423068200e6b4478f45e8e2c047dac668494a31414b37
 cert_manager_config:
   version: v0.0.6
   checksum: 4b6dae4c2a3c66991c8660fd462e36028127aa8eb24d7609b5e831244229caac

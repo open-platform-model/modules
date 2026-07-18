@@ -26,9 +26,14 @@ metadata: {
 #config: {
 	// Image configuration — tag is shared across all cert-manager components.
 	image: schemas.#Image & {
-		repository: string | *"ghcr.io/cert-manager"
-		// cert-manager release tag (e.g., "v1.13.0"). See https://github.com/cert-manager/cert-manager/releases.
-		tag: string | *"v1.13.0"
+		// Registry + namespace holding the cert-manager images. The per-component image
+		// name (cert-manager-controller, -webhook, -cainjector, -acmesolver) is appended
+		// by components.cue. Override to pull from a mirror or private registry.
+		repository: string | *"quay.io/jetstack"
+		// cert-manager release tag (e.g., "v1.21.0"). See https://github.com/cert-manager/cert-manager/releases.
+		// NOTE: crds_data.cue is generated from this release's cert-manager.crds.yaml —
+		// regenerate it when bumping this tag, otherwise the CRDs and images drift apart.
+		tag: string | *"v1.21.0"
 		// Image digest for the container.
 		digest: string | *""
 	}
@@ -78,8 +83,8 @@ metadata: {
 // debugValues exercises the full #config surface for local `cue vet` / `cue eval`.
 debugValues: {
 	image: {
-		repository: "ghcr.io/cert-manager"
-		tag:        "v1.13.0"
+		repository: "quay.io/jetstack"
+		tag:        "v1.21.0"
 		pullPolicy: "IfNotPresent"
 	}
 	controller: {
