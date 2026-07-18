@@ -24,15 +24,20 @@ permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
-  # Two CUE toolchains are installed side by side. Each module is built with the
-  # binary matching its cue.mod `language.version`:
-  #   - STABLE (v0.16.x): modules on the opm/v1alpha1 + core/v1alpha1 catalog,
-  #     whose schemas use the `div` operator (removed in v0.17-alpha).
-  #   - NEXT (v0.17.0-alpha.x): modules on the catalogs/opm@v0 + core@v0 catalog,
-  #     which declare language.version v0.17.0-alpha.1.
-  CUE_VERSION_STABLE: 'v0.16.0'
-  CUE_VERSION_NEXT: 'v0.17.0-alpha.1'
+  # This branch (v0_legacy) is the frozen OPM v0 train: every module pins
+  # CUE language.version v0.16.x and depends on the deprecated
+  # opm/v1alpha1 + core/v1alpha1 catalog, whose schemas use the `div`
+  # operator (removed in CUE v0.17). The OPM v1 / CUE v0.17 modules
+  # publish from main with its own copy of this workflow.
+  CUE_VERSION: 'v0.16.0'
+  # Modules whose language.version doesn't match this prefix belong on the
+  # other branch and fail the run.
+  CUE_LANGUAGE_PREFIX: 'v0.16'
   CUE_REGISTRY: 'opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
   ORG: 'open-platform-model'
   REPO: 'modules'
@@ -54,13 +59,11 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           yq --version
 
-      - name: Install CUE toolchains (stable + next)
+      - name: Install CUE toolchain
         run: |
           set -euo pipefail
-          GOBIN="$HOME/cuebin/stable" go install "cuelang.org/go/cmd/cue@${CUE_VERSION_STABLE}"
-          GOBIN="$HOME/cuebin/next"   go install "cuelang.org/go/cmd/cue@${CUE_VERSION_NEXT}"
-          echo "stable: $("$HOME/cuebin/stable/cue" version | head -1)"
-          echo "next:   $("$HOME/cuebin/next/cue" version | head -1)"
+          GOBIN="$HOME/cuebin" go install "cuelang.org/go/cmd/cue@${CUE_VERSION}"
+          echo "cue: $("$HOME/cuebin/cue" version | head -1)"
 
       - name: Discover modules
         id: discover
@@ -70,6 +73,14 @@ jobs:
           for dir in */; do
             name="${dir%/}"
             [ -d "${name}/cue.mod" ] || continue
+            lv=$(sed -n '/^language:/,/}/{s/.*version:[[:space:]]*"\([^"]*\)".*/\1/p;}' "${name}/cue.mod/module.cue" | head -1)
+            case "$lv" in
+              "${CUE_LANGUAGE_PREFIX}"*) : ;;
+              *)
+                echo "::error::${name}: language.version ${lv:-<missing>} does not match this branch's train (${CUE_LANGUAGE_PREFIX}.x). v0.17 modules belong on the main branch."
+                exit 1
+                ;;
+            esac
             MODULES="${MODULES} ${name}"
           done
           MODULES="${MODULES# }"
@@ -146,18 +157,8 @@ jobs:
         if: steps.check.outputs.has_changes == 'true'
         run: |
           set -euo pipefail
-          # Print the cue binary matching a module's declared language.version.
-          pick_cue() {
-            local lv
-            lv=$(sed -n '/^language:/,/}/{s/.*version:[[:space:]]*"\([^"]*\)".*/\1/p;}' "$1/cue.mod/module.cue" | head -1)
-            case "$lv" in
-              v0.17*|v0.18*|v0.19*) echo "$HOME/cuebin/next/cue" ;;
-              *) echo "$HOME/cuebin/stable/cue" ;;
-            esac
-          }
           for name in ${{ steps.discover.outputs.modules }}; do
-            cuebin="$(pick_cue "$name")"
-            (cd "$name" && "$cuebin" fmt ./...)
+            (cd "$name" && "$HOME/cuebin/cue" fmt ./...)
           done
           if ! git diff --quiet; then
             echo "::error::CUE files are not formatted. Run 'cue fmt ./...' locally."
@@ -178,16 +179,7 @@ jobs:
           DRY_RUN="${{ inputs.dry_run || 'false' }}"
           CHANGED="${{ steps.check.outputs.changed }}"
           PUBLISHED=""
-
-          # Print the cue binary matching a module's declared language.version.
-          pick_cue() {
-            local lv
-            lv=$(sed -n '/^language:/,/}/{s/.*version:[[:space:]]*"\([^"]*\)".*/\1/p;}' "$1/cue.mod/module.cue" | head -1)
-            case "$lv" in
-              v0.17*|v0.18*|v0.19*) echo "$HOME/cuebin/next/cue" ;;
-              *) echo "$HOME/cuebin/stable/cue" ;;
-            esac
-          }
+          cuebin="$HOME/cuebin/cue"
 
           # Each module is validated/published independently so one failure
           # (e.g. a module whose catalog deps are not yet on GHCR) does not
@@ -197,7 +189,6 @@ jobs:
           for name in $CHANGED; do
             echo "=== ${name} ==="
             version=$(yq ".${name}.version" versions.yml)
-            cuebin="$(pick_cue "$name")"
             echo "  cue: $("$cuebin" version | head -1)"
 
             if ! (
@@ -276,19 +267,20 @@ jobs:
         run: |
           set -euo pipefail
           date="$(date -u +%Y-%m-%d)"
-          base="release/${date}"
+          # v0-legacy namespace — must never collide with main's release/<date> tags.
+          base="release/v0-legacy/${date}"
           git fetch origin --tags --quiet
 
           if ! git rev-parse -q --verify "refs/tags/${base}" >/dev/null; then
             tag="${base}"
-            title="${date}"
+            title="${date} (v0 legacy)"
           else
             n=2
             while git rev-parse -q --verify "refs/tags/${base}.${n}" >/dev/null; do
               n=$((n+1))
             done
             tag="${base}.${n}"
-            title="${date} (rev ${n})"
+            title="${date} (v0 legacy, rev ${n})"
           fi
 
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
@@ -308,10 +300,12 @@ jobs:
 
           is_changed() { echo " $CHANGED " | grep -q " $1 "; }
 
-          prev_release=$(git tag -l 'release/*' --sort=-v:refname | grep -v "^${{ steps.release_tag.outputs.tag }}\$" | head -1 || true)
+          # Only compare within the v0-legacy train — main's release/<date>
+          # tags are a different module fleet.
+          prev_release=$(git tag -l 'release/v0-legacy/*' --sort=-v:refname | grep -v "^${{ steps.release_tag.outputs.tag }}\$" | head -1 || true)
 
           {
-            echo "## Modules (${DATE})"
+            echo "## Modules — v0 legacy (${DATE})"
             echo
             if [ -n "$CHANGED" ]; then
               changed_bold=""
@@ -358,7 +352,8 @@ jobs:
           git tag "${tag}"
           git push origin "refs/tags/${tag}"
 
+          # Legacy releases must never become the repo's "latest".
           gh release create "${tag}" \
             --title "${title}" \
             --notes-file "${{ steps.notes.outputs.path }}" \
-            --latest
+            --latest=false
