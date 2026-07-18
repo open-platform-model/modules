@@ -9,6 +9,8 @@ This repo is split by OPM generation because the two lines cannot share one CUE 
 
 Why: the old catalog schemas use CUE features removed in v0.17 (e.g. `div`), and the new catalog requires v0.17+. Keeping both generations on one branch forced every tool (`task vet`, `task publish`, CI) to special-case per-module CUE binaries and made "publish all changed" ambiguous. The split gives each line a single toolchain and a clean `versions.yml`.
 
+**Major separation rule:** a registry path may exist on both trains (directory names differ — legacy `jellyfin_v016/` publishes `opmodel.dev/modules/jellyfin@v1`, main `jellyfin/` publishes `@v2`), but the two trains must never share a major for the same path. When promoting a legacy module to this branch, bump its path major past the legacy line. CI enforces this (`Cross-train major separation guard` in `publish.yml`).
+
 ## Purpose
 
 This directory contains workspace-level OPM module definitions. Unlike the submodule repos (`cli/`, `catalog/`, etc.), files here live directly in the workspace root git repository.
