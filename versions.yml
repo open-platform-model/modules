@@ -2,93 +2,12 @@
 # Format: {version: vMAJOR.MINOR.PATCH, checksum: sha256}
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
-wolf:
-  version: v0.1.3
-  checksum: 1c790ac57b5380f4896428d94c8429f3aa099df26ed950ca6220f9848691110a
-metallb:
-  version: v0.0.8
-  checksum: dc33c90fda24051ef2f281795464e29a478c9cb7ec6c0e659958c46808ed1c64
-zot_registry_ttl:
-  version: v0.0.8
-  checksum: c50d1ef38b3509ca3c1d709b65648d7218501934d90f19e083427b3f576375f1
 jellyfin:
   version: v2.1.0
   checksum: 18441a87383358401ad2d725b3a9849b46b72723ff5d47fe6b721c5166a4e0b4
-jellyfin_v016:
-  version: v1.0.32
-  checksum: 0493480aaba804e2ac556ec8f3537d638b175e393fe93667fc1606e08b3fe1a8
-seerr_v016:
-  version: v0.0.9
-  checksum: 4fe30d5130d0e784cbf5bfc3b4f1100437ba6f42ee41a3f6e46c24790800ccc1
-gateway_api:
-  version: v1.1.13
-openebs_zfs:
-  version: v0.0.25
-  checksum: 1bab0b131a2e0aae857725a501b8326920d31e46ca407c7e0d82a68a684474ea
-metric_server:
-  version: v0.0.8
-  checksum: 0a2c6a972be2c6b827ca3734b945a2e9a1e0a30b28c8213f125d5a1df7a1c2d3
-intel_gpu_device_plugin:
-  version: v0.0.14
-  checksum: 32809b68fe2531f1ac4b43e861b40c193b46b5fb15a7eec7e278078d4fbe82ae
-gateway:
-  version: v0.0.28
-  checksum: 7e4059b5f538273d921e1ef1e18cf6fd9f9fdf755ebabb7ad0767cff82b72240
-cert_manager:
-  version: v0.0.9
-  checksum: 87962b87beed0e8dec027ea1771ddf146e11a832b2709885509e796540697dd2
-cert_manager_config:
-  version: v0.0.6
-  checksum: 4b6dae4c2a3c66991c8660fd462e36028127aa8eb24d7609b5e831244229caac
-intel_gpu_exporter:
-  version: v0.0.9
-  checksum: 98da4c2166de2ae2b9902fc1d3850543a98387c1fd3542a64239e142f0ad8236
-garage:
-  version: v0.0.4
-  checksum: 2386c6a34cee08738153d9b2e513644d430fa91e765a397671b7b3378556a14e
-k8up:
-  version: v1.0.21
-  checksum: c9b3ede08f438428b65858710ef9147d18c85016a6ab3711c9dd0ff5130b9469
 seerr:
   version: v1.2.0
   checksum: 953b9efd9c6fba278a9a5420c28eec128c702958a5a376f69a5efcc9486edc35
-olaris:
-  version: v0.0.2
-streamio:
-  version: v0.0.3
-openebs:
-  version: v0.0.4
-  checksum: f5dbb8d77e81e43561a55f1d5e76b0723679d3310ae4cd871cc8882a34f4fbbc
-sealed_secrets:
-  version: v0.0.6
-  checksum: 97bdac290b4b0cc6829c4c127af3501bd462822a0fc320f0d1b88a4df133a2c9
-ch_vmm:
-  version: v0.0.7
-  checksum: 9efa6e0a1c10dcaca6ba26324f368a2f058bed6388186a050c99eda925db4969
-mongodb_operator:
-  version: v0.0.12
-  checksum: c37230145c28f27fd9a07a07bcd19081f966708b28af4c4dc46133a1efb97a8a
-clickhouse_operator:
-  version: v0.0.6
-  checksum: b3cebf785856da419e6f0aef6bdde6b195d834dccdce8ff8519948efcd9d310e
-otel_collector:
-  version: v0.0.7
-  checksum: 69d8771f66a0226290f5aadad1695720f2644db59c58b8b8a744695a811a58e4
-clickstack:
-  version: v0.0.16
-  checksum: d2d0674dcbb4aef5f37b3eeb0cd500913932a281e78908c883edfe6ca577ba9f
-istio_ambient:
-  version: v0.0.4
-  checksum: 3bfc53ad3b2c2c919ddef5d2c0924491e696dda76d3026971970a2c44d3b7d76
-linstor:
-  version: v0.1.2
-  checksum: 2892f8fa228bb01cc825ae6d1914e430b6913c88e5b5b0abe2616f80729642d9
 web_app:
   version: v0.1.0
   checksum: ad36fa47bd37a69b06c3e7e25e93987fd9402ea8af02b29b2ef1009d239d00d2
-seafile:
-  version: v0.2.0
-  checksum: 2e569423dc9b35ed1bd4bceb9e4b3c977d5f5daa8abb9f0645b383e71bd8717a
-northbyte_web:
-  version: v0.0.1
-  checksum: 97a39c56ed90ac1386077056bade5346909d1753ac7e74289607cf9abc66a99f

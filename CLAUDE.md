@@ -1,5 +1,14 @@
 # Modules repository guide
 
+## Branch Split: v1 (main) vs v0 legacy (read first)
+
+This repo is split by OPM generation because the two lines cannot share one CUE toolchain or catalog:
+
+- **`main` (this branch)** — OPM v1 line. Modules pin CUE `language: version: "v0.17.0"` and depend on `opmodel.dev/core@v1` + `opmodel.dev/catalogs/opm@v1`. All new module development happens here.
+- **`v0_legacy`** — frozen OPM v0 line. Modules pin CUE `v0.16.0` and depend on the deprecated `opmodel.dev/core/v1alpha1` + `opmodel.dev/opm/v1alpha1` catalog (old `catalog/` repo). Maintenance only — never add new modules there.
+
+Why: the old catalog schemas use CUE features removed in v0.17 (e.g. `div`), and the new catalog requires v0.17+. Keeping both generations on one branch forced every tool (`task vet`, `task publish`, CI) to special-case per-module CUE binaries and made "publish all changed" ambiguous. The split gives each line a single toolchain and a clean `versions.yml`.
+
 ## Purpose
 
 This directory contains workspace-level OPM module definitions. Unlike the submodule repos (`cli/`, `catalog/`, etc.), files here live directly in the workspace root git repository.
@@ -35,8 +44,13 @@ modules/
 
 | Module | Description |
 | --- | --- |
-| `ch_vmm/` | ch-vmm — Cloud Hypervisor virtualization add-on (controller + per-node daemon + CRDs) |
-| `wolf/` | Wolf GPU game streaming server — Moonlight-compatible, multi-user, AMD/NVIDIA |
+| `jellyfin/` | Jellyfin media server |
+| `seerr/` | Jellyseerr media request manager |
+| `web_app/` | Generic static/dynamic web application module |
+| `cdi/` | Design only — KubeVirt Containerized Data Importer (no CUE yet) |
+| `snapshot_controller/` | Design only — CSI external-snapshotter (no CUE yet) |
+
+The former v0.16 fleet (wolf, metallb, linstor, k8up, …) lives on the `v0_legacy` branch.
 
 ## Build And Dev Commands
 
@@ -61,7 +75,7 @@ Follow the CUE style used across the workspace catalog. See `catalog/CLAUDE.md` 
 - `#` prefixes for definitions: `#Module`, `#ContainerResource`.
 - `_` prefixes for hidden fields / scratch bindings.
 - `!` for required, `?` for optional fields, `*` for explicit defaults.
-- Pin `language: version: "v0.16.0"` in `cue.mod/module.cue`.
+- Pin `language: version: "v0.17.0"` in `cue.mod/module.cue` (this branch is the OPM v1 / CUE v0.17 line; `v0_legacy` pins `v0.16.0`).
 
 ## Working Style for Agents
 
