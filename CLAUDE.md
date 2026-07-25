@@ -49,6 +49,8 @@ modules/
 | `jellyfin/` | Jellyfin media server |
 | `seerr/` | Jellyseerr media request manager |
 | `web_app/` | Generic static/dynamic web application module |
+| `metallb/` | MetalLB load-balancer (v0.16.1) — controller, speaker, CRDs, RBAC, PSS-privileged namespace |
+| `cert_manager/` | cert-manager control plane (v1.21.0) — controller/webhook/cainjector, CRDs, webhook configs, RBAC |
 | `cdi/` | Design only — KubeVirt Containerized Data Importer (no CUE yet) |
 | `snapshot_controller/` | Design only — CSI external-snapshotter (no CUE yet) |
 
