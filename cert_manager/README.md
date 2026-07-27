@@ -1,7 +1,7 @@
 # cert_manager
 
 cert-manager X.509 certificate management for Kubernetes, ported to the OPM v1 catalog line
-(`opmodel.dev/catalogs/opm@v1` + `opmodel.dev/catalogs/opm-experimental@v1`).
+(`opmodel.dev/catalogs/opm@v1` + `opmodel.dev/catalogs/opm_experimental@v1`).
 
 Deploys the cert-manager control plane: controller, webhook, and cainjector Deployments,
 all 6 CRDs, the Validating/Mutating webhook configurations (exact names, caBundle injected
@@ -43,8 +43,19 @@ re-vendors every body from the upstream v1.21.0 static manifest:
 
 Known expressiveness gaps (accepted): pod-level `seccompProfile: RuntimeDefault`,
 `enableServiceLinks: false`, and the `kubernetes.io/os` nodeSelector are dropped;
-controller/cainjector metrics Services and the unbound view/edit/cluster-view aggregation
+controller/cainjector metrics Services, the chart's `startupapicheck` post-install hook Job
+(with its SA/Role/RoleBinding), and the unbound view/edit/cluster-view aggregation
 ClusterRoles are deliberately not emitted.
+
+The controller Deployment renders as `cert-manager-controller`, where upstream names it
+`cert-manager` — Deployments are instance-scoped and nothing references that name (the
+leader-election Lease name comes from the binary, not the Deployment). The three
+ServiceAccounts, the webhook Service, the webhook configurations, and all 13 RBAC objects
+do keep their exact upstream names, because those *are* referenced.
+
+Verified by rendering the module and diffing every object against
+`helm template cert-manager --version v1.21.0`: RBAC and CRDs are identical, and the only
+remaining deltas are the ones listed above.
 
 ## ⚠ Instance naming
 
