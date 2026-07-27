@@ -28,7 +28,7 @@ import (
 	bp "opmodel.dev/catalogs/opm/blueprints/workload"
 	res "opmodel.dev/catalogs/opm/resources"
 	tr "opmodel.dev/catalogs/opm/traits"
-	exp "opmodel.dev/catalogs/opm-experimental/resources"
+	exp "opmodel.dev/catalogs/opm_experimental/resources"
 )
 
 // Upstream webhook configuration metadata, shared by the VWC and MWC.
@@ -96,6 +96,9 @@ _webhookConfigAnnotations: {
 					names: {
 						kind:   raw.spec.names.kind
 						plural: raw.spec.names.plural
+						if raw.spec.names.listKind != _|_ {
+							listKind: raw.spec.names.listKind
+						}
 						if raw.spec.names.singular != _|_ {
 							singular: raw.spec.names.singular
 						}
@@ -120,6 +123,14 @@ _webhookConfigAnnotations: {
 						if v.additionalPrinterColumns != _|_ {
 							additionalPrinterColumns: v.additionalPrinterColumns
 						}
+
+						// Fields usable in a --field-selector. Not cosmetic: the
+						// API server rejects a selector on a field the CRD does
+						// not declare, and cert-manager scopes every issuerRef
+						// field on certificates/certificaterequests/orders/challenges.
+						if v.selectableFields != _|_ {
+							selectableFields: v.selectableFields
+						}
 					}]
 				}
 			}
@@ -136,6 +147,7 @@ _webhookConfigAnnotations: {
 
 	controller: {
 		bp.#StatelessWorkload
+		res.#ServiceAccount
 		tr.#SecurityContext
 		tr.#WorkloadIdentity
 
@@ -143,6 +155,7 @@ _webhookConfigAnnotations: {
 			statelessWorkload: {
 				scaling: count: #config.controller.replicas
 				restartPolicy: "Always"
+				updateStrategy: type: "RollingUpdate"
 
 				container: {
 					name: "cert-manager-controller"
@@ -204,7 +217,15 @@ _webhookConfigAnnotations: {
 				}
 			}
 
+			// The trait sets the pod's serviceAccountName; the resource emits the
+			// ServiceAccount object itself (exact name, no instance prefix). Both
+			// are required — the trait alone names an account nothing creates, and
+			// every *-rbac binding below lists these names as subjects.
 			workloadIdentity: {
+				name:           "cert-manager"
+				automountToken: true
+			}
+			serviceAccount: {
 				name:           "cert-manager"
 				automountToken: true
 			}
@@ -228,6 +249,7 @@ _webhookConfigAnnotations: {
 
 	webhook: {
 		bp.#StatelessWorkload
+		res.#ServiceAccount
 		tr.#Expose
 		tr.#SecurityContext
 		tr.#WorkloadIdentity
@@ -236,6 +258,7 @@ _webhookConfigAnnotations: {
 			statelessWorkload: {
 				scaling: count: #config.webhook.replicas
 				restartPolicy: "Always"
+				updateStrategy: type: "RollingUpdate"
 
 				container: {
 					name: "cert-manager-webhook"
@@ -326,7 +349,12 @@ _webhookConfigAnnotations: {
 				}
 			}
 
+			// Trait = the pod's serviceAccountName; resource = the object itself.
 			workloadIdentity: {
+				name:           "cert-manager-webhook"
+				automountToken: true
+			}
+			serviceAccount: {
 				name:           "cert-manager-webhook"
 				automountToken: true
 			}
@@ -345,6 +373,7 @@ _webhookConfigAnnotations: {
 
 	cainjector: {
 		bp.#StatelessWorkload
+		res.#ServiceAccount
 		tr.#SecurityContext
 		tr.#WorkloadIdentity
 
@@ -352,6 +381,7 @@ _webhookConfigAnnotations: {
 			statelessWorkload: {
 				scaling: count: #config.cainjector.replicas
 				restartPolicy: "Always"
+				updateStrategy: type: "RollingUpdate"
 
 				container: {
 					name: "cert-manager-cainjector"
@@ -394,7 +424,12 @@ _webhookConfigAnnotations: {
 				}
 			}
 
+			// Trait = the pod's serviceAccountName; resource = the object itself.
 			workloadIdentity: {
+				name:           "cert-manager-cainjector"
+				automountToken: true
+			}
+			serviceAccount: {
 				name:           "cert-manager-cainjector"
 				automountToken: true
 			}
