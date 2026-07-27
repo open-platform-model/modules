@@ -1,7 +1,7 @@
 # metallb
 
 MetalLB bare metal load-balancer for Kubernetes, ported to the OPM v1 catalog line
-(`opmodel.dev/catalogs/opm@v1` + `opmodel.dev/catalogs/opm-experimental@v1`).
+(`opmodel.dev/catalogs/opm@v1` + `opmodel.dev/catalogs/opm_experimental@v1`).
 
 Deploys the MetalLB controller and speaker alongside all required CRDs, cluster-wide RBAC,
 and the `metallb-system` namespace (exact name, PSS-privileged labels). After deployment,
