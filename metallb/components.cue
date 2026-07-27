@@ -20,7 +20,7 @@ import (
 	bp "opmodel.dev/catalogs/opm/blueprints/workload"
 	res "opmodel.dev/catalogs/opm/resources"
 	tr "opmodel.dev/catalogs/opm/traits"
-	exp "opmodel.dev/catalogs/opm-experimental/resources"
+	exp "opmodel.dev/catalogs/opm_experimental/resources"
 )
 
 #components: {
@@ -123,6 +123,7 @@ import (
 
 	controller: {
 		bp.#StatelessWorkload
+		res.#ServiceAccount
 		tr.#SecurityContext
 		tr.#WorkloadIdentity
 		tr.#GracefulShutdown
@@ -196,7 +197,14 @@ import (
 			gracefulShutdown: terminationGracePeriodSeconds: 0
 
 			// ServiceAccount for the controller (bound to controller-rbac + controller-role).
+			// The trait sets the pod's serviceAccountName; the resource emits the
+			// ServiceAccount object itself (exact name, no instance prefix) — both
+			// are required, the trait alone references an account nothing creates.
 			workloadIdentity: {
+				name:           "metallb-controller"
+				automountToken: true
+			}
+			serviceAccount: {
 				name:           "metallb-controller"
 				automountToken: true
 			}
@@ -227,6 +235,8 @@ import (
 		bp.#DaemonWorkload
 		res.#Volumes
 		res.#Secrets
+		res.#ConfigMaps
+		res.#ServiceAccount
 		tr.#HostNetwork
 		tr.#SecurityContext
 		tr.#WorkloadIdentity
@@ -312,9 +322,13 @@ import (
 					}
 
 					// Memberlist secret key — mounted from the OPM-managed Secret.
+					// excludel2.yaml lands in /etc/metallb, where the speaker reads it.
 					volumeMounts: {
 						memberlist: spec.volumes.memberlist & {
 							mountPath: "/etc/ml_secret_key"
+						}
+						excludel2: spec.volumes.excludel2 & {
+							mountPath: "/etc/metallb"
 						}
 					}
 
@@ -337,7 +351,12 @@ import (
 			gracefulShutdown: terminationGracePeriodSeconds: 2
 
 			// ServiceAccount for the speaker (bound to speaker-rbac + speaker-role).
+			// Trait = pod's serviceAccountName; resource = the object itself.
 			workloadIdentity: {
+				name:           "metallb-speaker"
+				automountToken: true
+			}
+			serviceAccount: {
 				name:           "metallb-speaker"
 				automountToken: true
 			}
@@ -358,6 +377,34 @@ import (
 				}
 			}
 
+			// Interfaces the speaker must never announce on. Upstream ships this
+			// as the `metallb-excludel2` ConfigMap mounted at /etc/metallb; without
+			// it the speaker would answer ARP on CNI/bridge/veth interfaces. The
+			// rendered name is instance-scoped ({instance}-speaker-excludel2) —
+			// nothing outside the module reads it, only the volume below.
+			configMaps: {
+				excludel2: {
+					data: "excludel2.yaml": """
+						announcedInterfacesToExclude:
+						- ^docker.*
+						- ^cbr.*
+						- ^dummy.*
+						- ^virbr.*
+						- ^lxcbr.*
+						- ^veth.*
+						- ^lo$
+						- ^cali.*
+						- ^tunl.*
+						- ^flannel.*
+						- ^kube-ipvs.*
+						- ^cni.*
+						- ^nodelocaldns.*
+						- ^lxc.*
+
+						"""
+				}
+			}
+
 			volumes: {
 				memberlist: {
 					name:     "memberlist"
@@ -366,6 +413,11 @@ import (
 						from:        spec.secrets.memberlist
 						defaultMode: 420
 					}
+				}
+				excludel2: {
+					name:      "excludel2"
+					readOnly:  true
+					configMap: spec.configMaps.excludel2
 				}
 			}
 		}
@@ -594,13 +646,17 @@ import (
 					resources: ["pods"]
 					verbs: ["get", "list"]
 				},
-				// Read the memberlist Secret — scoped to its rendered name
-				// (upstream scopes metallb-memberlist the same way).
+				// Read Secrets. Deliberately NOT scoped by resourceNames: the
+				// RBAC authorizer only applies resourceNames to verbs that name a
+				// single object (get/update/patch/delete). A `list`/`watch` request
+				// carries no name, so a scoped rule grants nothing — the speaker's
+				// informer would get Forbidden on its initial LIST. Upstream's
+				// pod-lister Role is unscoped here for the same reason; the blast
+				// radius is one namespace holding only MetalLB's own Secrets.
 				{
 					apiGroups: [""]
 					resources: ["secrets"]
 					verbs: ["get", "list", "watch"]
-					resourceNames: ["metallb-speaker-memberlist"]
 				},
 				// Read ConfigMaps (optional memberlist tuning config upstream).
 				{
