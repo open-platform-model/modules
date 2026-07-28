@@ -374,4 +374,96 @@ import (
 			}
 		}
 	}
+
+	// CEL admission enforcing the stable API channel — rejects EnvoyFilter,
+	// WasmPlugin and ProxyConfig, plus alpha/beta versions of the stable
+	// types. Off upstream by default. In-process, so unlike the webhooks it
+	// needs no serving certificate and cannot be knocked out by a control
+	// plane outage.
+	if #config.experimental.stableValidationPolicy {
+		"stable-validation-policy": {
+			exp.#ValidatingAdmissionPolicies
+
+			spec: validatingAdmissionPolicies: {
+				"stable-channel-policy-\(#config.namespace.name).istio.io": {
+					failurePolicy: "Fail"
+					matchConstraints: {
+						resourceRules: [
+							{
+								apiGroups: [
+									"security.istio.io",
+									"networking.istio.io",
+									"telemetry.istio.io",
+									"extensions.istio.io",
+								]
+								apiVersions: [
+									"*",
+								]
+								operations: [
+									"CREATE",
+									"UPDATE",
+								]
+								resources: [
+									"*",
+								]
+							},
+						]
+						objectSelector: {
+							matchExpressions: [
+								{
+									key:      "istio.io/rev"
+									operator: "In"
+									values: [
+										"default",
+									]
+								},
+							]
+						}
+					}
+					variables: [
+						{
+							name:       "isEnvoyFilter"
+							expression: "object.kind == 'EnvoyFilter'"
+						},
+						{
+							name:       "isWasmPlugin"
+							expression: "object.kind == 'WasmPlugin'"
+						},
+						{
+							name:       "isProxyConfig"
+							expression: "object.kind == 'ProxyConfig'"
+						},
+						{
+							name:       "isTelemetry"
+							expression: "object.kind == 'Telemetry'"
+						},
+						{
+							name:       "isAuthorizationPolicy"
+							expression: "object.kind == 'AuthorizationPolicy'"
+						},
+					]
+					validations: [
+						{
+							expression: "!variables.isEnvoyFilter"
+						},
+						{
+							expression: "!variables.isWasmPlugin"
+						},
+						{
+							expression: "!variables.isProxyConfig"
+						},
+						{
+							expression: "!(\n  variables.isTelemetry && (\n    (has(object.spec.tracing) ? object.spec.tracing : {}).exists(t, has(t.useRequestIdForTraceSampling)) ||\n    (has(object.spec.metrics) ? object.spec.metrics : {}).exists(m, has(m.reportingInterval)) ||\n    (has(object.spec.accessLogging) ? object.spec.accessLogging : {}).exists(l, has(l.filter))\n  )\n)\n"
+						},
+						{
+							expression: "!(\n  variables.isAuthorizationPolicy &&\n  has(object.spec.rules) &&\n  object.spec.rules.exists(r,\n    has(r.from) && r.from.exists(f,\n      has(f.source) && (has(f.source.trustDomains) || has(f.source.notTrustDomains))\n    )\n  )\n)\n"
+						},
+					]
+					binding: {
+						name: "stable-channel-policy-binding-\(#config.namespace.name).istio.io"
+					}
+				}
+			}
+		}
+	}
 }
