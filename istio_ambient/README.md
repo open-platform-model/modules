@@ -32,7 +32,7 @@ At upstream defaults this renders **45 objects**; with every flag on, **57**.
 |---|---|---|
 | `namespace` | Namespace | `istio-system`, exact name, PSS **privileged** (the chart never creates it — see below) |
 | `crds` | 15 × CustomResourceDefinition | The Istio API surface |
-| `crds-gatewayapi` | 8 × CustomResourceDefinition | Gateway API standard channel — **off by default**, not in the chart at all |
+| `crds-gatewayapi` | 8 × CustomResourceDefinition | Gateway API standard channel — **off by default**, not in the chart at all. Requires `catalog_opm` ≥ `v1.0.0-alpha.5`: `gateway.networking.k8s.io` is a protected group, so these CRDs are rejected without the `api-approved.kubernetes.io` annotation, and because a ModuleInstance applies atomically that failure takes down the whole mesh with it |
 | `config` | 3 × ConfigMap | `istio` (mesh), `istio-cni-config` (agent env), `istio-sidecar-injector` (templates + values) — all exact names |
 | `gatewayclass-config` | ConfigMap | Per-GatewayClass default overlays; empty at defaults |
 | `istiod` | Deployment + Service + SA + HPA | The control plane. Optionally PodDisruptionBudget and NetworkPolicy |
@@ -59,7 +59,9 @@ Deliberate deltas, all of them additive or structural:
 - **Plus a Namespace**, plus the Gateway API CRDs when enabled.
 - **No `revisionTags`** — see "Out of scope".
 - `metadata.labels` differ wholesale: OPM stamps its own label set, and the CRD transformer emits
-  only `#context.labels`, so CRD labels can never match upstream's.
+  only `#context.labels`, so CRD labels can never match upstream's. CRD **annotations**, by contrast,
+  are carried through verbatim from the vendored source — including the Istio CRDs'
+  `helm.sh/resource-policy: keep`, which is inert outside Helm but kept for fidelity.
 - `spec.selector.matchLabels` is OPM's 4-key `componentLabels`, not upstream's `{istio: pilot}`.
 - `+ restartPolicy: Always`, `+ imagePullPolicy`, `+ automountServiceAccountToken` — OPM emits these
   unconditionally.
