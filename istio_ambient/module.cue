@@ -119,7 +119,7 @@ metadata: {
 
 		resources?: res.#ResourceRequirementsSchema
 
-		traceSampling: number | *1.0
+		traceSampling: number | *1
 
 		// Extra env for the discovery container. The ambient hard-locks
 		// (PILOT_ENABLE_AMBIENT, CA_TRUSTED_NODE_ACCOUNTS) live in the
@@ -208,7 +208,7 @@ debugValues: {
 			cpu:    "500m"
 			memory: "2048Mi"
 		}
-		traceSampling: 1.0
+		traceSampling: 1
 		env: {}
 	}
 	cni: {
