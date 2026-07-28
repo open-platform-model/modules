@@ -5,7 +5,7 @@
 cert_manager:
   version: v1.0.0
 istio_ambient:
-  version: v1.0.0
+  version: v1.0.1
 jellyfin:
   version: v2.1.0
   checksum: 18441a87383358401ad2d725b3a9849b46b72723ff5d47fe6b721c5166a4e0b4

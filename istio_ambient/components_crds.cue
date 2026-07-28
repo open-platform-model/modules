@@ -16,6 +16,14 @@ import (
 	out: {
 		for crdName, raw in #in {
 			(crdName): {
+				// Load-bearing for the Gateway API set: gateway.networking.k8s.io
+				// is a PROTECTED group, and the API server rejects any CRD in a
+				// *.k8s.io group that lacks api-approved.kubernetes.io — which
+				// fails the whole ModuleInstance atomically at dry-run, not just
+				// the eight offending CRDs. The Istio CRDs live in *.istio.io
+				// (unprotected) and carry no annotations at all, hence the guard.
+				if raw.metadata.annotations != _|_ {annotations: raw.metadata.annotations}
+
 				group: raw.spec.group
 				names: {
 					kind:   raw.spec.names.kind
@@ -78,6 +86,18 @@ _gwapiCRDCount: (len(_gwapiCRDs) + 0) & 8
 // the Gateway API component is switched on.
 _gwapiProjected: (#ProjectCRDs & {#in: _gwapiCRDs}).out
 _gwapiProjectedCount: (len(_gwapiProjected) + 0) & 8
+
+// ALL EIGHT Gateway API CRDs must carry api-approved.kubernetes.io. Without it
+// the API server rejects them, and because the operator applies a module
+// atomically that failure takes down the entire ModuleInstance — the mesh
+// included, not just the Gateway API. Counted rather than named: arithmetic
+// forces resolution, so a projection that dropped the annotation cannot have
+// the value handed back to it by unification.
+_gwapiApprovedCount: (len([
+	for _, crd in _gwapiProjected
+	if crd.annotations != _|_
+	if crd.annotations["api-approved.kubernetes.io"] != _|_ {crd},
+]) + 0) & 8
 
 // listKind is carried: it is optional in #CRDSchema, so a dropped passthrough
 // would be an absent field, which arithmetic cannot catch.

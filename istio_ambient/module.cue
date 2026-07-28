@@ -46,7 +46,7 @@ m.#Module
 metadata: {
 	modulePath:  "opmodel.dev/modules"
 	name:        "istio-ambient"
-	version:     "1.0.0"
+	version:     "1.0.1"
 	description: "Istio ambient mesh control plane — istiod, istio-cni and ztunnel, with CRDs, admission configuration and RBAC"
 }
 
