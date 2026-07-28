@@ -46,7 +46,7 @@ m.#Module
 metadata: {
 	modulePath:  "opmodel.dev/modules"
 	name:        "istio-ambient"
-	version:     "1.0.1"
+	version:     "1.1.0"
 	description: "Istio ambient mesh control plane — istiod, istio-cni and ztunnel, with CRDs, admission configuration and RBAC"
 }
 
@@ -114,9 +114,6 @@ metadata: {
 			minAvailable: int | *1
 		}
 
-		// Off at ambient defaults (global.networkPolicy.enabled: false).
-		networkPolicy: enabled: bool | *false
-
 		resources?: res.#ResourceRequirementsSchema
 
 		traceSampling: number | *1
@@ -150,6 +147,19 @@ metadata: {
 		logLevel:   string | *"info"
 		resources?: res.#ResourceRequirementsSchema
 	}
+
+	// Emits a NetworkPolicy for EACH of the three workloads — istiod,
+	// istio-cni and ztunnel — mirroring the chart's single
+	// global.networkPolicy.enabled switch rather than exposing three flags the
+	// chart does not have. Off at ambient defaults.
+	//
+	// Each policy's podSelector is DERIVED from the workload's own rendered pod
+	// labels by the transformer, so it cannot drift from the pods it protects.
+	// Egress is allow-all in every case (one empty rule): all three reach
+	// endpoints that cannot be enumerated — the API server, DNS, and for istiod
+	// user-defined JWKS URLs. Note "Egress" in policyTypes with no rules would
+	// be a deny-all, not a no-op.
+	networkPolicy: enabled: bool | *false
 
 	// Installs the standard-channel Gateway API CRDs (v1.5.1 as vendored). The
 	// ambient chart ships NONE of these — this is a deliberate addition,
@@ -203,7 +213,6 @@ debugValues: {
 			enabled:      false
 			minAvailable: 1
 		}
-		networkPolicy: enabled: false
 		resources: requests: {
 			cpu:    "500m"
 			memory: "2048Mi"
@@ -229,7 +238,8 @@ debugValues: {
 			memory: "512Mi"
 		}
 	}
-	gatewayAPI: enabled: false
+	networkPolicy: enabled: false
+	gatewayAPI: enabled:    false
 	gatewayClasses: {}
 	experimental: stableValidationPolicy: false
 }

@@ -39,23 +39,18 @@ import (
 		if #config.pilot.pdb.enabled {
 			tr.#DisruptionBudget
 		}
-		// DISABLED — blocked on a catalog change, not on anything in this
-		// module. Attaching exp.#NetworkPolicy here fails with "field not
-		// allowed" at core component.cue:80 (spec: close({_allFields})) via
-		// stateless_workload.cue:67: a blueprint's spec closedness does not
-		// admit a field contributed by a trait from a FOREIGN CUE module.
-		// tr.#DisruptionBudget attaches fine because it ships in the same
-		// catalog as the blueprint; exp.#NetworkPolicy does not.
-		//
-		// The transformer matcher handles the cross-catalog case correctly —
-		// it is CUE closedness that refuses — so this cannot be worked around
-		// from the module side. The fix is to move #NetworkPolicyTrait into
-		// catalog_opm, where every other trait a workload attaches already
-		// lives. Left in place so re-enabling is one line.
-		//
-		// if #config.pilot.networkPolicy.enabled {
-		//  exp.#NetworkPolicy
-		// }
+
+		// Note this is tr.#NetworkPolicy, from the STABLE catalog. The
+		// experimental catalog's version could not be attached here at all: a
+		// blueprint's spec closedness (core component.cue:80,
+		// spec: close({_allFields})) does not admit a field contributed by a
+		// trait from a foreign CUE module, so it failed with "field not
+		// allowed". tr.#DisruptionBudget above always worked for the same
+		// reason in reverse — it ships alongside the blueprint. Ported in
+		// catalog_opm v1.0.0-alpha.6; do not reach for the experimental one.
+		if #config.networkPolicy.enabled {
+			tr.#NetworkPolicy
+		}
 
 		spec: {
 			resourceName: "istiod"
@@ -308,31 +303,30 @@ import (
 				operator: "Exists"
 			}]
 
-			if #config.pilot.pdb.enabled
-			// DISABLED with the trait attachment above — see the note there.
-			// Kept verbatim so re-enabling is uncommenting, not rewriting.
-			//
-			// if #config.pilot.networkPolicy.enabled {
-			//  networkPolicy: {
-			//   policyTypes: ["Ingress", "Egress"]
-			//   ingress: [
-			//    // Webhook traffic from the API server.
-			//    {ports: [{protocol: "TCP", port: 15017}]},
-			//    // xDS, debug and monitoring, reachable from anywhere.
-			//    {ports: [
-			//     {protocol: "TCP", port: 15010},
-			//     {protocol: "TCP", port: 15011},
-			//     {protocol: "TCP", port: 15012},
-			//     {protocol: "TCP", port: 8080},
-			//     {protocol: "TCP", port: 15014},
-			//    ]},
-			//   ]
-			//   // Allow-all: JWKS resolution and other features reach
-			//   // user-defined endpoints, so egress cannot be enumerated.
-			//   egress: [{}]
-			//  }
-			// }
-			{
+			if #config.networkPolicy.enabled {
+				networkPolicy: {
+					policyTypes: ["Ingress", "Egress"]
+					ingress: [
+						// Webhook traffic from the API server.
+						{ports: [{protocol: "TCP", port: 15017}]},
+						// xDS, debug and monitoring, reachable from anywhere.
+						{ports: [
+							{protocol: "TCP", port: 15010},
+							{protocol: "TCP", port: 15011},
+							{protocol: "TCP", port: 15012},
+							{protocol: "TCP", port: 8080},
+							{protocol: "TCP", port: 15014},
+						]},
+					]
+					// Allow-all, expressed as one empty rule. istiod reaches
+					// user-defined endpoints (JWKS resolution among others), so
+					// egress cannot be enumerated — and naming "Egress" in
+					// policyTypes with no rules would be a deny-all, not a no-op.
+					egress: [{}]
+				}
+			}
+
+			if #config.pilot.pdb.enabled {
 				disruptionBudget: minAvailable: #config.pilot.pdb.minAvailable
 			}
 		}
