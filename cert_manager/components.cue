@@ -25,6 +25,8 @@
 package cert_manager
 
 import (
+	"strings"
+
 	bp "opmodel.dev/catalogs/opm/blueprints/workload"
 	res "opmodel.dev/catalogs/opm/resources"
 	tr "opmodel.dev/catalogs/opm/traits"
@@ -166,12 +168,22 @@ _webhookConfigAnnotations: {
 						pullPolicy: #config.image.pullPolicy
 					}
 
+					// The two DNS-01 flags are appended only when configured, so a
+					// module with neither set renders byte-identically to
+					// before they existed. See #config.controller in module.cue
+					// for why a split-horizon cluster needs them.
 					args: [
 						"--v=\(#config.controller.logLevel)",
 						"--cluster-resource-namespace=$(POD_NAMESPACE)",
 						"--leader-election-namespace=\(#config.leaderElection.namespace)",
 						"--acme-http01-solver-image=\(#config.image.repository)/cert-manager-acmesolver:\(#config.image.tag)",
 						"--max-concurrent-challenges=60",
+						if len(#config.controller.dns01RecursiveNameservers) > 0 {
+							"--dns01-recursive-nameservers=\(strings.Join(#config.controller.dns01RecursiveNameservers, ","))"
+						},
+						if #config.controller.dns01RecursiveNameserversOnly {
+							"--dns01-recursive-nameservers-only=true"
+						},
 					]
 
 					env: {

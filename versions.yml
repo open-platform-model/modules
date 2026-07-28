@@ -3,7 +3,7 @@
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
 cert_manager:
-  version: v1.0.0
+  version: v1.1.0
 istio_ambient:
   version: v1.1.0
 jellyfin:
