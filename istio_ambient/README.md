@@ -26,7 +26,7 @@ real source, and they are fully documented. Re-vendor `crds/` and the injector b
 
 ## What this module deploys
 
-At upstream defaults this renders **45 objects**; with every flag on, **57**.
+At upstream defaults this renders **45 objects**; with every flag on, **60**.
 
 | Component | Kind | Description |
 |---|---|---|
@@ -36,6 +36,7 @@ At upstream defaults this renders **45 objects**; with every flag on, **57**.
 | `config` | 3 × ConfigMap | `istio` (mesh), `istio-cni-config` (agent env), `istio-sidecar-injector` (templates + values) — all exact names |
 | `gatewayclass-config` | ConfigMap | Per-GatewayClass default overlays; empty at defaults |
 | `istiod` | Deployment + Service + SA + HPA | The control plane. Optionally PodDisruptionBudget and NetworkPolicy |
+| — | 3 × NetworkPolicy | One per workload (istiod, istio-cni, ztunnel) behind `networkPolicy.enabled` — **off by default**, matching the chart |
 | `istio-cni` | DaemonSet + SA | Node agent, **exact name `istio-cni-node`** |
 | `ztunnel` | DaemonSet + SA | The ambient L4 dataplane |
 | `istio-reader-sa` | ServiceAccount | `istio-reader-service-account` |
@@ -107,22 +108,34 @@ deployment with `PILOT_ENABLE_AMBIENT`, `CA_TRUSTED_NODE_ACCOUNTS`, the HBONE pr
 distroless variant flipped is simply broken rather than differently configured.
 
 What `#config` does expose: `image.{hub,tag,pullPolicy}`, `namespace.{name,create}`,
-`mesh.{clusterName,network,meshID,trustDomain}`, `pilot.{replicas,autoscale,pdb,networkPolicy,
-resources,traceSampling,env}`, `cni.{logLevel,binDir,confDir,chained,repair,resources}`,
-`ztunnel.{logLevel,resources}`, `gatewayAPI.enabled`, `gatewayClasses` and
+`mesh.{clusterName,network,meshID,trustDomain}`, `pilot.{replicas,autoscale,pdb,resources,traceSampling,env}`, `cni.{logLevel,binDir,confDir,chained,repair,resources}`,
+`ztunnel.{logLevel,resources}`, `networkPolicy.enabled`, `gatewayAPI.enabled`, `gatewayClasses` and
 `experimental.stableValidationPolicy`.
 
 `cni.binDir`/`cni.confDir` default to `/opt/cni/bin` and `/etc/cni/net.d`, which are correct for
 Talos and most distributions; k3s and GKE need overrides.
 
-## Known gaps
+## NetworkPolicy
 
-- **`pilot.networkPolicy` is not wired up.** The module code is written and commented out in
-  `components_control_plane.cue`. `exp.#NetworkPolicy` cannot attach to a blueprint-based component:
-  a blueprint's `spec: close({_allFields})` rejects a field contributed by a trait from a *foreign*
-  CUE module. `tr.#DisruptionBudget` works only because it ships in the same catalog as the
-  blueprint. The fix is to move `#NetworkPolicyTrait` into `catalog_opm`; the flag stays in `#config`
-  and is off at upstream defaults regardless.
+`networkPolicy.enabled` emits a policy for **each** of the three workloads, mirroring the chart's
+single `global.networkPolicy.enabled` switch rather than inventing three flags upstream doesn't have.
+Ingress rules and ports are transcribed from the chart; egress is allow-all (one empty rule) on all
+three, because each reaches endpoints that cannot be enumerated — the API server, DNS, and for istiod
+user-supplied JWKS URLs.
+
+Two things worth knowing:
+
+- Each policy's `podSelector` is **derived** by the transformer from the workload's own rendered pod
+  labels, so it cannot drift from the pods it protects. Verified in the render: all three selectors
+  are byte-identical to their workload's `spec.selector.matchLabels`.
+- An empty egress rule means *allow-all*, but naming `Egress` in `policyTypes` with **no** rules is a
+  *deny-all*. Losing that rule inverts the policy rather than relaxing it, so the module asserts it
+  survives.
+
+Requires `catalog_opm` ≥ `v1.0.0-alpha.6`. Earlier versions shipped `#NetworkPolicyTrait` only in
+`catalog_opm_experimental`, from where it **could not be attached at all**: a blueprint's
+`spec: close({_allFields})` rejects a field contributed by a trait from a *foreign* CUE module.
+`tr.#DisruptionBudget` always worked because it ships alongside the blueprint.
 
 ## Out of scope for v1.0.0
 

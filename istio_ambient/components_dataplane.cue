@@ -33,6 +33,10 @@ _nodeAgentScheduling: {
 	/////////////////////////////////////////////////////////////////
 	"istio-cni": {
 		bp.#DaemonWorkload
+
+		if #config.networkPolicy.enabled {
+			tr.#NetworkPolicy
+		}
 		res.#Volumes
 		res.#ServiceAccount
 		tr.#WorkloadIdentity
@@ -210,6 +214,10 @@ _nodeAgentScheduling: {
 			podScheduling: _nodeAgentScheduling
 
 			gracefulShutdown: terminationGracePeriodSeconds: 30
+
+			if #config.networkPolicy.enabled {
+				networkPolicy: _cniNetworkPolicy
+			}
 		}
 	}
 
@@ -218,6 +226,10 @@ _nodeAgentScheduling: {
 	/////////////////////////////////////////////////////////////////
 	ztunnel: {
 		bp.#DaemonWorkload
+
+		if #config.networkPolicy.enabled {
+			tr.#NetworkPolicy
+		}
 		res.#Volumes
 		res.#ServiceAccount
 		tr.#WorkloadIdentity
@@ -382,6 +394,10 @@ _nodeAgentScheduling: {
 			podScheduling: _nodeAgentScheduling
 
 			gracefulShutdown: terminationGracePeriodSeconds: 30
+
+			if #config.networkPolicy.enabled {
+				networkPolicy: _ztunnelNetworkPolicy
+			}
 		}
 	}
 }
@@ -433,3 +449,65 @@ _ztunnelDataplaneNone: [
 		#components.ztunnel.spec.podMetadata.labels["istio.io/dataplane-mode"]
 	},
 ] & ["none"]
+
+/////////////////////////////////////////////////////////////////
+//// NetworkPolicy bodies
+////
+//// Hoisted out of the gated components DELIBERATELY. A guard that reads
+//// #config sees the SCHEMA DEFAULT (false), not the instance's value, so any
+//// assertion placed behind `if #config.networkPolicy.enabled` is vacuous —
+//// verified: with the guards inside the gate, deleting ztunnel's UDP DNS rule
+//// produced no error at all. Defined unconditionally here, these are evaluated
+//// on every build and the assertions below actually bite.
+/////////////////////////////////////////////////////////////////
+
+_cniNetworkPolicy: {
+	policyTypes: ["Ingress", "Egress"]
+	ingress: [
+		// Metrics endpoint for monitoring/prometheus.
+		{ports: [{protocol: "TCP", port: 15014}]},
+		// Readiness probe endpoint.
+		{ports: [{protocol: "TCP", port: 8000}]},
+	]
+	// Allow-all: the agent needs DNS and the API server, whose address and port
+	// vary by distribution.
+	egress: [{}]
+}
+
+_ztunnelNetworkPolicy: {
+	policyTypes: ["Ingress", "Egress"]
+	ingress: [
+		// Readiness probe.
+		{ports: [{protocol: "TCP", port: 15021}]},
+		// Monitoring/prometheus.
+		{ports: [{protocol: "TCP", port: 15020}]},
+		// Admin interface.
+		{ports: [{protocol: "TCP", port: 15000}]},
+		// HBONE traffic.
+		{ports: [{protocol: "TCP", port: 15008}]},
+		// Outbound traffic endpoint.
+		{ports: [{protocol: "TCP", port: 15001}]},
+		// Inbound plaintext.
+		{ports: [{protocol: "TCP", port: 15006}]},
+		// DNS capture — BOTH protocols on the same port.
+		{ports: [
+			{protocol: "TCP", port: 15053},
+			{protocol: "UDP", port: 15053},
+		]},
+	]
+	egress: [{}]
+}
+
+// Rule counts and the DNS-capture protocol count. Arithmetic forces resolution,
+// so a dropped rule or protocol cannot be repaired by the assertion.
+_cniNetPolRules:     (len(_cniNetworkPolicy.ingress) + 0) & 2
+_ztunnelNetPolRules: (len(_ztunnelNetworkPolicy.ingress) + 0) & 7
+
+// Dropping UDP here breaks in-mesh DNS resolution at runtime, silently.
+_ztunnelDNSProtocols: (len(_ztunnelNetworkPolicy.ingress[6].ports) + 0) & 2
+
+// Egress must stay a single EMPTY rule. An empty rule is allow-all; naming
+// "Egress" in policyTypes with NO rules is a deny-all, so losing the rule
+// inverts the policy rather than relaxing it.
+_cniEgressAllowAll:     (len(_cniNetworkPolicy.egress) + 0) & 1
+_ztunnelEgressAllowAll: (len(_ztunnelNetworkPolicy.egress) + 0) & 1

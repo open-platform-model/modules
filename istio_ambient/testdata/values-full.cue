@@ -17,7 +17,6 @@ pilot: {
 	replicas: 2
 	autoscale: {enabled: true, min: 2, max: 5, targetCPUUtilization: 80}
 	pdb: {enabled: true, minAvailable: 1}
-	networkPolicy: enabled: false // blocked: see components_control_plane.cue
 	resources: requests: {cpu: "500m", memory: "2048Mi"}
 	traceSampling: 1
 	env: {}
@@ -31,6 +30,7 @@ cni: {
 	resources: requests: {cpu: "100m", memory: "100Mi"}
 }
 ztunnel: {logLevel: "info", resources: requests: {cpu: "200m", memory: "512Mi"}}
+networkPolicy: enabled: true
 gatewayAPI: enabled: true
 gatewayClasses: istio: deployment: spec: replicas: 2
 experimental: stableValidationPolicy: true
