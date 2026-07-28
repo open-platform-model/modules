@@ -10,7 +10,7 @@ deps: {
 		v: "v1.0.0-alpha.4"
 	}
 	"opmodel.dev/catalogs/opm_experimental@v1": {
-		v: "v1.2.0-alpha.3"
+		v: "v1.2.0-alpha.4"
 	}
 	"opmodel.dev/core@v1": {
 		v: "v1.0.0-alpha.3"

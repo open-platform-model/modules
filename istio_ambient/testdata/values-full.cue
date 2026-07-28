@@ -33,8 +33,4 @@ cni: {
 ztunnel: {logLevel: "info", resources: requests: {cpu: "200m", memory: "512Mi"}}
 gatewayAPI: enabled: true
 gatewayClasses: istio: deployment: spec: replicas: 2
-// Pending catalog_opm_experimental > v1.2.0-alpha.3 (PR #12): the released
-// schema rejects matchConstraints.objectSelector, which istio uses to scope
-// the policy to a revision. The module code is correct; flip this to true
-// once that release lands.
-experimental: stableValidationPolicy: false
+experimental: stableValidationPolicy: true
