@@ -31,7 +31,7 @@ m.#Module
 metadata: {
 	modulePath:  "opmodel.dev/modules"
 	name:        "cert-manager"
-	version:     "1.0.0"
+	version:     "1.1.0"
 	description: "cert-manager X.509 certificate manager for Kubernetes — deploys controller, webhook, cainjector, CRDs, webhook configurations, and full RBAC"
 }
 
@@ -57,6 +57,33 @@ metadata: {
 		replicas: int & >=1 | *1
 		// Resource requests and limits (optional — omit to use cluster defaults).
 		resources?: res.#ResourceRequirementsSchema
+
+		// Resolvers for the DNS-01 self-check — the propagation check
+		// cert-manager runs BEFORE asking the ACME server to validate. Each
+		// entry is "host:port". Empty (the default) leaves the flag off, and
+		// cert-manager resolves the way it always has.
+		//
+		// Set this on a cluster with SPLIT-HORIZON DNS. By default the
+		// self-check finds the zone's authoritative nameservers and queries
+		// them directly, which follows the cluster's INTERNAL view — so when a
+		// zone is delegated internally to nameservers the pods cannot reach,
+		// every DNS-01 challenge hangs at "Waiting for DNS-01 challenge
+		// propagation" with a dial timeout, even though the record was written
+		// correctly and is publicly visible. Pointing this at public resolvers
+		// makes the check see what the ACME server will see.
+		//
+		// Mirrors the upstream chart's `dns01RecursiveNameservers`, which
+		// takes a single comma-joined string; a list is used here and joined
+		// when the flag is rendered.
+		dns01RecursiveNameservers: [...string]
+
+		// Use ONLY the resolvers above for the self-check, rather than also
+		// consulting the zone's authoritative nameservers. This is the half
+		// that actually bypasses a broken internal view — setting the
+		// resolvers without this still lets the authoritative path be tried.
+		// Renders --dns01-recursive-nameservers-only. Upstream:
+		// `dns01RecursiveNameserversOnly`.
+		dns01RecursiveNameserversOnly: bool | *false
 	}
 
 	// Webhook configuration — validates and mutates cert-manager resources via
