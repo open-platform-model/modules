@@ -33,6 +33,18 @@ import (
 			tr.#HttpRoute
 		}
 
+		// Attached only when configured. Both are optional traits on the
+		// StatefulSet transformer, so leaving one off costs nothing — but
+		// attaching unconditionally would leave a non-concrete field in the
+		// spec and fail the render, the same way an always-attached
+		// #DisruptionBudget does.
+		if #config.podScheduling != _|_ {
+			tr.#PodScheduling
+		}
+		if #config.podMetadata != _|_ {
+			tr.#PodMetadata
+		}
+
 		metadata: name: "jellyfin"
 
 		// Bind the rendered volume set so volumeMounts can reuse each source.
@@ -198,6 +210,15 @@ import (
 			// Intel GPU — add render group supplemental GIDs for DRI device access.
 			if #config.resources != _|_ if #config.resources.gpu != _|_ {
 				securityContext: supplementalGroups: [44, 109]
+			}
+
+			// Passed through verbatim; the schemas are the catalog's own, so
+			// there is nothing to translate.
+			if #config.podScheduling != _|_ {
+				podScheduling: #config.podScheduling
+			}
+			if #config.podMetadata != _|_ {
+				podMetadata: #config.podMetadata
 			}
 
 			// Expose the web UI as a Service.
