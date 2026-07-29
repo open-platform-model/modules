@@ -7,8 +7,8 @@ cert_manager:
 istio_ambient:
   version: v1.1.0
 jellyfin:
-  version: v2.1.0
-  checksum: 18441a87383358401ad2d725b3a9849b46b72723ff5d47fe6b721c5166a4e0b4
+  version: v2.2.0
+  checksum: b1202708e1c468a693da0c0ba1d8d18dea6e0297630a30e5c4fe83cd872caac2
 metallb:
   version: v1.0.0
 seerr:
