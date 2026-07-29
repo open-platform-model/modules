@@ -129,13 +129,38 @@ jobs:
           EVENT="${{ github.event_name }}"
           SELECTED="${{ inputs.module || 'all' }}"
 
+          # GHCR's /v2/ API rejects HTTP Basic auth (401) — it only accepts a
+          # bearer token from the token endpoint. Probing with `curl -u` always
+          # 401s, which silently reads as "unpublished" and re-publishes every
+          # module on every run. Exchange credentials for a scoped pull token,
+          # then treat only 404 as "not published"; any other status is a broken
+          # probe and must fail the run rather than trigger a bogus republish.
           version_published() {
-            local repo="$1" tag="$2"
-            curl -fsS --head \
+            local repo="$1" tag="$2" base token code
+            base="${ORG}/opmodel.dev/modules/${repo}"
+
+            token=$(curl -fsS --retry 3 \
               -u "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+              "https://ghcr.io/token?service=ghcr.io&scope=repository:${base}:pull" \
+              | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+            if [ -z "$token" ]; then
+              echo "::error::${repo}: could not obtain a GHCR pull token"
+              exit 1
+            fi
+
+            code=$(curl -sS --retry 3 -o /dev/null -w '%{http_code}' --head \
+              -H "Authorization: Bearer ${token}" \
               -H "Accept: application/vnd.oci.image.manifest.v1+json,*/*" \
-              "https://ghcr.io/v2/${ORG}/opmodel.dev/modules/${repo}/manifests/${tag}" \
-              >/dev/null 2>&1
+              "https://ghcr.io/v2/${base}/manifests/${tag}")
+
+            case "$code" in
+              200) return 0 ;;
+              404) return 1 ;;
+              *)
+                echo "::error::${repo}@${tag}: unexpected status ${code} from ghcr.io/v2/${base}/manifests/${tag}"
+                exit 1
+                ;;
+            esac
           }
 
           module_major_from_cue() {
