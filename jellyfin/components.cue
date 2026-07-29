@@ -143,6 +143,9 @@ import (
 					}
 					volumeMounts: {
 						for vName, v in _allVolumes {
+							// _volumes[vName] already carries readOnly from the
+							// volume source, so unifying propagates it here — the
+							// two can never disagree by construction.
 							(vName): _volumes[vName] & {
 								mountPath: v.mountPath
 							}
@@ -170,9 +173,17 @@ import (
 				volumes: {
 					for name, v in _allVolumes {
 						(name): {
-							"name":   name
-							readOnly: false
+							"name": name
+							// From #storageVolume, which defaults it to false — so
+							// this stays concrete and existing instances render
+							// exactly as before.
+							readOnly: v.readOnly
 							if v.type == "pvc" {
+								// NOTE: #PersistentClaimSchema carries no readOnly, so a
+								// PVC-backed volume can only be made read-only at the
+								// MOUNT. Enough to stop this container writing; it does
+								// not harden the volume against another container in the
+								// same pod. Catalog gap; NFS below does both.
 								persistentClaim: {
 									size:       v.size
 									accessMode: "ReadWriteOnce"
@@ -191,6 +202,13 @@ import (
 								nfs: {
 									server: v.server
 									path:   v.path
+									// Read-only at the SOURCE, so the kernel mount
+									// itself is ro rather than just this container's
+									// view of it. This is the half that actually
+									// protects a shared media dataset.
+									if v.readOnly {
+										readOnly: true
+									}
 								}
 							}
 						}

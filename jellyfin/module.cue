@@ -22,7 +22,7 @@ m.#Module
 metadata: {
 	modulePath:  "opmodel.dev/modules"
 	name:        "jellyfin"
-	version:     "2.2.0"
+	version:     "2.3.0"
 	description: "Jellyfin media server - a free software media system"
 }
 
@@ -35,6 +35,20 @@ metadata: {
 	storageClass?: string // optional, only used when type == "pvc"
 	server?:       string // required when type == "nfs"
 	path?:         string // required when type == "nfs"
+
+	// Mount this volume read-only. Applied to BOTH the volume source and the
+	// container's volumeMount — setting only the mount still leaves the volume
+	// itself writable to anything else that attaches it.
+	//
+	// Defaults false, so existing instances are unchanged. Set it on media
+	// libraries shared with another server: Jellyfin writes sidecar metadata
+	// (.nfo, .jpg, poster/fanart) back into the media tree on a metadata
+	// refresh, so two servers pointed at one dataset can each rewrite the
+	// other's files. Usually benign when both run the same providers — a
+	// genuine delete or a divergent refresh is not.
+	//
+	// Leave false for `config`, which Jellyfin must write.
+	readOnly: bool | *false
 }
 
 // Schema only - constraints for users, no defaults beyond sensible image/port.
@@ -185,6 +199,9 @@ debugValues: {
 				type:      "nfs"
 				server:    "192.168.1.1"
 				path:      "/mnt/data/media"
+				// Exercises the readOnly branch: a shared NFS library is
+				// exactly the case the field exists for.
+				readOnly: true
 			}
 		}
 	}

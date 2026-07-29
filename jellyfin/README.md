@@ -90,6 +90,7 @@ A real-world single-component stateful application demonstrating persistent stor
 | `media[name].mountPath` | string | - | - | Mount path for media library |
 | `media[name].type` | string | `"pvc" \| "emptyDir"` | `"emptyDir"` | Volume type |
 | `media[name].size` | string | - | - | PVC size (required if type=pvc) |
+| `media[name].readOnly` | bool | - | `false` | Mount read-only. Set it on a library shared with another Jellyfin — a metadata refresh writes `.nfo`/`.jpg`/poster files back into the media tree, so two servers on one dataset overwrite each other's sidecars. For `type: nfs` this marks the volume **source** read-only as well as the mount; for `type: pvc` only the mount, because `#PersistentClaimSchema` carries no `readOnly` |
 | `podScheduling` | object? | - | _(optional)_ | `nodeSelector` / `tolerations` / `priorityClassName`. Needed to steer the pod at a node that actually has the GPU `resources.gpu` asks for |
 | `podMetadata` | object? | - | _(optional)_ | `labels` / `annotations` on the **pod template only** — never the selector |
 
