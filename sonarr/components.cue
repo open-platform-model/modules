@@ -120,7 +120,16 @@ import (
 						initialDelaySeconds: 10
 						periodSeconds:       10
 						timeoutSeconds:      5
-						failureThreshold:    #config.startupFailureThreshold
+						// Guarded rather than defaulted — see the schema note.
+						// Both arms must set a CONCRETE value, because the arm
+						// that unifies with #ProbeSchema's `uint | *3` is where
+						// a second default would make the render ambiguous.
+						if #config.startupFailureThreshold != _|_ {
+							failureThreshold: #config.startupFailureThreshold
+						}
+						if #config.startupFailureThreshold == _|_ {
+							failureThreshold: 60
+						}
 					}
 					livenessProbe: {
 						httpGet: {

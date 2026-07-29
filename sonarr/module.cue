@@ -31,7 +31,7 @@ m.#Module
 metadata: {
 	modulePath:  "opmodel.dev/modules"
 	name:        "sonarr"
-	version:     "1.0.1"
+	version:     "1.0.2"
 	description: "Sonarr - TV series collection manager for Usenet and BitTorrent"
 }
 
@@ -89,7 +89,12 @@ metadata: {
 	// liveness probe's budget and got the container SIGKILLed mid-migration —
 	// a restart loop that only converges because migrations commit
 	// individually. Raise it on slow storage.
-	startupFailureThreshold: int & >0 | *60
+	// Optional WITHOUT a default on purpose. #ProbeSchema.failureThreshold
+	// already carries `uint | *3`, and unifying a second marked default into it
+	// produces `>0 & int | 60 | 3` — a disjunction with TWO defaults, which CUE
+	// cannot resolve, so the whole instance renders non-concrete. The default is
+	// applied in components.cue with an explicit guard instead.
+	startupFailureThreshold?: uint & >0
 
 	// Path the liveness/readiness probes GET. Servarr exposes an
 	// unauthenticated /ping. Override when the app is served under a URL base,
