@@ -14,6 +14,8 @@ metallb:
   version: v1.0.0
 radarr:
   version: v1.0.0
+sabnzbd:
+  version: v1.0.0
 seerr:
   version: v1.2.0
   checksum: 953b9efd9c6fba278a9a5420c28eec128c702958a5a376f69a5efcc9486edc35
