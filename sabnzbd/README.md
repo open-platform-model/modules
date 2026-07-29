@@ -66,6 +66,26 @@ Raw IP addresses are always accepted, which is why the kubelet's probes work wit
 entry. The entrypoint also prepends the container's own `$HOSTNAME`, so a StatefulSet's
 stable pod name is whitelisted for free.
 
+**In-cluster callers need entries too, and this catches people out.** Under docker-compose
+the bare service name is whitelisted for free, because `$HOSTNAME` *is* that name. In
+Kubernetes `$HOSTNAME` is the **pod** name (`sabnzbd-sabnzbd-0`), so a peer calling
+`http://sabnzbd:8080/` sends a Host header that is not on the list and gets **403
+Forbidden** — DNS resolves, the Service routes, and SABnzbd refuses. Measured on a live
+cluster, not theorised.
+
+List every name a peer might use:
+
+```cue
+hostWhitelist: [
+    "sab.example.com",                    // through the ingress
+    "sabnzbd", "sabnzbd.ns",              // in-cluster short forms
+    "sabnzbd.ns.svc.cluster.local",       // FQDN
+]
+```
+
+This matters most when migrating from Compose, where peers have a bare hostname already
+stored in their own configuration: everything looks migrated and every API call 403s.
+
 ### `localRanges` — peers move from the LAN to pod IPs
 
 `local_ranges` decides which clients bypass login. Radarr and Sonarr call this API from

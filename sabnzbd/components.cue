@@ -113,12 +113,30 @@ import (
 					// SABnzbd accepts raw IP addresses in the Host header
 					// regardless of host_whitelist, so a probe against the pod IP
 					// is not affected by that setting.
+					//
+					// The startupProbe gates liveness AND readiness until the
+					// app actually serves. Sibling modules were SIGKILLed
+					// mid-database-migration without one; this image seeds its
+					// INI on first boot, so it gets the same protection.
+					startupProbe: {
+						httpGet: {
+							path: #config.healthPath
+							port: #config.port
+						}
+						initialDelaySeconds: 10
+						periodSeconds:       10
+						timeoutSeconds:      5
+						failureThreshold:    #config.startupFailureThreshold
+					}
 					livenessProbe: {
 						httpGet: {
 							path: #config.healthPath
 							port: #config.port
 						}
-						initialDelaySeconds: 30
+						// 0: the startupProbe above already held liveness off
+						// until the app answered, so a second delay would only
+						// slow down detection of a genuine hang.
+						initialDelaySeconds: 0
 						periodSeconds:       10
 						timeoutSeconds:      5
 						failureThreshold:    5
