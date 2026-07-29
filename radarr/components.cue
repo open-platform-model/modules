@@ -103,15 +103,34 @@ import (
 						}
 					}
 
-					// Servarr's /ping is unauthenticated and cheap. The generous
-					// initialDelay is for the first boot after a restore, when
-					// the app migrates its database schema before it serves.
+					// Servarr's /ping is unauthenticated and cheap.
+					//
+					// The startupProbe gates liveness AND readiness until the
+					// app actually serves, and it is required rather than
+					// belt-and-braces: first boot initializes or migrates the
+					// SQLite database BEFORE opening the listener. Sonarr's
+					// 200+ migrations outran a plain liveness delay and the
+					// container was SIGKILLed mid-migration (exit 137,
+					// "failed liveness probe"), observed on nas1 2026-07-29.
+					startupProbe: {
+						httpGet: {
+							path: #config.healthPath
+							port: #config.port
+						}
+						initialDelaySeconds: 10
+						periodSeconds:       10
+						timeoutSeconds:      5
+						failureThreshold:    #config.startupFailureThreshold
+					}
 					livenessProbe: {
 						httpGet: {
 							path: #config.healthPath
 							port: #config.port
 						}
-						initialDelaySeconds: 60
+						// 0: the startupProbe above already held liveness off
+						// until the app answered, so a second delay would only
+						// slow down detection of a genuine hang.
+						initialDelaySeconds: 0
 						periodSeconds:       10
 						timeoutSeconds:      5
 						failureThreshold:    5

@@ -31,7 +31,7 @@ m.#Module
 metadata: {
 	modulePath:  "opmodel.dev/modules"
 	name:        "radarr"
-	version:     "1.0.0"
+	version:     "1.0.1"
 	description: "Radarr - movie collection manager for Usenet and BitTorrent"
 }
 
@@ -79,6 +79,17 @@ metadata: {
 	// `ls` fails is an identity problem, never a mount problem.
 	runAsUser:  int | *65534
 	runAsGroup: int | *65534
+
+	// How many 10-second startup probes may fail before the container is
+	// considered failed to start.
+	//
+	// The default is 10 minutes of grace, and it is not arbitrary: on first
+	// boot these apps initialize or migrate their SQLite database BEFORE
+	// opening the listener. Sonarr runs 200+ migrations, which overran a
+	// liveness probe's budget and got the container SIGKILLed mid-migration —
+	// a restart loop that only converges because migrations commit
+	// individually. Raise it on slow storage.
+	startupFailureThreshold: int & >0 | *60
 
 	// Path the liveness/readiness probes GET. Servarr exposes an
 	// unauthenticated /ping. Override when the app is served under a URL base,
@@ -178,13 +189,14 @@ debugValues: {
 		tag:        "5.27.0"
 		digest:     "sha256:f1a47717f5792d82becbe278c9502d756b898d63b2c637da131172c4adf1ffc7"
 	}
-	port:        7878
-	timezone:    "Europe/Stockholm"
-	runAsUser:   3005
-	runAsGroup:  3005
-	healthPath:  "/ping"
-	serviceType: "ClusterIP"
-	serviceName: "radarr"
+	port:                    7878
+	timezone:                "Europe/Stockholm"
+	runAsUser:               3005
+	runAsGroup:              3005
+	healthPath:              "/ping"
+	startupFailureThreshold: 60
+	serviceType:             "ClusterIP"
+	serviceName:             "radarr"
 	env: {
 		RADARR__UPDATE__BRANCH: "develop"
 	}
