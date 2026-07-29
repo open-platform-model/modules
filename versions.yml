@@ -12,9 +12,15 @@ k8up:
   version: v2.0.0
 metallb:
   version: v1.0.0
+radarr:
+  version: v1.0.0
+sabnzbd:
+  version: v1.0.0
 seerr:
   version: v1.2.0
   checksum: 953b9efd9c6fba278a9a5420c28eec128c702958a5a376f69a5efcc9486edc35
+sonarr:
+  version: v1.0.0
 web_app:
   version: v0.1.0
   checksum: ad36fa47bd37a69b06c3e7e25e93987fd9402ea8af02b29b2ef1009d239d00d2
