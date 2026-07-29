@@ -5,7 +5,7 @@
 
 A real-world single-component stateful application demonstrating persistent storage, health checks, dynamic volume provisioning, and conditional configuration.
 
-> **v2 — rebased onto the OPM core catalog** (`opmodel.dev/catalogs/opm@v0`,
+> **v2 — rebased onto the OPM core catalog** (`opmodel.dev/catalogs/opm@v1`,
 > module path `opmodel.dev/modules/jellyfin@v2`). The component now composes the
 > catalog's `#StatefulWorkload` blueprint plus the `#Expose`, `#SecurityContext`,
 > `#ConfigMaps`, and (optional) `#HttpRoute` traits. The previous K8up backup
@@ -13,6 +13,27 @@ A real-world single-component stateful application demonstrating persistent stor
 > media mounts, the Service, optional GPU passthrough, optional HTTPRoute, and
 > optional Serilog logging remain. Some teaching snippets further down predate
 > the rewrite; `module.cue` + `components.cue` are the source of truth.
+
+> **v2.2.0 — catalog bump `opm@v1.0.0-alpha.1` → `alpha.6`, core `alpha.1` →
+> `alpha.3`**, plus the optional `podScheduling` and `podMetadata` blocks.
+>
+> **One behaviour change, and it is a bug fix you may be on the wrong side of.**
+> Through `alpha.1` the Service transformer built its port as
+> `exposedPort | *targetPort`, which reads as "exposedPort, defaulting to
+> targetPort" and means the opposite — in CUE a default arm wins over a concrete
+> one, so **`port` was silently discarded** and the Service always published
+> `targetPort`. Verified by render: with `port: 8920`, `alpha.1` emits
+> `port: 8096` and `alpha.6` emits `port: 8920`. A release that set `port` to
+> anything other than 8096 was not getting it and will now start. A release that
+> left `port` at 8096 renders **byte-identical** across the bump (confirmed by
+> diffing both renders — only `metadata.version` and its derived UUIDs move).
+>
+> Nothing else in the six intervening catalog versions touches this module: the
+> C9 StatefulSet `serviceName` fix applies only when `expose.name` is set (it is
+> not), and the new HPA transformer matches the component but emits nothing
+> because `scaling.auto` is unset. Rendered object names — including PVC
+> `<instance>-<component>-config` — are unchanged, so existing restore tooling
+> keyed to `jellyfin-jellyfin-config` keeps working.
 
 ## What This Example Demonstrates
 
@@ -69,6 +90,8 @@ A real-world single-component stateful application demonstrating persistent stor
 | `media[name].mountPath` | string | - | - | Mount path for media library |
 | `media[name].type` | string | `"pvc" \| "emptyDir"` | `"emptyDir"` | Volume type |
 | `media[name].size` | string | - | - | PVC size (required if type=pvc) |
+| `podScheduling` | object? | - | _(optional)_ | `nodeSelector` / `tolerations` / `priorityClassName`. Needed to steer the pod at a node that actually has the GPU `resources.gpu` asks for |
+| `podMetadata` | object? | - | _(optional)_ | `labels` / `annotations` on the **pod template only** — never the selector |
 
 ## Rendered Kubernetes Resources
 

@@ -12,6 +12,7 @@ package jellyfin
 import (
 	m "opmodel.dev/core@v1"
 	res "opmodel.dev/catalogs/opm/resources"
+	tr "opmodel.dev/catalogs/opm/traits"
 )
 
 // Module definition
@@ -21,7 +22,7 @@ m.#Module
 metadata: {
 	modulePath:  "opmodel.dev/modules"
 	name:        "jellyfin"
-	version:     "2.0.0"
+	version:     "2.2.0"
 	description: "Jellyfin media server - a free software media system"
 }
 
@@ -93,6 +94,33 @@ metadata: {
 		defaultLevel: *"Information" | "Debug" | "Warning" | "Error"
 		overrides?: [string]: "Debug" | "Information" | "Warning" | "Error"
 	}
+
+	// Optional scheduling constraints — which nodes this pod may run on.
+	//
+	// The motivating case is hardware transcoding: `resources.gpu` asks for a
+	// device, but nothing steers the pod toward a node that HAS one. On a
+	// mixed cluster the pod either lands somewhere without the device and
+	// fails, or schedules only by luck. `nodeSelector` closes that gap, and
+	// `tolerations` covers GPU nodes that carry a dedicated taint.
+	//
+	// The schema is the catalog's, referenced rather than copied, so the
+	// module cannot drift from the transformer that consumes it.
+	podScheduling?: tr.#PodSchedulingSchema
+
+	// Optional pod-template labels and annotations.
+	//
+	// Distinct from component metadata on purpose: component labels flow into
+	// `spec.selector.matchLabels`, which Kubernetes makes IMMUTABLE, so a
+	// semantic pod label routed that way could never be changed or removed
+	// without deleting the StatefulSet. Anything belonging on the pod and not
+	// on the selector goes here — mesh membership
+	// (`istio.io/dataplane-mode`), backup hooks, scrape hints.
+	//
+	// This is also the supported way to attach backup tooling now that the
+	// K8up feature was dropped: k8up's `k8up.io/backupcommand` and
+	// `k8up.io/file-extension` are pod annotations, so a pre-backup SQLite
+	// checkpoint is expressible here without the module modelling backups.
+	podMetadata?: tr.#PodMetadataSchema
 }
 
 debugValues: {
