@@ -232,41 +232,45 @@ spec: {
 
 ### Health Checks
 
-HTTP-based liveness and readiness probes:
+Startup, liveness and readiness probes all GET `healthPath` on port 8096. Every
+probe runs on a 10s period with a 5s timeout, so each `failureThreshold` step is
+worth roughly 10 seconds of grace:
+
+| Probe | `failureThreshold` default | Budget | Tunable with |
+| --- | --- | --- | --- |
+| startup | 30 | ~300s | `startupFailureThreshold` |
+| liveness | 18 | ~180s | `livenessFailureThreshold` |
+| readiness | 12 | ~120s | `readinessFailureThreshold` |
+
+Plus `terminationGracePeriodSeconds` (default 120) for the SIGTERM → SIGKILL window.
+
+**Why the budgets are this generous.** Jellyfin's built-in *Optimize database*
+scheduled task VACUUMs `jellyfin.db` every 6 hours, and VACUUM holds SQLite's
+exclusive lock for its whole run. `/health` is ASP.NET Core health-check
+middleware with a DbContext check attached, so it blocks for the duration. A
+232 MB database on iSCSI measured 40–45s per vacuum against the module's
+previous hardcoded 30s liveness budget — kubelet restarted the container ~26s
+into every vacuum, four times a day, exiting a clean `0` each time because
+Jellyfin handles SIGTERM gracefully.
+
+Vacuum time scales with database size, so raise these on a larger library or
+slower storage. Readiness is deliberately generous too: the workload is
+single-replica, so dropping the only endpoint mid-vacuum cuts active clients
+without routing them anywhere better.
 
 ```cue
-spec: {
-    healthCheck: {
-        livenessProbe: {
-            httpGet: {
-                path: "/health"
-                port: 8096
-            }
-            initialDelaySeconds: 30
-            periodSeconds:       10
-            timeoutSeconds:      5
-            failureThreshold:    3
-        }
-        readinessProbe: {
-            httpGet: {
-                path: "/health"
-                port: 8096
-            }
-            initialDelaySeconds: 10
-            periodSeconds:       10
-            timeoutSeconds:      3
-            failureThreshold:    3
-        }
-    }
+values: {
+    // Defaults shown; all four are optional.
+    healthPath:                    "/health"
+    startupFailureThreshold:       30
+    livenessFailureThreshold:      18
+    readinessFailureThreshold:     12
+    terminationGracePeriodSeconds: 120
 }
 ```
 
-Kubernetes will:
-
-- Wait 30s before starting liveness checks
-- Wait 10s before starting readiness checks
-- Check every 10 seconds
-- Mark pod as unhealthy/not ready after 3 consecutive failures
+Set `healthPath: "/System/Ping"` to take the database out of the health signal
+entirely — it answers anonymously without touching SQLite.
 
 ## Stateful Workload Behavior
 

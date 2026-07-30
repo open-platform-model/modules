@@ -28,6 +28,11 @@ import (
 		tr.#SecurityContext
 		res.#ConfigMaps
 
+		// Attached unconditionally, unlike the optional traits below: #config
+		// gives terminationGracePeriodSeconds a default, so the field is always
+		// concrete and there is nothing to guard against.
+		tr.#GracefulShutdown
+
 		// HTTPRoute trait only when ingress is requested.
 		if #config.httpRoute != _|_ {
 			tr.#HttpRoute
@@ -118,25 +123,70 @@ import (
 							}
 						}
 					}
-					livenessProbe: {
+					// Every threshold here is sized to ride out a VACUUM rather
+					// than restart through one — Jellyfin's own "Optimize
+					// database" task blocks /health for its whole run. The
+					// measurements and the reasoning are on the schema fields in
+					// module.cue; the short version is that the previous 30s
+					// liveness budget lost to a 45s vacuum, four times a day.
+					//
+					// Probe port stays literal 8096 rather than #config.port:
+					// that field is the SERVICE port (see exposedPort below), and
+					// the container listens on 8096 regardless of what it is set
+					// to. Same reason targetPort above is literal.
+					startupProbe: {
 						httpGet: {
-							path: "/health"
-							port: 8096
-						}
-						initialDelaySeconds: 30
-						periodSeconds:       10
-						timeoutSeconds:      5
-						failureThreshold:    3
-					}
-					readinessProbe: {
-						httpGet: {
-							path: "/health"
+							path: #config.healthPath
 							port: 8096
 						}
 						initialDelaySeconds: 10
 						periodSeconds:       10
-						timeoutSeconds:      3
-						failureThreshold:    3
+						timeoutSeconds:      5
+						// Guarded rather than defaulted. Both arms must set a
+						// CONCRETE value, because the arm that unifies with
+						// #ProbeSchema's `uint | *3` is where a second default
+						// would make the render ambiguous.
+						if #config.startupFailureThreshold != _|_ {
+							failureThreshold: #config.startupFailureThreshold
+						}
+						if #config.startupFailureThreshold == _|_ {
+							failureThreshold: 30
+						}
+					}
+					livenessProbe: {
+						httpGet: {
+							path: #config.healthPath
+							port: 8096
+						}
+						// 0: the startupProbe above already holds liveness off
+						// until the app answers, so a second delay would only
+						// slow down detection of a genuine hang.
+						initialDelaySeconds: 0
+						periodSeconds:       10
+						timeoutSeconds:      5
+						if #config.livenessFailureThreshold != _|_ {
+							failureThreshold: #config.livenessFailureThreshold
+						}
+						if #config.livenessFailureThreshold == _|_ {
+							failureThreshold: 18
+						}
+					}
+					readinessProbe: {
+						httpGet: {
+							path: #config.healthPath
+							port: 8096
+						}
+						initialDelaySeconds: 10
+						periodSeconds:       10
+						// 5 not 3: a probe that has to wait on the database
+						// should not be scored a failure just for being slow.
+						timeoutSeconds: 5
+						if #config.readinessFailureThreshold != _|_ {
+							failureThreshold: #config.readinessFailureThreshold
+						}
+						if #config.readinessFailureThreshold == _|_ {
+							failureThreshold: 12
+						}
 					}
 					if #config.resources != _|_ {
 						resources: #config.resources
@@ -229,6 +279,11 @@ import (
 			if #config.resources != _|_ if #config.resources.gpu != _|_ {
 				securityContext: supplementalGroups: [44, 109]
 			}
+
+			// Long enough that a SIGTERM arriving mid-VACUUM waits for the
+			// database rather than turning into a SIGKILL through an in-flight
+			// SQLite write — see the schema field for the numbers.
+			gracefulShutdown: terminationGracePeriodSeconds: #config.terminationGracePeriodSeconds
 
 			// Passed through verbatim; the schemas are the catalog's own, so
 			// there is nothing to translate.
