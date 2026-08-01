@@ -39,6 +39,21 @@ In **external** mode the same requirement applies: the server must already have 
 
 **The bundled database Service name is pinned, not instance-prefixed.** A module cannot know its own instance name at build time, but the app needs a concrete `POSTGRES_IP`. `database.bundled.serviceName` (default `jellystat-db`) is therefore rendered verbatim and also becomes the StatefulSet's governing service name. Two instances of this module in one namespace must override it.
 
+> **Why that pin is safe here, given the `serviceName` + `httpRoute` bug on alpha.6.**
+> On `catalogs/opm@v1.0.0-alpha.6` the four route transformers build their
+> `backendRef` from a hardcoded `{instance}-{component}` and never consult
+> `expose.name`, so a component that pins an exact Service name *and* carries a
+> route emits a route pointing at a Service that does not exist — `cue vet`
+> passes, the render succeeds, and it fails only at request time as a 503. (Same
+> bug `sonarr`/`sabnzbd` work around with a separate alias Service.)
+>
+> This module is unaffected because the two concerns sit on different
+> components: the **app** leaves `expose.name` unset, so its Service and its
+> HTTPRoute backendRef both resolve to `{instance}-jellystat`; the pinned
+> `jellystat-db` is on the **postgres** component, which has no route and is
+> reached only by DNS from the app. Do not add a route to the database
+> component, and do not pin the app's Service name.
+
 ## Post-Deploy Setup
 
 1. Open the Jellystat UI (port 3000, or via your HTTPRoute).
@@ -47,21 +62,24 @@ In **external** mode the same requirement applies: the server must already have 
    (Jellyfin: *Dashboard → API Keys*).
 4. Run the initial **sync** to backfill libraries and watch history.
 
-## Quick Start (ModuleRelease)
+## Quick Start (ModuleInstance)
 
 Bundled database, which is the common case:
 
 ```yaml
-apiVersion: releases.opmodel.dev/v1alpha1
-kind: ModuleRelease
+apiVersion: opmodel.dev/v1alpha1
+kind: ModuleInstance
 metadata:
   name: jellystat
+  # The namespace must already exist — a ModuleInstance is itself namespaced,
+  # so the operator cannot accept one into a namespace it would have created.
   namespace: jellystat
 spec:
   module:
     path: opmodel.dev/modules/jellystat@v1
-    version: v0.1.0
-  serviceAccountName: opm-applier
+    version: v1.0.0
+  # No serviceAccountName: the operator applies rendered resources as its own
+  # identity. Set one only if that identity is deliberately scoped down.
   prune: true
   values:
     timezone: Europe/Stockholm
