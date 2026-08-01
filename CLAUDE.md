@@ -69,6 +69,7 @@ modules/
 | Module | Description |
 | --- | --- |
 | `jellyfin/` | Jellyfin media server |
+| `jellystat/` | Jellystat playback-statistics dashboard (bundled or external PostgreSQL) |
 | `seerr/` | Jellyseerr media request manager |
 | `web_app/` | Generic static/dynamic web application module |
 | `metallb/` | MetalLB load-balancer (v0.16.1) — controller, speaker, CRDs, RBAC, PSS-privileged namespace |
