@@ -4,6 +4,8 @@
 
 cert_manager:
   version: v1.1.0
+intel_gpu_device_plugin:
+  version: v1.0.0
 istio_ambient:
   version: v1.1.0
 jellyfin:
@@ -13,6 +15,8 @@ jellystat:
 k8up:
   version: v2.0.0
 metallb:
+  version: v1.0.0
+nvidia_device_plugin:
   version: v1.0.0
 radarr:
   version: v1.0.2
