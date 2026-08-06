@@ -1,6 +1,7 @@
 // Components defines the Jellyfin workload.
 // Single stateful component with persistent config, optional media mounts,
-// a web Service, health checks, and optional Serilog logging / GPU / HTTPRoute.
+// a web Service, health checks, and optional Serilog logging / hardware
+// transcoding / HTTPRoute.
 package jellyfin
 
 import (
@@ -50,6 +51,13 @@ import (
 			tr.#PodMetadata
 		}
 
+		// Only NVIDIA needs a non-default container runtime. Attaching this
+		// unconditionally would leave spec.runtimeClass non-concrete and fail
+		// the render, exactly like the traits above.
+		if _hwNvidia {
+			tr.#RuntimeClass
+		}
+
 		metadata: name: "jellyfin"
 
 		// Bind the rendered volume set so volumeMounts can reuse each source.
@@ -62,6 +70,56 @@ import (
 			if #config.storage.media != _|_ {
 				for name, v in #config.storage.media {
 					(name): v
+				}
+			}
+		}
+
+		// Hardware transcoding, resolved once here rather than re-derived at
+		// each use site.
+		//
+		// Every branch below assigns a CONCRETE value, including the disabled
+		// one. A hidden field left at `bool` or `string` is fine only until
+		// something references it — at which point the whole component renders
+		// non-concrete and the release fails to finalize.
+		_hwEnabled: bool
+		if #config.hardwareAcceleration == _|_ {
+			_hwEnabled: false
+		}
+		if #config.hardwareAcceleration != _|_ {
+			_hwEnabled: true
+		}
+
+		// Split out from the vendor so every NVIDIA-only branch reads the same
+		// way and none of them has to re-test whether the block exists at all.
+		_hwNvidia: bool
+		if !_hwEnabled {
+			_hwNvidia: false
+		}
+		if _hwEnabled {
+			if #config.hardwareAcceleration.vendor == "nvidia" {
+				_hwNvidia: true
+			}
+			if #config.hardwareAcceleration.vendor != "nvidia" {
+				_hwNvidia: false
+			}
+		}
+
+		// The extended resource the device plugin advertises. The explicit
+		// override wins; otherwise it derives from the vendor.
+		_hwResource: string
+		if !_hwEnabled {
+			_hwResource: ""
+		}
+		if _hwEnabled {
+			if #config.hardwareAcceleration.resource != _|_ {
+				_hwResource: #config.hardwareAcceleration.resource
+			}
+			if #config.hardwareAcceleration.resource == _|_ {
+				if #config.hardwareAcceleration.vendor == "intel" {
+					_hwResource: "gpu.intel.com/i915"
+				}
+				if #config.hardwareAcceleration.vendor == "nvidia" {
+					_hwResource: "nvidia.com/gpu"
 				}
 			}
 		}
@@ -120,6 +178,17 @@ import (
 							JELLYFIN_PublishedServerUrl: {
 								name:  "JELLYFIN_PublishedServerUrl"
 								value: #config.publishedServerUrl
+							}
+						}
+
+						// Emitted only for NVIDIA, i.e. only where a runtime
+						// reads it. See the schema field for why `video` and
+						// `compute` both matter, and why NVIDIA_VISIBLE_DEVICES
+						// is never set here.
+						if _hwNvidia {
+							NVIDIA_DRIVER_CAPABILITIES: {
+								name:  "NVIDIA_DRIVER_CAPABILITIES"
+								value: #config.hardwareAcceleration.driverCapabilities
 							}
 						}
 					}
@@ -190,6 +259,23 @@ import (
 					}
 					if #config.resources != _|_ {
 						resources: #config.resources
+					}
+
+					// Unified INTO whatever the instance set for cpu/memory
+					// rather than replacing it, so the two can be written
+					// independently. The catalog emits the claim to requests
+					// AND limits, which is what Kubernetes requires for an
+					// extended resource — they cannot be overcommitted.
+					//
+					// An instance that ALSO writes resources.gpu by hand with
+					// different values fails here on a CUE conflict. That is
+					// the intended outcome: two disagreeing declarations of
+					// which card to use should not resolve last-one-wins.
+					if _hwEnabled {
+						resources: gpu: {
+							resource: _hwResource
+							count:    #config.hardwareAcceleration.count
+						}
 					}
 					volumeMounts: {
 						for vName, v in _allVolumes {
@@ -275,9 +361,23 @@ import (
 				}
 			}
 
-			// Intel GPU — add render group supplemental GIDs for DRI device access.
-			if #config.resources != _|_ if #config.resources.gpu != _|_ {
+			// Render-group supplemental GIDs, so the process can open
+			// /dev/dri/renderD*. Only meaningful when a device is attached.
+			if _hwEnabled {
+				securityContext: supplementalGroups: #config.hardwareAcceleration.renderGroups
+			}
+
+			// Legacy arm: an instance claiming a device through resources.gpu
+			// directly, as everything before v2.5.0 had to. Kept so those
+			// instances render exactly as they did, and guarded on !_hwEnabled
+			// so the two can never both assign supplementalGroups.
+			if !_hwEnabled if #config.resources != _|_ if #config.resources.gpu != _|_ {
 				securityContext: supplementalGroups: [44, 109]
+			}
+
+			// NVIDIA only — Intel devices work under the default runtime.
+			if _hwNvidia {
+				runtimeClass: #config.hardwareAcceleration.runtimeClass
 			}
 
 			// Long enough that a SIGTERM arriving mid-VACUUM waits for the

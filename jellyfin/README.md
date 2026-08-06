@@ -14,6 +14,32 @@ A real-world single-component stateful application demonstrating persistent stor
 > optional Serilog logging remain. Some teaching snippets further down predate
 > the rewrite; `module.cue` + `components.cue` are the source of truth.
 
+> **v2.5.0 — hardware transcoding, one card at a time.** A new
+> `hardwareAcceleration` block takes a single `vendor: "intel" | "nvidia"` and
+> derives everything that vendor needs: the extended-resource claim, the
+> `RuntimeClass` (NVIDIA only), `NVIDIA_DRIVER_CAPABILITIES` (NVIDIA only) and
+> the DRI render GIDs. `vendor` is a scalar, so "both cards at once" is not
+> expressible — extended resources are not shareable, so a second claim would
+> strand every other GPU consumer on the node.
+>
+> Why a discriminator rather than four independent knobs: NVIDIA needs the claim
+> **and** a RuntimeClass **and** a capability env var, and getting any of the
+> three wrong fails *silently* — healthy pod, card visible to `nvidia-smi`,
+> every encode quietly on the CPU.
+>
+> Catalog bump `alpha.6` → `alpha.7`, for the `RuntimeClass` trait. That trait is
+> the only difference between those two catalog versions, so an instance setting
+> no `hardwareAcceleration` renders byte-identically to v2.4.0 (verified). The
+> pre-v2.5.0 `resources.gpu` path still works and still gets the render GIDs.
+>
+> ⚠ **This is half the change.** The module gets the device, the runtime and the
+> permissions into the container; it cannot make Jellyfin *use* them.
+> `HardwareAccelerationType` lives in `/config/encoding.xml` — UI state on the
+> config PVC (Dashboard → Playback), the same class as `TranscodingTempPath`.
+> Verify from a transcode log naming an `*_qsv` / `*_nvenc` encoder, never from
+> the dashboard toggle: a device attached with the UI left at `none` is a CPU
+> transcode that looks exactly like success.
+
 > **v2.2.0 — catalog bump `opm@v1.0.0-alpha.1` → `alpha.6`, core `alpha.1` →
 > `alpha.3`**, plus the optional `podScheduling` and `podMetadata` blocks.
 >
@@ -91,7 +117,13 @@ A real-world single-component stateful application demonstrating persistent stor
 | `media[name].type` | string | `"pvc" \| "emptyDir"` | `"emptyDir"` | Volume type |
 | `media[name].size` | string | - | - | PVC size (required if type=pvc) |
 | `media[name].readOnly` | bool | - | `false` | Mount read-only. Set it on a library shared with another Jellyfin — a metadata refresh writes `.nfo`/`.jpg`/poster files back into the media tree, so two servers on one dataset overwrite each other's sidecars. For `type: nfs` this marks the volume **source** read-only as well as the mount; for `type: pvc` only the mount, because `#PersistentClaimSchema` carries no `readOnly` |
-| `podScheduling` | object? | - | _(optional)_ | `nodeSelector` / `tolerations` / `priorityClassName`. Needed to steer the pod at a node that actually has the GPU `resources.gpu` asks for |
+| `hardwareAcceleration.vendor` | string | `"intel" \| "nvidia"` | _(optional)_ | Attach ONE GPU for hardware transcoding. Everything below derives from it. Omit the whole block for CPU-only |
+| `hardwareAcceleration.count` | uint | `>0` | `1` | Devices to claim. 1 unless a node carries several of the same card |
+| `hardwareAcceleration.resource` | string? | - | `gpu.intel.com/i915` / `nvidia.com/gpu` | Extended resource the plugin advertises. Override only for a different plugin name — the Intel one follows the **kernel driver**, so Xe2/Battlemage and newer advertise `gpu.intel.com/xe`, not `i915` |
+| `hardwareAcceleration.runtimeClass` | string | - | `"nvidia"` | **NVIDIA only**, ignored for Intel. Must already exist in the cluster. Required on Talos, where the `nvidia` containerd handler is deliberately not the node default — without it `/dev/nvidia*` never appears and every NVENC encode fails on a healthy-looking pod |
+| `hardwareAcceleration.driverCapabilities` | string | - | `"compute,video,utility"` | **NVIDIA only.** `video` is what NVENC needs and what the runtime does *not* grant by default; `compute` is what CUDA HDR tone-mapping needs. `NVIDIA_VISIBLE_DEVICES` is never emitted — the device plugin owns it |
+| `hardwareAcceleration.renderGroups` | [...uint] | - | `[44, 109]` | Supplemental GIDs for opening `/dev/dri/renderD*` |
+| `podScheduling` | object? | - | _(optional)_ | `nodeSelector` / `tolerations` / `priorityClassName`. **Not** needed for GPU placement — a GPU claim is an extended-resource request, which already constrains the pod to nodes advertising it. This is for taints on dedicated GPU nodes |
 | `podMetadata` | object? | - | _(optional)_ | `labels` / `annotations` on the **pod template only** — never the selector |
 
 ## Rendered Kubernetes Resources
@@ -138,10 +170,33 @@ spec:
         tv:     { mountPath: /media/tv,     type: pvc, size: 3Ti, storageClass: standard }
 ```
 
-Optional features available through `values`: `resources` (incl. `resources.gpu`
-for Intel/render-group passthrough), `logging` (renders a Serilog ConfigMap
-mounted at `/config/logging.json`), and `httpRoute` (renders a Gateway API
-HTTPRoute).
+Optional features available through `values`: `hardwareAcceleration` (attaches
+one GPU — see below), `resources` (requests/limits), `logging` (renders a
+Serilog ConfigMap mounted at `/config/logging.json`), and `httpRoute` (renders a
+Gateway API HTTPRoute).
+
+### Hardware transcoding
+
+Switching card is a one-word edit:
+
+```yaml
+values:
+  hardwareAcceleration:
+    vendor: intel      # gpu.intel.com/i915 + render GIDs, default runtime
+    # vendor: nvidia   # nvidia.com/gpu + runtimeClassName: nvidia
+    #                  # + NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+```
+
+Cluster-side prerequisites the module does **not** create: the matching device
+plugin (`intel-device-plugins` / `nvidia-device-plugin`), the driver on the node
+(on Talos, the `i915`+`mei` or `nonfree-kmod-nvidia-*`+`nvidia-container-toolkit-*`
+system extensions), and — for NVIDIA — a cluster `RuntimeClass` named by
+`runtimeClass`.
+
+Then set `HardwareAccelerationType` to `qsv` or `nvenc` in Dashboard → Playback.
+For QSV, check the device path there matches the render node the plugin actually
+injected: only the allocated device is passed in, and its number follows the
+host's DRM enumeration order, not the vendor.
 
 ## Files
 
