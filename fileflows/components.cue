@@ -5,6 +5,8 @@
 package fileflows
 
 import (
+	"list"
+
 	bp "opmodel.dev/catalogs/opm/blueprints/workload"
 	tr "opmodel.dev/catalogs/opm/traits"
 )
@@ -36,7 +38,11 @@ import (
 		if #config.httpRoute != _|_ {
 			tr.#HttpRoute
 		}
-		if #config.runtimeClass != _|_ {
+
+		// Attached only for NVIDIA. Attaching it unconditionally would leave
+		// spec.runtimeClass non-concrete and fail the render, the same way an
+		// always-attached #PodScheduling does.
+		if _hwNvidia {
 			tr.#RuntimeClass
 		}
 		if #config.podScheduling != _|_ {
@@ -68,18 +74,82 @@ import (
 			}
 		}
 
-		// True when any GPU is claimed, in either the singular or plural form.
-		// Drives the render-group GIDs below.
-		_wantsGpu: bool
-		if #config.resources == _|_ {
-			_wantsGpu: false
+		// Derived once and concrete in every branch: a non-concrete hidden field
+		// would make the whole component fail to render the moment anything
+		// referenced it.
+		_hwEnabled: bool
+		if #config.hardwareAcceleration == _|_ {
+			_hwEnabled: false
 		}
-		if #config.resources != _|_ {
-			if #config.resources.gpu == _|_ && #config.resources.gpus == _|_ {
-				_wantsGpu: false
+		if #config.hardwareAcceleration != _|_ {
+			_hwEnabled: true
+		}
+
+		// Vendor keys as a concrete list, so membership can be tested without
+		// dereferencing a field that may not exist.
+		_hwVendors: [...string]
+		if !_hwEnabled {
+			_hwVendors: []
+		}
+		if _hwEnabled {
+			_hwVendors: [for v, _ in #config.hardwareAcceleration.devices {v}]
+		}
+
+		// True when ANY attached card is NVIDIA — that alone decides the
+		// RuntimeClass and the driver-capabilities env var, both of which are
+		// pod-wide rather than per-device.
+		_hwNvidia: list.Contains(_hwVendors, "nvidia")
+
+		// Paths the fix-permissions init container chowns — exactly the volumes
+		// it mounts, and no others.
+		//
+		// Nested guards rather than `temp == _|_ || temp.type == "nfs"`: a
+		// disjunction evaluates BOTH arms, so the second still dereferences
+		// `temp.type` when `temp` is absent. CUE rejects that with "cannot
+		// reference optional field", and because this used to sit at package
+		// scope it left the whole package non-concrete under a plain `cue vet`
+		// — passing `-c=false` while jellyfin passed unqualified.
+		_chownPaths: string
+		if #config.storage.temp == _|_ {
+			_chownPaths: #config.storage.data.mountPath
+		}
+		if #config.storage.temp != _|_ {
+			if #config.storage.temp.type == "nfs" {
+				_chownPaths: #config.storage.data.mountPath
 			}
-			if #config.resources.gpu != _|_ || #config.resources.gpus != _|_ {
-				_wantsGpu: true
+			if #config.storage.temp.type != "nfs" {
+				_chownPaths: "\(#config.storage.data.mountPath) \(#config.storage.temp.mountPath)"
+			}
+		}
+		_chownCmd: "chown -R \(#config.puid):\(#config.pgid) \(_chownPaths)"
+
+		// One GPU claim per attached card, each with its extended-resource name
+		// defaulted from the vendor key unless explicitly overridden.
+		_hwClaims: [string]: {
+			resource: string
+			count:    uint & >0
+		}
+		if !_hwEnabled {
+			_hwClaims: {}
+		}
+		if _hwEnabled {
+			_hwClaims: {
+				for v, d in #config.hardwareAcceleration.devices {
+					(v): {
+						count: d.count
+						if d.resource != _|_ {
+							resource: d.resource
+						}
+						if d.resource == _|_ {
+							if v == "intel" {
+								resource: "gpu.intel.com/i915"
+							}
+							if v == "nvidia" {
+								resource: "nvidia.com/gpu"
+							}
+						}
+					}
+				}
 			}
 		}
 
@@ -172,10 +242,9 @@ import (
 							value: #config.timezone
 						}
 
-						// Emitted only alongside a RuntimeClass, i.e. only when
-						// NVIDIA is actually in play.
+						// NVIDIA only — Intel needs nothing here.
 						//
-						// ⚠ NVIDIA_VISIBLE_DEVICES is deliberately NOT set here,
+						// ⚠ NVIDIA_VISIBLE_DEVICES is deliberately NOT set,
 						// even though every upstream Docker example sets it to
 						// `all`. Under Kubernetes the device plugin owns that
 						// variable — it writes the UUID of the GPU it allocated
@@ -183,10 +252,10 @@ import (
 						// spec overrides that allocation and hands the container
 						// every GPU on the node, quietly defeating the scheduler's
 						// accounting.
-						if #config.runtimeClass != _|_ {
+						if _hwNvidia {
 							NVIDIA_DRIVER_CAPABILITIES: {
 								name:  "NVIDIA_DRIVER_CAPABILITIES"
-								value: #config.nvidiaDriverCapabilities
+								value: #config.hardwareAcceleration.driverCapabilities
 							}
 						}
 					}
@@ -239,8 +308,18 @@ import (
 						}
 					}
 
+					// The GPU claim is unified INTO whatever the instance set for
+					// cpu/memory. The catalog emits it to requests AND limits,
+					// which is what Kubernetes requires for an extended resource.
 					if #config.resources != _|_ {
 						resources: #config.resources
+					}
+
+					// Plural: one entry per attached card. The catalog emits each
+					// to requests AND limits, which Kubernetes requires for
+					// extended resources.
+					if _hwEnabled {
+						resources: gpus: _hwClaims
 					}
 
 					volumeMounts: {
@@ -321,9 +400,13 @@ import (
 			}
 
 			// Render-group GIDs, so the process can open /dev/dri/renderD*.
-			// Only meaningful when a device is actually attached.
-			if _wantsGpu {
-				securityContext: supplementalGroups: #config.renderGroups
+			// The legacy arm keeps an instance that still sets resources.gpu
+			// directly rendering exactly as it did before.
+			if _hwEnabled {
+				securityContext: supplementalGroups: #config.hardwareAcceleration.renderGroups
+			}
+			if !_hwEnabled if #config.resources != _|_ if #config.resources.gpu != _|_ {
+				securityContext: supplementalGroups: [44, 109]
 			}
 
 			// Long enough that a SIGTERM arriving mid-transcode is not escalated
@@ -332,8 +415,8 @@ import (
 
 			// Passed through verbatim; the schemas are the catalog's own, so
 			// there is nothing to translate.
-			if #config.runtimeClass != _|_ {
-				runtimeClass: #config.runtimeClass
+			if _hwNvidia {
+				runtimeClass: #config.hardwareAcceleration.runtimeClass
 			}
 			if #config.podScheduling != _|_ {
 				podScheduling: #config.podScheduling
@@ -370,14 +453,4 @@ import (
 			}
 		}
 	}
-}
-
-// Chown command for the init container, built to match exactly the volumes that
-// container mounts. Kept out of the component body so the string stays readable.
-_chownCmd: string
-if #config.storage.temp == _|_ || #config.storage.temp.type == "nfs" {
-	_chownCmd: "chown -R \(#config.puid):\(#config.pgid) \(#config.storage.data.mountPath)"
-}
-if #config.storage.temp != _|_ if #config.storage.temp.type != "nfs" {
-	_chownCmd: "chown -R \(#config.puid):\(#config.pgid) \(#config.storage.data.mountPath) \(#config.storage.temp.mountPath)"
 }

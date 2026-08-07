@@ -136,20 +136,112 @@ metadata: {
 		}
 	}
 
-	// Container resource requests and limits, including GPU claims.
+	// Container resource requests and limits.
 	//
-	// `resources.gpus` (plural) is what makes a two-GPU transcoder expressible:
-	//
-	//   gpus: {
-	//     nvidia: {resource: "nvidia.com/gpu", count: 1}
-	//     intel:  {resource: "gpu.intel.com/i915", count: 1}
-	//   }
-	//
-	// Both devices land in the same container and FileFlows picks between them
-	// per flow — NVENC on one, QSV/VAAPI on the other. This needs
-	// catalogs/opm >= v1.0.0-alpha.8; the older singular `resources.gpu` cannot
-	// express it and `limits` rejects extended-resource keys written by hand.
+	// The legacy `resources.gpu` path still works, but prefer
+	// `hardwareAcceleration` below — it derives the resource name, the runtime
+	// and the permissions from one field instead of asking the instance to
+	// assemble four that must agree. Setting both with different values fails
+	// the build on a CUE conflict rather than silently picking one.
 	resources?: res.#ResourceRequirementsSchema
+
+	// Optional hardware transcoding. Attaches exactly ONE GPU to the container
+	// and derives everything that vendor needs from a single field.
+	//
+	// Optional hardware transcoding. Attaches one or more GPUs and derives
+	// everything each vendor needs — resource name, RuntimeClass, driver
+	// capabilities, render GIDs — from the vendor key alone.
+	//
+	// Derived rather than assembled by hand because every wrong assembly is
+	// SILENT: an `nvidia.com/gpu` claim without a RuntimeClass is a
+	// healthy-looking pod with no NVENC at all, and nothing in the module can
+	// catch it. Deriving makes that unrepresentable rather than documented.
+	//
+	// ⚠ A GPU IS CONSUMED CLUSTER-WIDE. Each card claimed here is unavailable
+	// to every other workload for as long as this pod exists, and Kubernetes
+	// does not preempt for extended resources — a second claimant just sits
+	// Pending forever. Attaching a card another instance already holds means
+	// removing it there first, in the same change.
+	//
+	// ⚠ THIS IS HALF THE CHANGE. It gets the device, the runtime and the
+	// permissions into the container; it cannot make FileFlows *use* them. The
+	// encoder is chosen per flow in the FFmpeg Builder, and the binary comes
+	// from the `FFmpeg` variable — see `ffmpegInjection`. Device attached and
+	// flow left on a software encoder is a working pod that transcodes on the
+	// CPU and looks exactly like success.
+	hardwareAcceleration?: {
+		// The cards to attach, keyed by vendor. One entry per card:
+		//
+		//   devices: {nvidia: {}}              // P2200 only
+		//   devices: {nvidia: {}, intel: {}}   // both — adding a card is 1 line
+		//
+		// Keyed rather than a list so a vendor cannot be named twice, and so
+		// per-card overrides have somewhere to live without a parallel map.
+		//
+		// MULTIPLE CARDS ARE THE POINT HERE, and this is where the module
+		// diverges from `modules/jellyfin` v2.5.0, which takes a scalar
+		// `vendor`. That is not inconsistency: Jellyfin's
+		// HardwareAccelerationType is a single global setting, so it genuinely
+		// uses one card at a time. FileFlows chooses its encoder **per flow**,
+		// so every attached card can be busy at once — and capping it at one
+		// would cap throughput for no reason.
+		//
+		// Needs `resources.gpus` from catalogs/opm >= v1.0.0-alpha.8. The
+		// singular `resources.gpu` cannot express two claims, and
+		// #ResourceRequirementsSchema is closed, so extended-resource keys
+		// cannot be written into `limits` by hand either.
+		devices: {
+			[Vendor="intel" | "nvidia"]: {
+				// How many of THIS card to claim. Raise only on a node that
+				// carries several of the same model.
+				count: uint & >0 | *1
+
+				// Extended resource the device plugin advertises. Defaults per
+				// vendor: intel -> gpu.intel.com/i915, nvidia -> nvidia.com/gpu.
+				//
+				// Override only when the plugin advertises a different name.
+				// The Intel one is decided by the KERNEL DRIVER, not the
+				// vendor: Alchemist/DG2 (the Arc A310, device id 56a6) binds
+				// i915, while Xe2/Battlemage and newer bind xe and advertise
+				// gpu.intel.com/xe. Requesting the wrong one leaves the pod
+				// Pending forever with "Insufficient <resource>".
+				resource?: string
+			}
+		}
+
+		// NVIDIA ONLY — ignored unless `devices` contains an nvidia entry.
+		// Name of a cluster RuntimeClass whose handler is the NVIDIA
+		// container runtime.
+		//
+		// Required, not optional, on Talos: the nvidia-container-toolkit
+		// extension registers an `nvidia` containerd handler and Sidero
+		// deliberately does not make it the node default. Without it the pod
+		// starts cleanly, /dev/nvidia* never appears, and every NVENC encode
+		// fails while the pod looks healthy.
+		runtimeClass: string | *"nvidia"
+
+		// NVIDIA ONLY, and emitted only when an nvidia device is attached.
+		// Value of NVIDIA_DRIVER_CAPABILITIES.
+		//
+		// `video` is the one that matters and the one that is missing by
+		// default: the NVIDIA runtime grants only `utility` when unset, which
+		// is enough for nvidia-smi to report the card while every NVENC encoder
+		// stays invisible to FFmpeg. `compute` is not padding either — HDR
+		// tone-mapping on NVENC runs through CUDA/OpenCL.
+		//
+		// ⚠ NVIDIA_VISIBLE_DEVICES is never set by this module, though every
+		// upstream Docker example sets it to `all`. Under Kubernetes the device
+		// plugin owns that variable; setting it here overrides the allocation
+		// and hands the container every GPU on the node.
+		driverCapabilities: string | *"compute,video,utility"
+
+		// Supplemental GIDs so the process can open /dev/dri/renderD*. Applied
+		// for both vendors — harmless for NVIDIA, which reaches its card
+		// through /dev/nvidia* instead.
+		//
+		// 44 (video) and 109 (render) are the Debian-derived numbers.
+		renderGroups: [...uint] | *[44, 109]
+	}
 
 	// Optional: copy a known-good FFmpeg toolchain in from another image at
 	// startup, rather than trusting whatever the FileFlows image ships.
@@ -191,34 +283,6 @@ metadata: {
 		// coupling instead of documenting it.
 		path: string | *"/usr/lib/jellyfin-ffmpeg"
 	}
-
-	// Name of a cluster RuntimeClass whose handler is the NVIDIA container
-	// runtime, normally "nvidia".
-	//
-	// REQUIRED FOR NVIDIA, IGNORED BY INTEL. Intel GPUs arrive as device nodes
-	// from the device plugin and work under the default runtime; NVIDIA devices
-	// are injected by the runtime itself, so without this the pod starts
-	// cleanly, `nvidia-smi` is absent, and every NVENC flow fails while QSV
-	// keeps working. Leave unset on an Intel-only deployment.
-	runtimeClass?: string
-
-	// Value of NVIDIA_DRIVER_CAPABILITIES, emitted only when `runtimeClass` is
-	// set.
-	//
-	// `video` is the one that matters and the one that is missing by default:
-	// the NVIDIA container runtime grants only `utility` when this is unset,
-	// which is enough for `nvidia-smi` to run and report the card while every
-	// NVENC encoder stays invisible to FFmpeg. That combination — GPU clearly
-	// present, hardware encoding "unsupported" — is the classic dead end.
-	nvidiaDriverCapabilities: string | *"compute,video,utility"
-
-	// Supplemental GIDs added to the pod so the process can open the DRI render
-	// node. Applied only when a GPU is requested.
-	//
-	// 44 (video) and 109 (render) are the Debian-derived defaults, which the
-	// FileFlows image is. Without them an Intel GPU is present in the container
-	// but every open of /dev/dri/renderD* is EACCES.
-	renderGroups: [...int] | *[44, 109]
 
 	// Consecutive 10-second probe failures tolerated before the container is
 	// restarted (liveness) or pulled from Service endpoints (readiness).
@@ -267,12 +331,11 @@ debugValues: {
 		tag:        "modded-26.07"
 		digest:     ""
 	}
-	port:         5000
-	puid:         3005
-	pgid:         3005
-	timezone:     "Europe/Stockholm"
-	serviceType:  "ClusterIP"
-	runtimeClass: "nvidia"
+	port:        5000
+	puid:        3005
+	pgid:        3005
+	timezone:    "Europe/Stockholm"
+	serviceType: "ClusterIP"
 	resources: {
 		requests: {
 			cpu:    "1000m"
@@ -282,18 +345,15 @@ debugValues: {
 			cpu:    "8000m"
 			memory: "8Gi"
 		}
-		// The case this module exists to cover: both vendors in one container.
-		gpus: {
-			nvidia: {
-				resource: "nvidia.com/gpu"
-				count:    1
-			}
-			intel: {
-				resource: "gpu.intel.com/i915"
-				count:    1
-			}
-		}
 	}
+	// Both cards, so a render test exercises the multi-claim path, the
+	// RuntimeClass trait, the driver-capabilities env var and the render GIDs
+	// in one pass.
+	hardwareAcceleration: devices: {
+		nvidia: {}
+		intel: {}
+	}
+	ffmpegInjection: {}
 	httpRoute: {
 		hostnames: ["fileflows.example.com"]
 		gatewayRef: {
