@@ -4,8 +4,6 @@
 
 cert_manager:
   version: v1.1.0
-fileflows:
-  version: v1.0.0
 intel_gpu_device_plugin:
   version: v1.0.0
 intel_gpu_exporter:
