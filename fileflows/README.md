@@ -9,16 +9,86 @@ files are pushed through user-authored *flows*, and the heavy step is almost alw
 FFmpeg transcode. This module deploys the **server** (which contains its own internal
 processing node) as a single stateful component.
 
-Its reason for existing beyond "another media app" is the GPU shape: it is the first
-module to claim **two GPUs from two different vendors in one container**, so a flow can
-choose NVENC or QSV per job.
-
 ## Requirements
 
 | | |
 |---|---|
-| `opmodel.dev/catalogs/opm` | **`>= v1.0.0-alpha.8`** — first version with `resources.gpus` |
-| `opmodel.dev/core` | `>= v1.1.0-alpha.1` |
+| `opmodel.dev/catalogs/opm` | **`>= v1.0.0-alpha.8`** — for `resources.gpus` (multi-GPU) |
+| `opmodel.dev/core` | `v1.0.0-alpha.3` |
+
+## Hardware transcoding — one or more cards
+
+Cards are keyed by vendor. Adding one is a single line:
+
+```yaml
+hardwareAcceleration:
+  devices:
+    nvidia: {}      # → nvidia.com/gpu: 1
+    intel:  {}      # → gpu.intel.com/i915: 1
+```
+
+Everything each vendor needs is derived from the key alone:
+
+| `devices` | claims | `runtimeClassName` | `NVIDIA_DRIVER_CAPABILITIES` | `supplementalGroups` |
+|---|---|---|---|---|
+| `{nvidia, intel}` | both | `nvidia` | `compute,video,utility` | `[44, 109]` |
+| `{nvidia}` | `nvidia.com/gpu: 1` | `nvidia` | `compute,video,utility` | `[44, 109]` |
+| `{intel}` | `gpu.intel.com/i915: 1` | *absent* | *absent* | `[44, 109]` |
+| *(no block)* | *absent* | *absent* | *absent* | *absent* |
+
+Per-card overrides live inline, so there is no parallel map to keep in sync:
+
+```yaml
+devices:
+  intel:  {resource: gpu.intel.com/xe, count: 2}   # Battlemage+ binds xe, not i915
+  nvidia: {count: 3}
+```
+
+**Why derived rather than assembled by hand.** Every wrong assembly is *silent*: an
+`nvidia.com/gpu` claim without a RuntimeClass is a healthy-looking pod with **no NVENC at
+all**, and nothing in the module could catch it. Deriving the RuntimeClass and driver
+capabilities from the vendor key makes that unrepresentable.
+
+**Why this differs from `modules/jellyfin` v2.5.0**, which takes a scalar `vendor`. Not
+inconsistency — Jellyfin's `HardwareAccelerationType` is a single global setting, so it
+genuinely uses one card at a time. FileFlows picks its encoder **per flow**, so every
+attached card can be busy simultaneously, and capping it at one would cap throughput for
+no reason.
+
+⚠ **A GPU is consumed cluster-wide.** Each card claimed here is unavailable to every
+other workload for as long as the pod exists, and Kubernetes does **not** preempt for
+extended resources — a second claimant just sits `Pending` forever. Taking a card another
+instance holds means removing it there *in the same change*.
+
+Setting both `hardwareAcceleration` and a conflicting `resources.gpu` fails the build
+rather than silently picking one. An unknown vendor key also fails the build, though the
+message points at a missing `count` field rather than naming the bad key.
+
+## Getting maximum throughput
+
+Neither card on a typical build imposes a driver-level concurrency cap, so the ceiling is
+runner count and silicon — not licensing:
+
+- **Quadro P2200 — unrestricted NVENC sessions.** Quadro ≥ x2000 (and Tesla/GRID) carry
+  no session limit, unlike GeForce, which fails the third `NvEncOpenEncodeSessionEx` with
+  `OUT_OF_MEMORY`. Pascal 6th-gen NVENC: H.264 + HEVC 8-bit, **no AV1 encode**.
+- **Arc A310 — two media engines**, AV1/HEVC/H.264 encode up to 8K 10-bit, and no
+  documented session cap. Materially better quality-per-bitrate than Pascal, and the only
+  one of the two that can produce AV1.
+
+So the knobs that actually matter, in order:
+
+1. **Runners** (Settings → Nodes → the node → Runners) — how many files process at once.
+   FileFlows costs runners *by resolution*, so a 4K file consumes more than an SD one.
+   This is UI state, not module config. Start at 2 and raise while watching encode time.
+2. **`resources.limits.cpu` / `memory`** — filters, muxing and I/O stay on the CPU even
+   with hardware encode. Under-provisioning here starves the GPUs.
+3. **`temp` throughput** — a full working copy is written per job, so concurrent jobs
+   multiply the I/O. This is the usual bottleneck once both GPUs are fed.
+
+Flows choose their encoder, so **which card gets used is a flow-authoring decision**, not
+something the module schedules. If you want work pinned deterministically per card,
+that is what external processing nodes are for — see below.
 
 ## Three things that will cost you an afternoon
 
@@ -109,13 +179,14 @@ spec:
   values:
     puid: 3005
     pgid: 3005
-    runtimeClass: nvidia          # required for NVENC; omit on Intel-only clusters
+    hardwareAcceleration:
+      devices:
+        nvidia: {}
+        intel: {}
+    ffmpegInjection: {}
     resources:
       requests: {cpu: "1000m", memory: 2Gi}
       limits:   {cpu: "8000m", memory: 8Gi}
-      gpus:
-        nvidia: {resource: nvidia.com/gpu,     count: 1}
-        intel:  {resource: gpu.intel.com/i915, count: 1}
     storage:
       data: {mountPath: /app/Data, type: pvc, size: 10Gi, storageClass: my-class}
       temp: {mountPath: /temp, type: nfs, server: 10.0.0.2, path: /mnt/bulk/ff-temp}
@@ -139,13 +210,17 @@ spec:
 | `storage.media` | *(unset)* | Map of library mounts |
 | `serviceType` | `ClusterIP` | |
 | `httpRoute` | *(unset)* | Gateway API HTTPRoute |
-| `resources` | *(unset)* | Includes `gpu` (single) and `gpus` (multi) |
+| `resources` | *(unset)* | CPU/memory. Legacy `resources.gpu` still works |
 | `ffmpegInjection` | *(unset)* | `{}` enables it; see above. Requires the UI variable too |
 | `ffmpegInjection.image` | `linuxserver/jellyfin:10.11.11ubu2604-ls43` | Donor. Pinned — it is a toolchain, not an app |
 | `ffmpegInjection.path` | `/usr/lib/jellyfin-ffmpeg` | Same path in donor and app container, on purpose |
-| `runtimeClass` | *(unset)* | Set to `nvidia` for NVENC |
-| `nvidiaDriverCapabilities` | `compute,video,utility` | Emitted only with `runtimeClass` |
-| `renderGroups` | `[44, 109]` | video/render GIDs; applied only when a GPU is claimed |
+| `hardwareAcceleration` | *(unset)* | See the table above |
+| `hardwareAcceleration.devices` | *(required in block)* | Map keyed by `intel` \| `nvidia`; one entry per card |
+| `…devices.<vendor>.count` | `1` | Raise only on a node with several of the same model |
+| `…devices.<vendor>.resource` | per vendor | Override only if the plugin advertises another name (`xe` on Battlemage+) |
+| `hardwareAcceleration.runtimeClass` | `nvidia` | NVIDIA only; ignored for Intel |
+| `hardwareAcceleration.driverCapabilities` | `compute,video,utility` | NVIDIA only |
+| `hardwareAcceleration.renderGroups` | `[44, 109]` | video/render GIDs |
 | `startupFailureThreshold` | `30` | 5 min of grace for first-run DB creation |
 | `livenessFailureThreshold` | `6` | |
 | `readinessFailureThreshold` | `3` | |
