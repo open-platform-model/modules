@@ -22,6 +22,8 @@ metallb:
   version: v1.0.0
 nvidia_device_plugin:
   version: v1.0.0
+nvidia_gpu_exporter:
+  version: v1.0.0
 radarr:
   version: v1.0.2
 sabnzbd:
