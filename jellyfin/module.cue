@@ -5,8 +5,8 @@
 //
 // Rebased onto the OPM core catalog (opmodel.dev/catalogs/opm@v1). The previous
 // K8up backup feature has been dropped — the core catalog has no backup
-// resource. Config storage, media mounts, the web Service, optional GPU
-// passthrough, optional Gateway HTTPRoute, and optional Serilog logging remain.
+// resource. Config storage, media mounts, the web Service, optional hardware
+// transcoding, optional Gateway HTTPRoute, and optional Serilog logging remain.
 package jellyfin
 
 import (
@@ -22,7 +22,7 @@ m.#Module
 metadata: {
 	modulePath:  "opmodel.dev/modules"
 	name:        "jellyfin"
-	version:     "2.4.0"
+	version:     "2.5.0"
 	description: "Jellyfin media server - a free software media system"
 }
 
@@ -98,9 +98,102 @@ metadata: {
 		}
 	}
 
-	// Container resource requests and limits (incl. optional GPU passthrough).
+	// Container resource requests and limits.
 	// When absent, no resource constraints are applied to the container.
+	//
+	// A GPU claim can be written here directly as `resources.gpu`, and instances
+	// predating v2.5.0 do exactly that. Prefer `hardwareAcceleration` below —
+	// the claim is only ever half of what a GPU needs, and this field cannot
+	// express the other half.
 	resources?: res.#ResourceRequirementsSchema
+
+	// Optional hardware transcoding. Attaches exactly ONE GPU to the container
+	// and derives everything that vendor needs from a single field.
+	//
+	// ONE CARD AT A TIME BY CONSTRUCTION. `vendor` is a scalar, so this cannot
+	// express "both cards" — deliberately. Extended resources are not shareable:
+	// a node's GPU has exactly one holder (the Intel plugin's sharedDevNum
+	// defaults to 1, and raising it is plain overcommit with no isolation,
+	// quota or fair-share), so claiming a second card here would strand every
+	// other GPU consumer on the node. Switching card is a one-word edit plus
+	// one pod restart.
+	//
+	// Why a discriminator rather than the raw knobs: NVIDIA needs a device
+	// claim AND a RuntimeClass AND a driver-capability env var, and getting any
+	// of the three wrong fails SILENTLY — the pod is healthy, the card is
+	// visible, and every encode quietly runs on the CPU. Deriving all of it
+	// from the vendor makes that state unrepresentable instead of documented.
+	//
+	// ⚠ THIS IS HALF THE CHANGE. It gets the device, the runtime and the
+	// permissions into the container; it cannot make Jellyfin USE them.
+	// HardwareAccelerationType lives in /config/encoding.xml — UI state on the
+	// config PVC, the same class as TranscodingTempPath. Set it under
+	// Dashboard -> Playback, and verify from a transcode log naming an
+	// *_qsv / *_nvenc encoder, never from the dashboard toggle: a device
+	// attached with the UI left at `none` is a CPU transcode that looks
+	// exactly like success.
+	hardwareAcceleration?: {
+		// Which card. Everything below defaults from this.
+		vendor: "intel" | "nvidia"
+
+		// How many devices to claim. 1 unless a node carries several of the
+		// same card.
+		count: uint & >0 | *1
+
+		// Extended resource the device plugin advertises. Defaults per vendor:
+		// intel -> gpu.intel.com/i915, nvidia -> nvidia.com/gpu.
+		//
+		// Override only when the plugin advertises a different name. The Intel
+		// one is decided by the KERNEL DRIVER, not by the vendor: Alchemist /
+		// DG2 parts bind i915, while Xe2 / Battlemage and newer bind xe and are
+		// advertised as gpu.intel.com/xe. Requesting the wrong one leaves the
+		// pod Pending forever with "Insufficient <resource>".
+		resource?: string
+
+		// NVIDIA ONLY — ignored when vendor is "intel", which needs no special
+		// runtime. Name of an existing cluster RuntimeClass whose handler is the
+		// NVIDIA container runtime. This module references it; it does not
+		// create it.
+		//
+		// Required rather than optional on Talos: the nvidia-container-toolkit
+		// system extension registers an `nvidia` containerd handler and Sidero
+		// deliberately does NOT make it the node-wide default, so per-pod
+		// selection is the only path. Without it the pod starts cleanly,
+		// /dev/nvidia* never appears, and every NVENC encode fails.
+		runtimeClass: string | *"nvidia"
+
+		// NVIDIA ONLY — value of NVIDIA_DRIVER_CAPABILITIES.
+		//
+		// `video` is the one that matters and the one that is missing by
+		// default: the NVIDIA container runtime grants only `utility` when this
+		// is unset, which is enough for nvidia-smi to report the card while
+		// every NVENC encoder stays invisible to FFmpeg. That combination — GPU
+		// clearly present, hardware encoding "unsupported" — is the classic dead
+		// end.
+		//
+		// `compute` is not padding either: Jellyfin's HDR->SDR tone-mapping on
+		// the NVENC path runs through CUDA/OpenCL, so a 4K HDR library loses
+		// tone-mapping without it while ordinary SDR transcodes keep working.
+		//
+		// ⚠ NVIDIA_VISIBLE_DEVICES is deliberately never emitted, though every
+		// upstream Docker example sets it to `all`. Under Kubernetes the device
+		// plugin owns that variable — it writes the allocation into the
+		// container's environment (or, in CDI mode, sets it to `void` and
+		// injects the devices directly). Setting it in the pod spec overrides
+		// the allocation and hands the container every GPU on the node.
+		driverCapabilities: string | *"compute,video,utility"
+
+		// Supplemental GIDs added to the pod so the process can open the DRI
+		// render node. Applied for both vendors — harmless for NVIDIA, which
+		// reaches its card through /dev/nvidia* rather than /dev/dri.
+		//
+		// 44 (video) and 109 (render) are the Debian-derived numbers the
+		// LinuxServer.io image is built around. Belt-and-braces where the
+		// injected render node arrives mode 0666, which is the common case; a
+		// plugin or kernel handing it over 0660 makes these the difference
+		// between working QSV and EACCES on every open.
+		renderGroups: [...uint] | *[44, 109]
+	}
 
 	// Path the startup/liveness/readiness probes GET.
 	//
@@ -168,11 +261,13 @@ metadata: {
 
 	// Optional scheduling constraints — which nodes this pod may run on.
 	//
-	// The motivating case is hardware transcoding: `resources.gpu` asks for a
-	// device, but nothing steers the pod toward a node that HAS one. On a
-	// mixed cluster the pod either lands somewhere without the device and
-	// fails, or schedules only by luck. `nodeSelector` closes that gap, and
-	// `tolerations` covers GPU nodes that carry a dedicated taint.
+	// NOT needed for GPU placement, contrary to what this comment said before
+	// v2.5.0. A GPU claim is an extended-resource REQUEST, which is a hard
+	// scheduling constraint in its own right: only a node advertising the
+	// resource can fit the pod, so the scheduler already steers it. What this
+	// field is genuinely for is `tolerations`, when GPU nodes carry a dedicated
+	// taint to keep everything else off them, and `nodeSelector` when a node
+	// must be chosen for a reason the resource does not encode.
 	//
 	// The schema is the catalog's, referenced rather than copied, so the
 	// module cannot drift from the transformer that consumes it.
@@ -214,10 +309,14 @@ debugValues: {
 			cpu:    "4000m"
 			memory: "4Gi"
 		}
-		gpu: {
-			resource: "gpu.intel.com/i915"
-			count:    1
-		}
+	}
+	// The NVIDIA arm on purpose: it is the branch that exercises the most
+	// wiring — the derived nvidia.com/gpu claim, the RuntimeClass trait, the
+	// NVIDIA_DRIVER_CAPABILITIES env var and the supplemental GIDs — so a
+	// concrete render of debugValues covers all of it in one pass. The intel
+	// arm renders a strict subset.
+	hardwareAcceleration: {
+		vendor: "nvidia"
 	}
 	httpRoute: {
 		hostnames: ["jellyfin.example.com"]

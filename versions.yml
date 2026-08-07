@@ -4,12 +4,14 @@
 
 cert_manager:
   version: v1.1.0
+fileflows:
+  version: v1.0.0
 intel_gpu_device_plugin:
   version: v1.0.0
 istio_ambient:
   version: v1.1.0
 jellyfin:
-  version: v2.4.0
+  version: v2.5.0
 jellystat:
   version: v1.0.0
 k8up:
