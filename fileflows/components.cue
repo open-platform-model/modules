@@ -1,19 +1,169 @@
-// Components defines the FileFlows workload.
-// Single stateful component with a persistent data volume, optional logs/temp
-// and media mounts, a web Service, TCP health checks, and optional GPU /
-// RuntimeClass / HTTPRoute wiring.
+// Components defines the FileFlows workloads.
+//
+//   - opm-secrets: the module's Secret, rendered only when accessToken is set.
+//     Named exactly "opm-secrets" on purpose — the secret transformer renders
+//     that component's secrets as {instance}-{secretName}, which is the only
+//     shape a container's `env.from` secretKeyRef resolves to. Any other
+//     component name renders {instance}-{component}-{secretName} and every env
+//     ref points at an object that does not exist.
+//   - fileflows: the server. Stateful, with a persistent data volume, optional
+//     logs/temp and media mounts, a web Service, TCP health checks, and
+//     optional GPU / RuntimeClass / HTTPRoute wiring.
+//   - node-<key>: one stateless worker per #config.nodes entry. No Service, no
+//     probes, no data volume — it dials the server and runs flows.
 package fileflows
 
 import (
 	"list"
 
 	bp "opmodel.dev/catalogs/opm/blueprints/workload"
+	res "opmodel.dev/catalogs/opm/resources"
 	tr "opmodel.dev/catalogs/opm/traits"
 )
+
+// NOTE ON ENFORCING accessToken — the obvious spelling does not work.
+//
+// A package-scope guard of the shape
+//
+//     _validate: {
+//         if len(#config.nodes) > 0 {
+//             accessTokenIsRequired: #config.accessToken
+//         }
+//     }
+//
+// is INERT. It reads correctly and it does produce the right error when
+// evaluated by hand, but nothing in the build path ever evaluates it: hidden
+// fields are not rendered, and CUE does not evaluate what nothing references.
+// Measured — with nodes defined and no token, `cue vet`, `cue vet -c` AND
+// `cue export -e '#components'` all exit 0.
+//
+// The requirement is therefore enforced where it cannot be skipped: each node
+// container references #config.accessToken UNCONDITIONALLY (see the env block
+// below), so a node without a token fails to render, naming the field.
+//
+// Unconditional is also correct on the merits, not just convenient. The server
+// always holds an AccessToken value; security being off only means it does not
+// check it. Sending one to a server that ignores it is harmless, so there is no
+// configuration where requiring it for a node costs anything — while omitting
+// it under security produces a Running pod, a valid render, and a server that
+// simply never sees the node.
+
+// #GpuClaims turns a concrete `devices` map into one extended-resource claim per
+// card, defaulting the resource name from the vendor key unless overridden.
+//
+// A definition rather than a hidden field: the server component and every
+// generated node need identical claim derivation, and package-scope hidden
+// REGULAR fields are what left this package non-concrete under a plain
+// `cue vet` before (see _chownPaths below). Definitions are not
+// concreteness-checked, so they are safe here.
+//
+// Callers resolve the optional `hardwareAcceleration` themselves and pass only
+// `devices`, so no optional dereference crosses this boundary.
+#GpuClaims: {
+	// ⚠ OPEN, deliberately — see the note on #VolumeSources.#in.
+	#in!: {...}
+	out: {
+		for v, d in #in {
+			(v): {
+				count: d.count
+				if d.resource != _|_ {
+					resource: d.resource
+				}
+				if d.resource == _|_ {
+					if v == "intel" {
+						resource: "gpu.intel.com/i915"
+					}
+					if v == "nvidia" {
+						resource: "nvidia.com/gpu"
+					}
+				}
+			}
+		}
+	}
+}
+
+// #VolumeSources renders a map of #storageVolume entries into catalog volume
+// sources via a type-switch. accessMode/storageClass/readOnly carry no catalog
+// defaults, so every field is set concretely — the release must finalize to a
+// fully concrete value before transformers run.
+#VolumeSources: {
+	// ⚠ `#in!: {...}` — OPEN, NOT `#in!: [string]: #storageVolume`, and the
+	// difference is load-bearing rather than stylistic. A pattern constraint on a
+	// definition's map input DROPS the concrete value of any entry the caller
+	// produced by a comprehension: the entry arrives as `_` and every guard below
+	// fails with
+	//     v.type undefined as v is incomplete (type _)
+	// Both callers build their input with `for name, v in ...` comprehensions, so
+	// the pattern-constrained form fails for all of them. Type discipline lives at
+	// the call site instead, where entries are #storageVolume by construction.
+	#in!: {...}
+	out: {
+		for name, v in #in {
+			(name): {
+				"name":   name
+				readOnly: v.readOnly
+				if v.type == "pvc" {
+					persistentClaim: {
+						size:       v.size
+						accessMode: "ReadWriteOnce"
+						if v.storageClass != _|_ {
+							storageClass: v.storageClass
+						}
+						if v.storageClass == _|_ {
+							storageClass: "standard"
+						}
+					}
+				}
+				if v.type == "emptyDir" {
+					emptyDir: {}
+				}
+				if v.type == "nfs" {
+					nfs: {
+						server: v.server
+						path:   v.path
+						// Read-only at the SOURCE, so the kernel mount is ro rather
+						// than just this container's view.
+						if v.readOnly {
+							readOnly: true
+						}
+					}
+				}
+			}
+		}
+	}
+}
 
 // #components contains component definitions.
 // Components reference #config which gets resolved to concrete values at build time.
 #components: {
+
+	/////////////////////////////////////////////////////////////////
+	//// Secrets - the processing-node access token
+	/////////////////////////////////////////////////////////////////
+
+	// Guarded: an instance with no nodes needs no token, and an unguarded
+	// #AutoSecrets over an empty result renders an empty Secret object.
+	if #config.accessToken != _|_ {
+		"opm-secrets": {
+			res.#Secrets
+
+			metadata: name: "opm-secrets"
+
+			// #AutoSecrets walks #config, collects every field carrying the $opm
+			// discriminator and groups it by $secretName/$dataKey. An entry
+			// supplied as #SecretK8sRef is skipped by the transformer, so
+			// pointing accessToken at a pre-existing cluster Secret emits
+			// nothing here and wires the env ref straight through.
+			spec: secrets: {
+				for _secretName, _data in (res.#AutoSecrets & {#in: #config}).out {
+					(_secretName): {
+						name: _secretName
+						data: _data
+					}
+				}
+			}
+		}
+	}
 
 	/////////////////////////////////////////////////////////////////
 	//// FileFlows - Stateful Processing Server
@@ -133,24 +283,7 @@ import (
 			_hwClaims: {}
 		}
 		if _hwEnabled {
-			_hwClaims: {
-				for v, d in #config.hardwareAcceleration.devices {
-					(v): {
-						count: d.count
-						if d.resource != _|_ {
-							resource: d.resource
-						}
-						if d.resource == _|_ {
-							if v == "intel" {
-								resource: "gpu.intel.com/i915"
-							}
-							if v == "nvidia" {
-								resource: "nvidia.com/gpu"
-							}
-						}
-					}
-				}
-			}
+			_hwClaims: (#GpuClaims & {#in: #config.hardwareAcceleration.devices}).out
 		}
 
 		spec: {
@@ -347,43 +480,9 @@ import (
 					}
 				}
 
-				// All volumes rendered from _allVolumes via a type-switch.
-				// accessMode/storageClass/readOnly carry no catalog defaults, so
-				// every field must be set concretely — the release must finalize
-				// to a fully concrete value before transformers run.
+				// All volumes rendered from _allVolumes via the shared type-switch.
 				volumes: {
-					for name, v in _allVolumes {
-						(name): {
-							"name":   name
-							readOnly: v.readOnly
-							if v.type == "pvc" {
-								persistentClaim: {
-									size:       v.size
-									accessMode: "ReadWriteOnce"
-									if v.storageClass != _|_ {
-										storageClass: v.storageClass
-									}
-									if v.storageClass == _|_ {
-										storageClass: "standard"
-									}
-								}
-							}
-							if v.type == "emptyDir" {
-								emptyDir: {}
-							}
-							if v.type == "nfs" {
-								nfs: {
-									server: v.server
-									path:   v.path
-									// Read-only at the SOURCE, so the kernel mount
-									// is ro rather than just this container's view.
-									if v.readOnly {
-										readOnly: true
-									}
-								}
-							}
-						}
-					}
+					(#VolumeSources & {#in: _allVolumes}).out
 
 					// Scratch space for the injected FFmpeg tree. emptyDir, not
 					// a PVC: it is rebuilt from the donor image on every start,
@@ -449,6 +548,351 @@ import (
 					if #config.httpRoute.gatewayRef != _|_ {
 						gatewayRef: #config.httpRoute.gatewayRef
 					}
+				}
+			}
+		}
+	}
+
+	/////////////////////////////////////////////////////////////////
+	//// FileFlows - External Processing Nodes (one per #config.nodes entry)
+	/////////////////////////////////////////////////////////////////
+
+	// Dynamic component generation from a config map. Legal and supported:
+	// #ModuleInstance unifies #config BEFORE reading #components
+	// (core/src/module_instance.cue:79-94), so this comprehension materialises.
+	// Read the other way round it would silently yield zero components.
+	for _k, _n in #config.nodes {
+		"node-\(_k)": {
+			// STATELESS, not stateful, and the choice is load-bearing:
+			//   - a node holds no durable state; it re-fetches its configuration
+			//     from the server on every start, and its temp is scratch.
+			//   - the StatefulSet transformer emits
+			//     `serviceName: {instance}-{component}` unconditionally, so a
+			//     StatefulSet here would point its governing Service at an
+			//     object that is deliberately never created.
+			// #StatelessWorkloadSchema carries no `volumes` field, so res.#Volumes
+			// is composed separately and volumes live at spec.volumes — the shape
+			// proven by modules/nvidia_device_plugin.
+			bp.#StatelessWorkload
+			res.#Volumes
+			tr.#SecurityContext
+
+			// Unconditional: _grace below always resolves to a concrete value,
+			// because the server's field carries a default.
+			tr.#GracefulShutdown
+
+			// Per node, not per module: the NVIDIA node gets a RuntimeClass and
+			// the Intel ones must not. Attaching unconditionally would leave
+			// spec.runtimeClass non-concrete and fail the render.
+			if _hwNvidia {
+				tr.#RuntimeClass
+			}
+			if _n.podScheduling != _|_ {
+				tr.#PodScheduling
+			}
+			if _n.podMetadata != _|_ {
+				tr.#PodMetadata
+			}
+
+			metadata: name: "node-\(_k)"
+
+			// Volumes live at component level for a stateless workload.
+			_volumes: spec.volumes
+
+			// A node mounts its own temp plus the SAME media paths as the server.
+			// Identical mount paths across every pod is exactly what makes
+			// FileFlows' NodeMappings unnecessary.
+			//
+			// Deliberately NOT `data` or `logs`: both are the server's RWO
+			// volumes — `data` holds the SQLite database, and two writers would
+			// fight over either.
+			_allVolumes: {
+				temp: _n.temp
+				if #config.storage.media != _|_ {
+					for name, v in #config.storage.media {
+						(name): v
+					}
+				}
+			}
+
+			// Same derivation as the server's, but over THIS node's cards. Kept
+			// inline rather than lifted into a definition because it dereferences
+			// an optional field — that has to be resolved on this side of any
+			// definition boundary (see #GpuClaims).
+			_hwEnabled: bool
+			if _n.hardwareAcceleration == _|_ {
+				_hwEnabled: false
+			}
+			if _n.hardwareAcceleration != _|_ {
+				_hwEnabled: true
+			}
+
+			_hwVendors: [...string]
+			if !_hwEnabled {
+				_hwVendors: []
+			}
+			if _hwEnabled {
+				_hwVendors: [for v, _ in _n.hardwareAcceleration.devices {v}]
+			}
+			_hwNvidia: list.Contains(_hwVendors, "nvidia")
+
+			_hwClaims: [string]: {
+				resource: string
+				count:    uint & >0
+			}
+			if !_hwEnabled {
+				_hwClaims: {}
+			}
+			if _hwEnabled {
+				_hwClaims: (#GpuClaims & {#in: _n.hardwareAcceleration.devices}).out
+			}
+
+			// ⚠ BUILT FROM #ctx.instance, NOT #ctx.components.fileflows.dns.fqdn.
+			// The latter derives from metadata.resourceName ("fileflows") while
+			// the rendered Service is "{instance}-{component}"
+			// ("fileflows-fileflows"), so it would produce a name that does not
+			// resolve — and the only symptom would be nodes that never register.
+			// See #config.serverUrl.
+			_serverUrl: string
+			if #config.serverUrl != _|_ {
+				_serverUrl: #config.serverUrl
+			}
+			if #config.serverUrl == _|_ {
+				_serverUrl: "http://\(#ctx.instance.name)-fileflows.\(#ctx.instance.namespace).svc.\(#ctx.instance.clusterDomain):\(#config.port)"
+			}
+
+			_nodeName: string
+			if _n.nodeName != _|_ {
+				_nodeName: _n.nodeName
+			}
+			if _n.nodeName == _|_ {
+				_nodeName: _k
+			}
+
+			// Set-it-or-inherit-it, never a partial merge.
+			//
+			// The obvious `*#config.terminationGracePeriodSeconds | uint` spelling
+			// in the schema reads as "override, defaulting to the server value"
+			// and means something worse: on a PARTIAL override of a struct the
+			// default arm evaluates to bottom, the disjunction falls through to
+			// the bare type, and required fields silently vanish. The list-index
+			// form has no such failure mode.
+			_grace: [
+				if _n.terminationGracePeriodSeconds != _|_ {_n.terminationGracePeriodSeconds},
+				#config.terminationGracePeriodSeconds,
+			][0]
+
+			spec: {
+				volumes: {
+					(#VolumeSources & {#in: _allVolumes}).out
+
+					if #config.ffmpegInjection != _|_ {
+						"ffmpeg-bin": {
+							name:     "ffmpeg-bin"
+							readOnly: false
+							emptyDir: {}
+						}
+					}
+				}
+
+				statelessWorkload: {
+					// `enabled: false` parks the node: the pod goes away and
+					// RELEASES ITS GPU while the entry stays in git.
+					if _n.enabled {
+						scaling: count: 1
+					}
+					if !_n.enabled {
+						scaling: count: 0
+					}
+					restartPolicy: "Always"
+
+					// ⚠ RECREATE, NOT ROLLINGUPDATE, and this is not a style
+					// choice. A rolling update would start the replacement pod
+					// while the outgoing one still holds its GPU. Kubernetes does
+					// not preempt extended resources, so the new pod sits Pending
+					// forever waiting for a card the old pod will not release
+					// until the new one is Ready — a silent, permanent deadlock.
+					updateStrategy: type: "Recreate"
+
+					initContainers: [
+						// Only when temp is chownable. An NFS export with
+						// root_squash maps root to nobody, so the chown fails and
+						// takes the pod down before FileFlows starts; NFS mounts
+						// must already carry the right owner server-side.
+						//
+						// Worth keeping even though the image entrypoint chowns
+						// /temp itself: it does so as `2>/dev/null || true`, which
+						// turns a permissions problem into flows that fail at
+						// their first write. This fails loudly instead.
+						//
+						// There is nothing else to chown — a node carries no
+						// `data` volume, and media is never chowned.
+						if _n.temp.type != "nfs" {
+							{
+								name: "fix-permissions"
+								image: {
+									repository: "busybox"
+									tag:        "1.37"
+									digest:     ""
+								}
+								command: ["/bin/sh", "-c", "chown -R \(#config.puid):\(#config.pgid) \(_n.temp.mountPath)"]
+								volumeMounts: temp: _volumes.temp & {
+									mountPath: _n.temp.mountPath
+								}
+							}
+						},
+
+						// A node runs the transcode, so it needs the same FFmpeg
+						// the server was given. Inherited, never overridden: the
+						// `FFmpeg` variable is one server-wide string, so the tree
+						// has to sit at the same path on every pod.
+						if #config.ffmpegInjection != _|_ {
+							{
+								name:  "ffmpeg-inject"
+								image: #config.ffmpegInjection.image
+								command: ["/bin/sh", "-c", "cp -a \(#config.ffmpegInjection.path)/. /inject/"]
+								volumeMounts: "ffmpeg-bin": {
+									name: "ffmpeg-bin"
+									emptyDir: {}
+									mountPath: "/inject"
+									readOnly:  false
+								}
+							}
+						},
+					]
+
+					container: {
+						name: "fileflows-node"
+
+						// ⚠ INHERITED FROM THE SERVER, deliberately not
+						// overridable. FileFlows enforces version lockstep with
+						// its own auto-updater: a node whose version differs
+						// downloads an update into /app/NodeUpdate, a container
+						// layer discarded on every restart — so a divergent tag
+						// is a permanent update loop, not a one-off upgrade.
+						image: #config.image
+
+						// NO PORTS AND NO PROBES, on purpose. FileFlows.Node.dll
+						// carries no HTTP listener — it dials out to the server
+						// and holds a SignalR connection. The entrypoint ends in
+						// `wait $dotnet_pid`, so container exit tracks process
+						// exit and restartPolicy covers death. Any probe here
+						// would be asserting against nothing.
+						env: {
+							PUID: {
+								name:  "PUID"
+								value: "\(#config.puid)"
+							}
+							PGID: {
+								name:  "PGID"
+								value: "\(#config.pgid)"
+							}
+							TZ: {
+								name:  "TZ"
+								value: #config.timezone
+							}
+
+							// Selects node mode in the shared entrypoint, which
+							// tests `FFNODE == 'true' || FFNODE == '1'` and then
+							// launches FileFlows.Node.dll instead of the server.
+							FFNODE: {
+								name:  "FFNODE"
+								value: "1"
+							}
+							ServerUrl: {
+								name:  "ServerUrl"
+								value: _serverUrl
+							}
+							NodeName: {
+								name:  "NodeName"
+								value: _nodeName
+							}
+
+							// Always set explicitly: the node binary's own
+							// built-in default is /mnt/temp, which nothing here
+							// mounts and nothing chowns.
+							TempPath: {
+								name:  "TempPath"
+								value: _n.temp.mountPath
+							}
+
+							if _n.runners != _|_ {
+								NodeRunnerCount: {
+									name:  "NodeRunnerCount"
+									value: "\(_n.runners)"
+								}
+							}
+
+							// Sent as an x-token header when the node registers.
+							//
+							// ⚠ DELIBERATELY UNGUARDED. Wrapping this in
+							// `if #config.accessToken != _|_` would render a
+							// tokenless node perfectly happily, and the only
+							// symptom would be a Running pod the server never
+							// sees. This reference is what makes the token
+							// required for nodes — see the note at the top of
+							// this file for why the guard cannot live anywhere
+							// else.
+							AccessToken: {
+								name: "AccessToken"
+								from: #config.accessToken
+							}
+
+							// NVIDIA only. NVIDIA_VISIBLE_DEVICES stays unset for
+							// the same reason as on the server: the device plugin
+							// owns it, and setting it hands the container every
+							// GPU on the host.
+							if _hwNvidia {
+								NVIDIA_DRIVER_CAPABILITIES: {
+									name:  "NVIDIA_DRIVER_CAPABILITIES"
+									value: _n.hardwareAcceleration.driverCapabilities
+								}
+							}
+						}
+
+						if _n.resources != _|_ {
+							resources: _n.resources
+						}
+						if _hwEnabled {
+							resources: gpus: _hwClaims
+						}
+
+						volumeMounts: {
+							for vName, v in _allVolumes {
+								(vName): _volumes[vName] & {
+									mountPath: v.mountPath
+								}
+							}
+
+							// Built fresh rather than unified from _volumes, so
+							// readOnly can be true here without conflicting with
+							// the volume's own readOnly: false.
+							if #config.ffmpegInjection != _|_ {
+								"ffmpeg-bin": {
+									name: "ffmpeg-bin"
+									emptyDir: {}
+									mountPath: #config.ffmpegInjection.path
+									readOnly:  true
+								}
+							}
+						}
+					}
+				}
+
+				if _hwEnabled {
+					securityContext: supplementalGroups: _n.hardwareAcceleration.renderGroups
+				}
+
+				gracefulShutdown: terminationGracePeriodSeconds: _grace
+
+				if _hwNvidia {
+					runtimeClass: _n.hardwareAcceleration.runtimeClass
+				}
+				if _n.podScheduling != _|_ {
+					podScheduling: _n.podScheduling
+				}
+				if _n.podMetadata != _|_ {
+					podMetadata: _n.podMetadata
 				}
 			}
 		}

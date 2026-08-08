@@ -1,13 +1,17 @@
 # FileFlows — Media Processing Server
 
 **Complexity:** Intermediate
-**Workload Types:** `stateful` (StatefulSet)
+**Workload Types:** `stateful` (StatefulSet) + `stateless` (Deployment, one per processing node)
 **Module path:** `opmodel.dev/modules/fileflows@v1`
 
 FileFlows is a .NET file-processing automation server. Libraries are scanned, matched
 files are pushed through user-authored *flows*, and the heavy step is almost always an
-FFmpeg transcode. This module deploys the **server** (which contains its own internal
-processing node) as a single stateful component.
+FFmpeg transcode.
+
+This module deploys the **server** (which contains its own internal processing node) as a
+stateful component, and optionally a set of **external processing nodes** — one stateless
+worker per `#config.nodes` entry, each typically owning a single GPU. See
+[External processing nodes](#external-processing-nodes--one-card-per-worker).
 
 ## Requirements
 
@@ -226,6 +230,15 @@ spec:
 | `readinessFailureThreshold` | `3` | |
 | `terminationGracePeriodSeconds` | `300` | The unit of work is a transcode, not a request |
 | `podScheduling` / `podMetadata` | *(unset)* | Passed through to the catalog schemas |
+| `accessToken` | *(unset)* | Required once `nodes` is non-empty. Must match Settings → Security |
+| `serverUrl` | derived from the instance | Override the URL nodes dial; almost never needed |
+| `nodes` | `{}` | External processing nodes — see below |
+| `nodes.<key>.enabled` | `true` | `false` parks the pod and **releases its GPU** |
+| `nodes.<key>.nodeName` | the map key | Must be stable — churn leaves orphan node records |
+| `nodes.<key>.runners` | *(unset, UI-owned)* | `NodeRunnerCount`. A cost budget, not a file count |
+| `nodes.<key>.temp` | *(required)* | Its own dataset. Never shared between nodes |
+| `nodes.<key>.hardwareAcceleration` | *(unset)* | One entry; same shape as the server's |
+| `nodes.<key>.resources` | *(unset)* | Per-card CPU/memory |
 
 ### Probes are TCP, not HTTP
 
@@ -248,16 +261,112 @@ Leave it `false` for anything FileFlows processes. Unlike a media *server*, whic
 reads, FileFlows exists to rewrite files in place — a read-only library will fail every
 in-place flow at the final move.
 
-## Not modelled: external processing nodes
+## External processing nodes — one card per worker
 
-FileFlows supports external *processing nodes* — extra containers that register with the
-server and run flows on its behalf. This module covers the **server only**.
+`#config.nodes` renders one headless worker Deployment per entry. Each registers with the
+server and runs flows on its behalf.
 
-Nodes exist to spread work across **machines**. On a single-node cluster a second pod on
-the same host adds scheduling and path-mapping surface while contending for the same CPU,
-disk and GPUs, so it buys nothing. Adding them later is a `nodes: [Name=string]: {...}`
-map plus `FFNODE=1` / `ServerUrl` / `NodeName` on the extra pods — the server does not
-change shape, so nothing here has to be undone to get there.
+Nodes were built to spread work across **machines**, which is why this module declined to
+model them while there was only one host. The reason they earn their keep on a *single*
+host is different and specific:
 
-That said, a node split is the natural answer to *one GPU per worker* if you ever want
-flows pinned to a specific card rather than choosing per job.
+- **FileFlows' runner budget is a property of a node.** One card per node pod is the only
+  way to express "N concurrent jobs on *this* card".
+- **A pod is allocated its GPUs by the device plugin.** A pod holding exactly one card has
+  only one encoder for `Encoder: Automatic` to resolve to — so per-card encoder selection
+  needs no in-flow logic at all. On a server holding several cards, `Automatic` walks a
+  fixed vendor priority list, stops at the first encoder that probes clean, and every other
+  card idles no matter how many runners are active.
+
+```cue
+accessToken: {value: "..."}          // required whenever nodes exist — see below
+
+nodes: {
+    p2200: {
+        runners: 2
+        hardwareAcceleration: devices: nvidia: {}
+        temp: {mountPath: "/temp", type: "nfs", server: "10.0.0.2", path: "/mnt/ff-nvidia"}
+    }
+    "arc-1": {
+        runners: 2
+        hardwareAcceleration: devices: intel: {}
+        temp: {mountPath: "/temp", type: "nfs", server: "10.0.0.2", path: "/mnt/ff-arc1"}
+    }
+}
+```
+
+Renders `{instance}-node-p2200` and `{instance}-node-arc-1` as Deployments, plus a Secret
+holding the access token. Nodes get **no Service and no HTTPRoute** — `FileFlows.Node.dll`
+has no HTTP listener; it dials the server and holds a SignalR connection. For the same
+reason they carry no probes: the entrypoint's `wait $dotnet_pid` makes container exit track
+process exit, so `restartPolicy` is the whole health story.
+
+Their update strategy is `Recreate`, not `RollingUpdate`, and that is not a style choice —
+a rolling update starts the replacement pod while the outgoing one still holds its GPU, and
+because Kubernetes does not preempt extended resources the new pod waits forever for a card
+the old pod will not release until the new one is Ready.
+
+### Per-node vs inherited
+
+| field | per-node? | why |
+|---|---|---|
+| `hardwareAcceleration` | **yes** | the entire point |
+| `runners` | **yes** | `NodeRunnerCount`, the per-card concurrency knob |
+| `temp` | **yes, required** | see the shared-temp warning below |
+| `resources`, `podScheduling`, `podMetadata` | **yes** | different cards want different CPU budgets and hosts |
+| `terminationGracePeriodSeconds` | optional, else the server's | one knob, two scopes |
+| `image` | inherited, **no override** | version lockstep is enforced by the node's own auto-updater, which downloads into `/app/NodeUpdate` — a container layer discarded on restart. A divergent tag is a permanent update loop, not an upgrade. |
+| `puid` / `pgid` / `timezone` | inherited, no override | a node writing library files as a different owner breaks the server |
+| `ffmpegInjection` | inherited, always applied | the `FFmpeg` variable is one server-wide string, so the tree must sit at the same path on every pod |
+| `storage.media` | inherited verbatim | identical mount paths on every pod is exactly what makes FileFlows' `NodeMappings` unnecessary |
+| `storage.data` / `storage.logs` | **not mounted** | the server's RWO volumes; `data` holds the SQLite database and two writers would fight |
+
+Inheritance is *set it or inherit it*, never a partial merge.
+
+### `accessToken` is required once any node exists
+
+Each node sends it as an `x-token` header to register. It is **optional** on an instance
+with no nodes and mandatory as soon as one appears — enforced by an unconditional reference
+in the node container, so a missing token fails the build naming the field rather than
+producing a Running pod the server never sees.
+
+⚠ **The module cannot set the server side.** `FileFlows.Server.dll` reads no environment
+variable for this (only `FF_EULA_ACCEPTED`), so the value lives in the server's database and
+this field hands a *copy* to the nodes. The two must agree and nothing here can check that —
+a wrong value is a silent `Failed to register node` in the node's log.
+
+### `runners` is a unit budget, not a file count
+
+In 26.07 active files consume the budget according to their assigned cost
+(audio/SD/720p/1080p/4K), so `2` is not necessarily two files. Start low and measure.
+
+Setting it also **hands ownership to the module**: FileFlows hides env-provided settings in
+the Web Console rather than let the UI overwrite them. Leave `runners` unset to keep the UI
+in charge.
+
+### Three things that will bite
+
+**Never point two nodes at one temp directory.** Each node sweeps its own temp on a schedule
+and skips only the `Runner-<uid>` directories *it* knows are executing — it has no
+visibility into another node's runners. A shared temp lets one node delete another's
+in-flight working copy mid-encode. Give every node its own dataset.
+
+**Moving a card to a node means taking it from the server in the same change.** Kubernetes
+does not preempt extended resources, so a node claiming a card the server still holds sits
+`Pending` forever with no self-correction. Clear `#config.hardwareAcceleration` in the same
+apply that adds the node.
+
+**One physical card per pod is the device plugin's business, not this field's.** With the
+Intel plugin's `sharedDevNum > 1`, N advertised slots may map onto one physical card, and
+two nodes can land on the same silicon while another idles. `allocationPolicy: balanced`
+makes spreading likely; only `sharedDevNum: 1` makes it certain.
+
+### What this module still cannot do
+
+**Set the server's own internal-node runner count.** `NodeRunnerCount` is read by
+`FileFlows.Node.dll`, not by `FileFlows.Server.dll` — the internal node's budget is database
+state, reachable only through Settings → Nodes. Until it is zeroed by hand, the server keeps
+taking work alongside the nodes it is supposed to be delegating to.
+
+**Clean up after a removed node.** Deleting a `nodes:` entry removes the pod but leaves an
+offline node record in the FileFlows database; delete it in the UI too.
