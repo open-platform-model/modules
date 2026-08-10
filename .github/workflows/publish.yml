@@ -1,12 +1,11 @@
 name: Publish Modules
 
+# Publish-on-push is disabled on main: the OPM v1 fleet publishes from the
+# v1 branch, and main is the staging line for the OPM v2 fleet (enhancements
+# 0010/0011). Re-enable a push trigger here only when the v2 fleet exists —
+# a push-published module from main would collide with the v1 branch's
+# release train while both lines share module path majors.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '**/*.cue'
-      - 'versions.yml'
-      - '.github/workflows/publish.yml'
   workflow_dispatch:
     inputs:
       module:
@@ -29,10 +28,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # This branch (main) is the OPM v1 train: every module pins CUE
-  # language.version v0.17.x and depends on the catalogs/opm@v1 + core@v1
-  # catalog. The OPM v0 / CUE v0.16 fleet publishes from the v0_legacy
-  # branch with its own copy of this workflow.
+  # This branch (main) is the staging line for the OPM v2 fleet. The OPM v1
+  # train (CUE v0.17.x, catalogs/opm@v1 + core@v1) publishes from the v1
+  # branch; the OPM v0 / CUE v0.16 fleet publishes from the v0_legacy
+  # branch. Each branch carries its own copy of this workflow.
   CUE_VERSION: 'v0.17.1'
   # Modules whose language.version doesn't match this prefix belong on the
   # other branch and fail the run.
