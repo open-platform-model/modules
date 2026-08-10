@@ -3,36 +3,36 @@
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
 cert_manager:
-  version: v1.1.0
-fileflows:
   version: v1.1.1
+fileflows:
+  version: v1.1.2
 intel_gpu_device_plugin:
-  version: v1.0.0
+  version: v1.0.1
 intel_gpu_exporter:
-  version: v1.0.0
+  version: v1.0.1
 istio_ambient:
-  version: v1.1.0
+  version: v1.1.1
 jellyfin:
-  version: v2.5.0
+  version: v2.5.1
 jellystat:
-  version: v1.0.0
+  version: v1.0.1
 k8up:
-  version: v2.0.0
+  version: v2.0.1
 metallb:
-  version: v1.0.0
+  version: v1.0.1
 nvidia_device_plugin:
-  version: v1.0.0
+  version: v1.0.1
 nvidia_gpu_exporter:
-  version: v1.0.0
+  version: v1.0.1
 radarr:
-  version: v1.0.2
+  version: v1.0.3
 sabnzbd:
-  version: v1.0.2
+  version: v1.0.3
 seerr:
-  version: v1.2.0
+  version: v1.2.1
   checksum: 953b9efd9c6fba278a9a5420c28eec128c702958a5a376f69a5efcc9486edc35
 sonarr:
-  version: v1.0.2
+  version: v1.0.3
 web_app:
-  version: v0.1.0
+  version: v0.1.1
   checksum: ad36fa47bd37a69b06c3e7e25e93987fd9402ea8af02b29b2ef1009d239d00d2
