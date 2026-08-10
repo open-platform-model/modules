@@ -3,12 +3,20 @@ version: "3"
 silent: true
 
 vars:
-  LOCAL_REGISTRY: "opmodel.dev=localhost:5000+insecure,registry.cue.works"
+  # Canonical mapping (Registry Policy, root CLAUDE.md): reads resolve
+  # opmodel.dev/* from GHCR; testing.opmodel.dev/* from the local registry.
+  CANONICAL_REGISTRY: "opmodel.dev=ghcr.io/open-platform-model,testing.opmodel.dev=localhost:5000+insecure,registry.cue.works"
+  # Local-publish mapping, forced in-script by the publish tasks: the module
+  # being published (opmodel.dev/modules/*) goes to the local registry while
+  # its deps (core, catalogs) still resolve from GHCR via the shorter prefix.
+  # Local publish is a gated exception — run only when the user explicitly
+  # asks. CI publishes via .github/workflows/publish.yml, not this Taskfile.
+  LOCAL_PUBLISH_REGISTRY: "opmodel.dev/modules=localhost:5000+insecure,opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
   CUE_CACHE_DIR: "{{.TASKFILE_DIR}}/../.cue-cache"
   VERSION_FILE: "{{.TASKFILE_DIR}}/versions.yml"
 
 env:
-  CUE_REGISTRY: "{{.LOCAL_REGISTRY}}"
+  CUE_REGISTRY: "{{.CANONICAL_REGISTRY}}"
   CUE_CACHE_DIR: "{{.CUE_CACHE_DIR}}"
 
 tasks:
@@ -98,6 +106,10 @@ tasks:
     cmds:
       - |
         set -euo pipefail
+        # Force the local-publish mapping regardless of ambient CUE_REGISTRY so
+        # a shell carrying the canonical GHCR mapping can never publish
+        # opmodel.dev/* to GHCR from a laptop (Registry Policy rule 2).
+        export CUE_REGISTRY="${OPM_PUBLISH_REGISTRY:-{{.LOCAL_PUBLISH_REGISTRY}}}"
         DRY_RUN="{{.DRY_RUN}}"
         BUMP_TYPE="{{.TYPE}}"
         VERSION_FILE="{{.VERSION_FILE}}"
@@ -227,6 +239,10 @@ tasks:
     cmds:
       - |
         set -euo pipefail
+        # Force the local-publish mapping regardless of ambient CUE_REGISTRY so
+        # a shell carrying the canonical GHCR mapping can never publish
+        # opmodel.dev/* to GHCR from a laptop (Registry Policy rule 2).
+        export CUE_REGISTRY="${OPM_PUBLISH_REGISTRY:-{{.LOCAL_PUBLISH_REGISTRY}}}"
         MODULE="{{.MODULE}}"
         DRY_RUN="{{.DRY_RUN}}"
         BUMP_TYPE="{{.TYPE}}"

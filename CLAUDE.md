@@ -70,7 +70,7 @@ This directory contains workspace-level OPM module definitions. Unlike the submo
 
 ## Repository Rules
 
-- Follow the CUE style from `catalog/`: `#` definitions, `_` hidden fields, `*` defaults, `?` optional fields.
+- Follow the CUE style from `catalog_opm/` (legacy `v0_legacy` modules: `catalog/`): `#` definitions, `_` hidden fields, `*` defaults, `?` optional fields.
 - Do not put build artifacts, binaries, or generated Kubernetes YAML here — those belong in the cluster or CI.
 - To update CUE deps for all workspace modules at once, run `task deps:update` from the workspace root. Do not manually edit version pins in `cue.mod/module.cue` — use the task instead.
 - Validate with `cue vet -c ./modules/<name>/...` before committing.
@@ -110,6 +110,14 @@ modules/
 
 The former v0.16 fleet (wolf, metallb, linstor, k8up, …) lives on the `v0_legacy` branch.
 
+## Registry
+
+Follow the Registry Policy in the root `CLAUDE.md`. In this repo that means:
+
+- `fmt` / `vet` / `tidy` / `check` / `versions` read deps (`opmodel.dev/core`, `opmodel.dev/catalogs/*`) from GHCR — no local registry needed.
+- Real releases are published by CI (`.github/workflows/publish.yml`) to GHCR on push to `main` / `v0_legacy`.
+- `task publish` / `task publish:one` are **local publishes to `localhost:5000`** (the task forces a local mapping in-script). Run them **only when the user explicitly asks for a local publish in the current prompt** — never agent-initiated. They require the local registry (`task registry:start` from workspace root).
+
 ## Build And Dev Commands
 
 Run all commands from `modules/`.
@@ -122,8 +130,8 @@ Run all commands from `modules/`.
 | `task tidy` | Tidy dependencies for all modules | After changing imports or updating deps |
 | `task check` | Run `fmt` then `vet` | Pre-commit quality gate |
 | `task versions` | Show version and change status | Before publishing |
-| `task publish` | Publish all changed modules | When releasing new versions |
-| `task publish:one MODULE=<name>` | Publish a single module | When releasing one module |
+| `task publish` | Publish all changed modules **to the local registry** | Gated — only on explicit user request (see Registry) |
+| `task publish:one MODULE=<name>` | Publish a single module **to the local registry** | Gated — only on explicit user request (see Registry) |
 | `task publish:dry` | Dry run of publish | To preview what would be published |
 
 ## CUE Style Guidelines
@@ -146,6 +154,3 @@ Before writing any CUE, read `DESIGN_PATTERNS.md` (if present) — it documents 
 3. Add `README.md` with architecture overview, quick start, and configuration reference.
 4. Add `DEPLOYMENT_NOTES.md` as issues are discovered during deployment.
 
-### Adding a new release
-
-See `releases/CLAUDE.md` for layout, conventions, and step-by-step instructions.
