@@ -1,15 +1,20 @@
 # Modules repository guide
 
-## Branch Split: v0 legacy vs v1 (read first)
+## Branch model (read before committing)
 
-This repo is split by OPM generation because the two lines cannot share one CUE toolchain or catalog:
+This repo is split by OPM generation because the lines cannot share one CUE toolchain or catalog:
 
-- **`v0_legacy` (this branch)** — frozen OPM v0 line. Modules pin CUE `language: version: "v0.16.0"` and depend on the deprecated `opmodel.dev/core/v1alpha1` + `opmodel.dev/opm/v1alpha1` catalog (old `catalog/` repo). Maintenance only — no new modules here.
-- **`main`** — OPM v1 line. Modules pin CUE `v0.17.0` and depend on `opmodel.dev/core@v1` + `opmodel.dev/catalogs/opm@v1`. All new module development happens there.
+| Branch | Line | Purpose |
+| --- | --- | --- |
+| `main` | OPM v2 (staging) | Staging line for the OPM v2 fleet (enhancements 0010/0011). Publish-on-push disabled until that fleet is authored. |
+| `v1` | OPM v1 | Protected live maintenance line. Modules pin CUE `v0.17.0` and depend on stable `opmodel.dev/core@v1` + `opmodel.dev/catalogs/opm@v1`. Publishes on push; fixes and new v1 modules go there. |
+| `v0_legacy` | OPM v0 | Frozen legacy line (this branch). Modules pin CUE `language: version: "v0.16.0"` and depend on the deprecated `opmodel.dev/core/v1alpha1` + `opmodel.dev/opm/v1alpha1` catalog (old `catalog/` repo). Maintenance only — no new modules here. |
 
-Why: the old catalog schemas use CUE features removed in v0.17 (e.g. `div`), and the new catalog requires v0.17+. Keeping both generations on one branch forced every tool (`task vet`, `task publish`, CI) to special-case per-module CUE binaries and made "publish all changed" ambiguous. The split gives each line a single toolchain and a clean `versions.yml`. The `jellyfin_v016`/`seerr_v016` names are kept as-is here — their registry paths are their published identity (`jellyfin_v016/` publishes `opmodel.dev/modules/jellyfin@v1`).
+**You are on `v0_legacy`.** Maintenance fixes only. Never merge another branch into this one.
 
-**Major separation rule:** a registry path may exist on both trains, but the two trains must never share a major for the same path (legacy `jellyfin@v1` vs main `jellyfin@v2`). This branch's majors are frozen; when a module gets rewritten for OPM v1 on `main`, it takes the next major above the legacy line. CI enforces this (`Cross-train major separation guard` in `publish.yml`).
+Why: the old catalog schemas use CUE features removed in v0.17 (e.g. `div`), and the newer catalogs require v0.17+. Keeping generations on one branch forced every tool (`task vet`, `task publish`, CI) to special-case per-module CUE binaries and made "publish all changed" ambiguous. The split gives each line a single toolchain and a clean `versions.yml`. The `jellyfin_v016`/`seerr_v016` names are kept as-is here — their registry paths are their published identity (`jellyfin_v016/` publishes `opmodel.dev/modules/jellyfin@v1`).
+
+**Major separation rule:** a registry path may exist on several trains, but two trains must never share a major for the same path (legacy `jellyfin@v1` vs the v1 train's `jellyfin@v2`). This branch's majors are frozen; when a module gets rewritten for a newer train, it takes the next major above this line. CI enforces this (`Cross-train major separation guard` in `publish.yml`).
 
 ## Purpose
 
