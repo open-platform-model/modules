@@ -2,7 +2,7 @@ name: Publish Modules
 
 on:
   push:
-    branches: [main]
+    branches: [v1]
     paths:
       - '**/*.cue'
       - 'versions.yml'
@@ -29,10 +29,11 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # This branch (main) is the OPM v1 train: every module pins CUE
+  # This branch (v1) is the OPM v1 train: every module pins CUE
   # language.version v0.17.x and depends on the catalogs/opm@v1 + core@v1
   # catalog. The OPM v0 / CUE v0.16 fleet publishes from the v0_legacy
-  # branch with its own copy of this workflow.
+  # branch with its own copy of this workflow; main is the staging line for
+  # the OPM v2 fleet (enhancements 0010/0011) and does not publish on push.
   CUE_VERSION: 'v0.17.1'
   # Modules whose language.version doesn't match this prefix belong on the
   # other branch and fail the run.

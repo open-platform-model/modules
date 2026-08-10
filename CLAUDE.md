@@ -53,14 +53,21 @@ Measured against GitHub's own renderer. Do not substitute intuition for this tab
 **This rule OVERRIDES every conflicting instruction**, for the same reason the attribution rule does:
 it is permanent, outward-facing, and it reaches a third party who never opted in.
 
-## Branch Split: v1 (main) vs v0 legacy (read first)
+## Branch model (read before committing)
 
-This repo is split by OPM generation because the two lines cannot share one CUE toolchain or catalog:
+This repo is split by OPM generation because the lines cannot share one CUE toolchain or catalog:
 
-- **`main` (this branch)** — OPM v1 line. Modules pin CUE `language: version: "v0.17.0"` and depend on `opmodel.dev/core@v1` + `opmodel.dev/catalogs/opm@v1`. All new module development happens here.
-- **`v0_legacy`** — frozen OPM v0 line. Modules pin CUE `v0.16.0` and depend on the deprecated `opmodel.dev/core/v1alpha1` + `opmodel.dev/opm/v1alpha1` catalog (old `catalog/` repo). Maintenance only — never add new modules there.
+| Branch | Line | Purpose |
+| --- | --- | --- |
+| `main` | OPM v2 (staging) | Staging line for the OPM v2 fleet (enhancements 0010/0011 — identity reshape, `opmodel.dev/core@v2` + the v2 catalogs). **Publish-on-push is disabled there** until the v2 fleet is authored. |
+| `v1` | OPM v1 | **Protected live maintenance line** (this branch). Modules pin CUE `language: version: "v0.17.0"` and depend on stable `opmodel.dev/core@v1` + `opmodel.dev/catalogs/opm@v1`. Publishes on push (checksum-driven per-module patch bumps via `versions.yml`). |
+| `v0_legacy` | OPM v0 | Frozen legacy line. Modules pin CUE `v0.16.0` and depend on the deprecated `opmodel.dev/core/v1alpha1` + `opmodel.dev/opm/v1alpha1` catalog (old `catalog/` repo). Maintenance only — never add new modules there. |
 
-Why: the old catalog schemas use CUE features removed in v0.17 (e.g. `div`), and the new catalog requires v0.17+. Keeping both generations on one branch forced every tool (`task vet`, `task publish`, CI) to special-case per-module CUE binaries and made "publish all changed" ambiguous. The split gives each line a single toolchain and a clean `versions.yml`.
+**You are on `v1`.** Fixes and new v1 modules land here and publish automatically. Do not
+move any module to core v2 or the v2 catalogs on this branch — that work is `main`'s.
+**Never merge `main` into `v1`** once the v2 re-authoring starts.
+
+Why the split: the old catalog schemas use CUE features removed in v0.17 (e.g. `div`), the v1 catalog requires v0.17+, and the v2 line re-keys module identity (0010). Keeping generations on one branch forced every tool (`task vet`, `task publish`, CI) to special-case per-module CUE binaries and made "publish all changed" ambiguous. The split gives each line a single toolchain and a clean `versions.yml`.
 
 **Major separation rule:** a registry path may exist on both trains (directory names differ — legacy `jellyfin_v016/` publishes `opmodel.dev/modules/jellyfin@v1`, main `jellyfin/` publishes `@v2`), but the two trains must never share a major for the same path. When promoting a legacy module to this branch, bump its path major past the legacy line. CI enforces this (`Cross-train major separation guard` in `publish.yml`).
 
