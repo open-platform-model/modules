@@ -69,7 +69,7 @@ move any module to core v2 or the v2 catalogs on this branch — that work is `m
 
 Why the split: the old catalog schemas use CUE features removed in v0.17 (e.g. `div`), the v1 catalog requires v0.17+, and the v2 line re-keys module identity (0010). Keeping generations on one branch forced every tool (`task vet`, `task publish`, CI) to special-case per-module CUE binaries and made "publish all changed" ambiguous. The split gives each line a single toolchain and a clean `versions.yml`.
 
-**Major separation rule:** a registry path may exist on both trains (directory names differ — legacy `jellyfin_v016/` publishes `opmodel.dev/modules/jellyfin@v1`, main `jellyfin/` publishes `@v2`), but the two trains must never share a major for the same path. When promoting a legacy module to this branch, bump its path major past the legacy line. CI enforces this (`Cross-train major separation guard` in `publish.yml`).
+**Major separation rule:** a registry path may exist on several trains (directory names differ — legacy `jellyfin_v016/` publishes `opmodel.dev/modules/jellyfin@v1`, this branch's `jellyfin/` publishes `@v2`), but two trains must never share a major for the same path. When promoting a module from an older train, bump its path major past that train's line. CI enforces this (`Cross-train major separation guard` in `publish.yml`).
 
 ## Purpose
 
