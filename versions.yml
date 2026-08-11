@@ -16,6 +16,8 @@ jellyfin:
   version: v2.5.1
 jellystat:
   version: v1.0.1
+jellyswarrm:
+  version: v1.0.0
 k8up:
   version: v2.0.1
 metallb:
