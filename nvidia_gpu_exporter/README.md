@@ -16,8 +16,8 @@ metadata:
   namespace: monitoring
 spec:
   module:
-    path: opmodel.dev/modules/nvidia_gpu_exporter@v1
-    version: v1.0.0
+    path: opmodel.dev/modules/nvidia_gpu_exporter@v2
+    version: v2.0.0
   values: {}                # every default is the verified one
   prune: true
 ```

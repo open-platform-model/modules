@@ -12,8 +12,8 @@ package nvidia_gpu_exporter
 import (
 	"list"
 
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // Flags always present. Long-form kingpin names, verified against

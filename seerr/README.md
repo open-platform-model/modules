@@ -5,7 +5,7 @@ Media request management for Jellyfin, Plex, and Emby. Allows users to request m
 - **Image:** `ghcr.io/seerr-team/seerr`
 - **Port:** 5055
 - **Upstream:** https://github.com/seerr-team/seerr
-- **Module path:** `opmodel.dev/modules/seerr@v1`
+- **Module path:** `opmodel.dev/modules/seerr@v2`
 
 > **v1 — rebased onto the OPM core catalog** (`opmodel.dev/catalogs/opm@v0`). The
 > previous K8up backup, external PostgreSQL, and API-key-secret options were
@@ -46,8 +46,8 @@ metadata:
   namespace: seerr
 spec:
   module:
-    path: opmodel.dev/modules/seerr@v1
-    version: v1.0.0
+    path: opmodel.dev/modules/seerr@v2
+    version: 2.0.0
   serviceAccountName: opm-applier
   prune: true
   values:

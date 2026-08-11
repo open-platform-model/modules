@@ -1,7 +1,9 @@
 # istio_ambient
 
 Istio **ambient mesh** control plane, transcribed from the official `ambient` umbrella chart onto the
-OPM v1 catalog line (`opmodel.dev/catalogs/opm@v1` + `opmodel.dev/catalogs/opm_experimental@v1`).
+OPM v2 catalog line (`opmodel.dev/catalogs/opm@v2` + `opmodel.dev/core@v2`, module path
+`opmodel.dev/modules/istio_ambient@v2`; the former `opm_experimental` members now live at
+`resources/v1alpha1` inside the main catalog).
 
 Deploys istiod, the istio-cni node agent and ztunnel, the 15 Istio CRDs, both validating webhook
 configurations and the sidecar injector, the full RBAC stack, and the mesh / CNI / injector

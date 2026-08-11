@@ -14,18 +14,20 @@
 package jellystat
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 // Module definition
 m.#Module
 
-// Module metadata
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
 	name:        "jellystat"
-	version:     "1.0.0"
+	modulePath:  "opmodel.dev/modules/jellystat@v2"
+	version:     "2.0.0"
 	description: "Jellystat - playback statistics and monitoring dashboard for Jellyfin/Emby, backed by PostgreSQL"
 }
 
@@ -208,10 +210,13 @@ debugValues: {
 	timezone:    "Europe/Stockholm"
 	listenIp:    "0.0.0.0"
 	baseUrl:     "/jellystat"
+	// The k8s-ref branch of the #Secret disjunction: references a
+	// pre-existing Secret, the shape the SOPS-managed environments use.
 	jwtSecret: {
 		$secretName: "jellystat"
 		$dataKey:    "jwt-secret"
-		value:       "debug-jwt-secret-32-characters!!"
+		secretName:  "jellystat"
+		remoteKey:   "jwt-secret"
 	}
 	database: {
 		mode: "bundled"
@@ -220,7 +225,8 @@ debugValues: {
 		password: {
 			$secretName: "jellystat"
 			$dataKey:    "postgres-password"
-			value:       "debug-postgres-password"
+			secretName:  "jellystat"
+			remoteKey:   "postgres-password"
 		}
 		port: 5432
 		ssl: {
@@ -263,12 +269,14 @@ debugValues: {
 		accountId: {
 			$secretName: "jellystat"
 			$dataKey:    "geolite-account-id"
-			value:       "000000"
+			secretName:  "jellystat"
+			remoteKey:   "geolite-account-id"
 		}
 		licenseKey: {
 			$secretName: "jellystat"
 			$dataKey:    "geolite-license-key"
-			value:       "debug-geolite-license-key"
+			secretName:  "jellystat"
+			remoteKey:   "geolite-license-key"
 		}
 	}
 	storage: {

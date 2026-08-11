@@ -37,16 +37,19 @@
 package istio_ambient
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 m.#Module
 
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
-	name:        "istio-ambient"
-	version:     "1.1.0"
+	name:        "istio_ambient"
+	modulePath:  "opmodel.dev/modules/istio_ambient@v2"
+	version:     "2.0.0"
 	description: "Istio ambient mesh control plane — istiod, istio-cni and ztunnel, with CRDs, admission configuration and RBAC"
 }
 

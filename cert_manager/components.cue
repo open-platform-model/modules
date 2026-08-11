@@ -27,10 +27,10 @@ package cert_manager
 import (
 	"strings"
 
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
-	exp "opmodel.dev/catalogs/opm_experimental/resources"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
+	exp "opmodel.dev/catalogs/opm/resources/v1alpha1"
 )
 
 // Upstream webhook configuration metadata, shared by the VWC and MWC.
@@ -153,6 +153,15 @@ _webhookConfigAnnotations: {
 		tr.#SecurityContext
 		tr.#WorkloadIdentity
 
+		// Conditional struct-valued spec field, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline this.
+		if #config.controller.resources != _|_ {
+			spec: statelessWorkload: container: resources: #config.controller.resources
+		}
+
 		spec: {
 			statelessWorkload: {
 				scaling: count: #config.controller.replicas
@@ -217,9 +226,8 @@ _webhookConfigAnnotations: {
 						failureThreshold:    8
 					}
 
-					if #config.controller.resources != _|_ {
-						resources: #config.controller.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guard above the spec block.
 
 					securityContext: {
 						allowPrivilegeEscalation: false
@@ -265,6 +273,12 @@ _webhookConfigAnnotations: {
 		tr.#Expose
 		tr.#SecurityContext
 		tr.#WorkloadIdentity
+
+		// HOISTED conditional struct-valued spec field — see the note on the
+		// controller component.
+		if #config.webhook.resources != _|_ {
+			spec: statelessWorkload: container: resources: #config.webhook.resources
+		}
 
 		spec: {
 			statelessWorkload: {
@@ -333,9 +347,8 @@ _webhookConfigAnnotations: {
 						periodSeconds:       5
 					}
 
-					if #config.webhook.resources != _|_ {
-						resources: #config.webhook.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guard above the spec block.
 
 					securityContext: {
 						allowPrivilegeEscalation: false
@@ -389,6 +402,12 @@ _webhookConfigAnnotations: {
 		tr.#SecurityContext
 		tr.#WorkloadIdentity
 
+		// HOISTED conditional struct-valued spec field — see the note on the
+		// controller component.
+		if #config.cainjector.resources != _|_ {
+			spec: statelessWorkload: container: resources: #config.cainjector.resources
+		}
+
 		spec: {
 			statelessWorkload: {
 				scaling: count: #config.cainjector.replicas
@@ -424,9 +443,8 @@ _webhookConfigAnnotations: {
 						}
 					}
 
-					if #config.cainjector.resources != _|_ {
-						resources: #config.cainjector.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guard above the spec block.
 
 					securityContext: {
 						allowPrivilegeEscalation: false

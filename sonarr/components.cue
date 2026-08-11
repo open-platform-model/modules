@@ -4,8 +4,8 @@
 package sonarr
 
 import (
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // #components contains component definitions.
@@ -57,6 +57,50 @@ import (
 			}
 		}
 
+		// Conditional struct-valued spec fields, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+		if #config.env != _|_ {
+			spec: statefulWorkload: container: env: {
+				for k, v in #config.env {
+					(k): {
+						name:  k
+						value: v
+					}
+				}
+			}
+		}
+		if #config.resources != _|_ {
+			spec: statefulWorkload: container: resources: #config.resources
+		}
+
+		// Passed through verbatim; the schemas are the catalog's own.
+		if #config.podScheduling != _|_ {
+			spec: podScheduling: #config.podScheduling
+		}
+		if #config.podMetadata != _|_ {
+			spec: podMetadata: #config.podMetadata
+		}
+		if #config.httpRoute != _|_ {
+			spec: httpRoute: {
+				hostnames: #config.httpRoute.hostnames
+				rules: [{
+					matches: [{
+						path: {
+							type:  "PathPrefix"
+							value: "/"
+						}
+					}]
+					backendPort: #config.port
+				}]
+			}
+		}
+		if #config.httpRoute != _|_ if #config.httpRoute.gatewayRef != _|_ {
+			spec: httpRoute: gatewayRef: #config.httpRoute.gatewayRef
+		}
+
 		spec: {
 			// Identity for the whole pod. The image ships USER nobody:nogroup and
 			// has no PUID/PGID mechanism, so this is the ONLY place the process
@@ -93,14 +137,8 @@ import (
 							name:  "TZ"
 							value: #config.timezone
 						}
-						if #config.env != _|_ {
-							for k, v in #config.env {
-								(k): {
-									name:  k
-									value: v
-								}
-							}
-						}
+						// Extra environment (#config.env) is merged in from the
+						// hoisted guard above the spec block.
 					}
 
 					// Servarr's /ping is unauthenticated and cheap.
@@ -155,9 +193,8 @@ import (
 						failureThreshold:    5
 					}
 
-					if #config.resources != _|_ {
-						resources: #config.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guards above the spec block.
 
 					// Container-scope security. These fields share
 					// #SecurityContextSchema with the pod-level block above, but
@@ -222,13 +259,8 @@ import (
 				}
 			}
 
-			// Passed through verbatim; the schemas are the catalog's own.
-			if #config.podScheduling != _|_ {
-				podScheduling: #config.podScheduling
-			}
-			if #config.podMetadata != _|_ {
-				podMetadata: #config.podMetadata
-			}
+			// podScheduling / podMetadata are conditionally set from component
+			// level — see the hoisted guards above the spec block.
 
 			// Expose the web UI as a Service.
 			expose: {
@@ -241,24 +273,8 @@ import (
 				}
 			}
 
-			// Optional HTTPRoute.
-			if #config.httpRoute != _|_ {
-				httpRoute: {
-					hostnames: #config.httpRoute.hostnames
-					rules: [{
-						matches: [{
-							path: {
-								type:  "PathPrefix"
-								value: "/"
-							}
-						}]
-						backendPort: #config.port
-					}]
-					if #config.httpRoute.gatewayRef != _|_ {
-						gatewayRef: #config.httpRoute.gatewayRef
-					}
-				}
-			}
+			// The optional HTTPRoute is written from the hoisted guards above
+			// the spec block.
 		}
 	}
 }

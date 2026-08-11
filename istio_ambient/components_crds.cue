@@ -1,7 +1,7 @@
 package istio_ambient
 
 import (
-	res "opmodel.dev/catalogs/opm/resources"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 // Shared projection from a vendored upstream CRD struct to #CRDSchema.

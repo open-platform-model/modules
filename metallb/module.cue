@@ -3,7 +3,7 @@
 // CRD definitions, the four RBAC pairs, and the metallb-system namespace:
 // - module.cue:     metadata and config schema
 // - components.cue: component definitions (catalog_opm blueprints/traits +
-//                   catalog_opm_experimental #Namespaces)
+//                   the resources/v1alpha1 #Namespaces resource)
 // - crds_data.cue:  vendored upstream CRDs (generated from crds/*.yaml)
 //
 // Upstream: https://metallb.io | https://github.com/metallb/metallb
@@ -22,18 +22,20 @@
 package metallb
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 // Module definition
 m.#Module
 
-// Module metadata
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
 	name:        "metallb"
-	version:     "1.0.0"
+	modulePath:  "opmodel.dev/modules/metallb@v2"
+	version:     "2.0.0"
 	description: "MetalLB bare metal load-balancer for Kubernetes — deploys controller, speaker, CRDs, RBAC, and the metallb-system namespace"
 }
 

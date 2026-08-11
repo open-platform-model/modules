@@ -3,7 +3,7 @@
 Single stateful component: a config PVC, optional library and download mounts, a web
 Service, health checks and an optional Gateway API HTTPRoute.
 
-`opmodel.dev/modules/sonarr@v1` · pins `catalogs/opm@v1.0.0-alpha.6` + `core@v1.0.0-alpha.3`.
+`opmodel.dev/modules/sonarr@v2` · pins `catalogs/opm@v2.0.0-alpha.2` + `core@v2.0.0-alpha.4`.
 
 The **`radarr`** module is this module with a different name, port, image and env prefix.
 They are kept structurally identical — see [Sibling module](#sibling-module).
@@ -123,7 +123,7 @@ This module is generated from `radarr`. The complete delta:
 
 | | `radarr` | `sonarr` |
 |---|---|---|
-| path | `…/modules/radarr@v1` | `…/modules/sonarr@v1` |
+| path | `…/modules/radarr@v2` | `…/modules/sonarr@v2` |
 | default image | `ghcr.io/home-operations/radarr:5.27.0` | `ghcr.io/home-operations/sonarr:4.0.15` |
 | default port | 7878 | 8989 |
 | env prefix | `RADARR__` | `SONARR__` |

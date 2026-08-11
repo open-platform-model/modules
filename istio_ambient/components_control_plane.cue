@@ -1,9 +1,9 @@
 package istio_ambient
 
 import (
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 /////////////////////////////////////////////////////////////////
@@ -52,6 +52,54 @@ import (
 			tr.#NetworkPolicy
 		}
 
+		// Conditional struct-valued spec fields, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+		//
+		// When autoscaling is on the HPA owns the replica count and the
+		// Deployment omits `replicas` entirely — emitting both puts them in a
+		// permanent server-side-apply fight.
+		if #config.pilot.autoscale.enabled {
+			spec: statelessWorkload: scaling: auto: {
+				min: #config.pilot.autoscale.min
+				max: #config.pilot.autoscale.max
+				metrics: [{
+					type: "cpu"
+					target: averageUtilization: #config.pilot.autoscale.targetCPUUtilization
+				}]
+			}
+		}
+		if #config.pilot.resources != _|_ {
+			spec: statelessWorkload: container: resources: #config.pilot.resources
+		}
+		if #config.networkPolicy.enabled {
+			spec: networkPolicy: {
+				policyTypes: ["Ingress", "Egress"]
+				ingress: [
+					// Webhook traffic from the API server.
+					{ports: [{protocol: "TCP", port: 15017}]},
+					// xDS, debug and monitoring, reachable from anywhere.
+					{ports: [
+						{protocol: "TCP", port: 15010},
+						{protocol: "TCP", port: 15011},
+						{protocol: "TCP", port: 15012},
+						{protocol: "TCP", port: 8080},
+						{protocol: "TCP", port: 15014},
+					]},
+				]
+				// Allow-all, expressed as one empty rule. istiod reaches
+				// user-defined endpoints (JWKS resolution among others), so
+				// egress cannot be enumerated — and naming "Egress" in
+				// policyTypes with no rules would be a deny-all, not a no-op.
+				egress: [{}]
+			}
+		}
+		if #config.pilot.pdb.enabled {
+			spec: disruptionBudget: minAvailable: #config.pilot.pdb.minAvailable
+		}
+
 		spec: {
 			resourceName: "istiod"
 
@@ -67,19 +115,8 @@ import (
 
 				scaling: {
 					count: #config.pilot.replicas
-					// When autoscaling is on the HPA owns the replica count and
-					// the Deployment omits `replicas` entirely — emitting both
-					// puts them in a permanent server-side-apply fight.
-					if #config.pilot.autoscale.enabled {
-						auto: {
-							min: #config.pilot.autoscale.min
-							max: #config.pilot.autoscale.max
-							metrics: [{
-								type: "cpu"
-								target: averageUtilization: #config.pilot.autoscale.targetCPUUtilization
-							}]
-						}
-					}
+					// scaling.auto is conditionally set from component level —
+					// see the hoisted guards above the spec block.
 				}
 
 				container: {
@@ -153,9 +190,8 @@ import (
 						timeoutSeconds:      5
 					}
 
-					if #config.pilot.resources != _|_ {
-						resources: #config.pilot.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guards above the spec block.
 
 					securityContext: {
 						allowPrivilegeEscalation: false
@@ -303,32 +339,8 @@ import (
 				operator: "Exists"
 			}]
 
-			if #config.networkPolicy.enabled {
-				networkPolicy: {
-					policyTypes: ["Ingress", "Egress"]
-					ingress: [
-						// Webhook traffic from the API server.
-						{ports: [{protocol: "TCP", port: 15017}]},
-						// xDS, debug and monitoring, reachable from anywhere.
-						{ports: [
-							{protocol: "TCP", port: 15010},
-							{protocol: "TCP", port: 15011},
-							{protocol: "TCP", port: 15012},
-							{protocol: "TCP", port: 8080},
-							{protocol: "TCP", port: 15014},
-						]},
-					]
-					// Allow-all, expressed as one empty rule. istiod reaches
-					// user-defined endpoints (JWKS resolution among others), so
-					// egress cannot be enumerated — and naming "Egress" in
-					// policyTypes with no rules would be a deny-all, not a no-op.
-					egress: [{}]
-				}
-			}
-
-			if #config.pilot.pdb.enabled {
-				disruptionBudget: minAvailable: #config.pilot.pdb.minAvailable
-			}
+			// networkPolicy and disruptionBudget are conditionally set from
+			// component level — see the hoisted guards above the spec block.
 		}
 	}
 }

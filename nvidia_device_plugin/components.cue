@@ -15,9 +15,9 @@
 package nvidia_device_plugin
 
 import (
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 #components: {
@@ -50,6 +50,15 @@ import (
 			tr.#RuntimeClass
 		}
 
+		// Conditional struct-valued spec fields, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+		if #config.resources != _|_ {
+			spec: daemonWorkload: container: resources: #config.resources
+		}
+
 		spec: {
 			daemonWorkload: {
 				restartPolicy: "Always"
@@ -74,9 +83,8 @@ import (
 						"--pass-device-specs=\(#config.passDeviceSpecs)",
 					]
 
-					if #config.resources != _|_ {
-						resources: #config.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guard above the spec block.
 
 					volumeMounts: {
 						"device-plugin": spec.volumes."device-plugin" & {

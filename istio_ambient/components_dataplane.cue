@@ -1,9 +1,9 @@
 package istio_ambient
 
 import (
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // Shared by both node agents: run everywhere, survive every taint, and be
@@ -44,6 +44,18 @@ _nodeAgentScheduling: {
 		tr.#PodMetadata
 		tr.#PodScheduling
 		tr.#GracefulShutdown
+
+		// Conditional struct-valued spec fields, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+		if #config.cni.resources != _|_ {
+			spec: daemonWorkload: container: resources: #config.cni.resources
+		}
+		if #config.networkPolicy.enabled {
+			spec: networkPolicy: _cniNetworkPolicy
+		}
 
 		spec: {
 			resourceName: "istio-cni-node"
@@ -87,9 +99,8 @@ _nodeAgentScheduling: {
 
 					readinessProbe: httpGet: {path: "/readyz", port: 8000}
 
-					if #config.cni.resources != _|_ {
-						resources: #config.cni.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guards above the spec block.
 
 					// Not `privileged: true`: the agent needs specific
 					// capabilities, not everything. DAC_OVERRIDE is required
@@ -215,9 +226,8 @@ _nodeAgentScheduling: {
 
 			gracefulShutdown: terminationGracePeriodSeconds: 30
 
-			if #config.networkPolicy.enabled {
-				networkPolicy: _cniNetworkPolicy
-			}
+			// networkPolicy is conditionally set from component level — see the
+			// hoisted guards above the spec block.
 		}
 	}
 
@@ -237,6 +247,15 @@ _nodeAgentScheduling: {
 		tr.#PodMetadata
 		tr.#PodScheduling
 		tr.#GracefulShutdown
+
+		// Conditional struct-valued spec fields, HOISTED to component level —
+		// same CUE v0.17 closedness workaround as istio-cni above.
+		if #config.ztunnel.resources != _|_ {
+			spec: daemonWorkload: container: resources: #config.ztunnel.resources
+		}
+		if #config.networkPolicy.enabled {
+			spec: networkPolicy: _ztunnelNetworkPolicy
+		}
 
 		spec: {
 			resourceName: "ztunnel"
@@ -294,9 +313,8 @@ _nodeAgentScheduling: {
 					// undeclared port is legal.
 					readinessProbe: httpGet: {path: "/healthz/ready", port: 15021}
 
-					if #config.ztunnel.resources != _|_ {
-						resources: #config.ztunnel.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guards above the spec block.
 
 					// runAsUser 0 with NET_ADMIN/SYS_ADMIN/NET_RAW rather than
 					// privileged. allowPrivilegeEscalation must be true: adding
@@ -395,9 +413,8 @@ _nodeAgentScheduling: {
 
 			gracefulShutdown: terminationGracePeriodSeconds: 30
 
-			if #config.networkPolicy.enabled {
-				networkPolicy: _ztunnelNetworkPolicy
-			}
+			// networkPolicy is conditionally set from component level — see the
+			// hoisted guards above the spec block.
 		}
 	}
 }

@@ -1,7 +1,8 @@
 # cert_manager
 
-cert-manager X.509 certificate management for Kubernetes, ported to the OPM v1 catalog line
-(`opmodel.dev/catalogs/opm@v1` + `opmodel.dev/catalogs/opm_experimental@v1`).
+cert-manager X.509 certificate management for Kubernetes, on the OPM v2 line
+(`opmodel.dev/modules/cert_manager@v2`, built on `opmodel.dev/catalogs/opm@v2` — the former
+`opm_experimental` members now live in the main catalog's `resources/v1alpha1`).
 
 Deploys the cert-manager control plane: controller, webhook, and cainjector Deployments,
 all 6 CRDs, the Validating/Mutating webhook configurations (exact names, caBundle injected

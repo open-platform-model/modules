@@ -18,9 +18,9 @@
 package k8up
 
 import (
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 #components: {
@@ -116,18 +116,82 @@ import (
 			tr.#PodMetadata
 		}
 
+		// Conditional struct-valued spec fields, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+		if #config.timezone != "" {
+			spec: statelessWorkload: container: env: TZ: {
+				name:  "TZ"
+				value: #config.timezone
+			}
+		}
+
+		// Where EffectiveSchedules are stored when operatorNamespace is unset:
+		// "my own namespace", which the chart expresses with the downward API
+		// rather than an empty string — an empty value here would not resolve
+		// to the running namespace. (The scalar `value` branch for a non-empty
+		// operatorNamespace stays inline in the spec block below.)
+		if #config.operatorNamespace == "" {
+			spec: statelessWorkload: container: env: BACKUP_OPERATOR_NAMESPACE: fieldRef: fieldPath: "metadata.namespace"
+		}
+
+		// Job defaults. Each is emitted only when set — K8up reads an empty
+		// value as a real (invalid) quantity.
+		if #config.globalResources.requests.cpu != "" {
+			spec: statelessWorkload: container: env: BACKUP_GLOBAL_CPU_REQUEST: {
+				name:  "BACKUP_GLOBAL_CPU_REQUEST"
+				value: #config.globalResources.requests.cpu
+			}
+		}
+		if #config.globalResources.requests.memory != "" {
+			spec: statelessWorkload: container: env: BACKUP_GLOBAL_MEMORY_REQUEST: {
+				name:  "BACKUP_GLOBAL_MEMORY_REQUEST"
+				value: #config.globalResources.requests.memory
+			}
+		}
+		if #config.globalResources.limits.cpu != "" {
+			spec: statelessWorkload: container: env: BACKUP_GLOBAL_CPU_LIMIT: {
+				name:  "BACKUP_GLOBAL_CPU_LIMIT"
+				value: #config.globalResources.limits.cpu
+			}
+		}
+		if #config.globalResources.limits.memory != "" {
+			spec: statelessWorkload: container: env: BACKUP_GLOBAL_MEMORY_LIMIT: {
+				name:  "BACKUP_GLOBAL_MEMORY_LIMIT"
+				value: #config.globalResources.limits.memory
+			}
+		}
+
+		if #config.extraEnv != _|_ {
+			spec: statelessWorkload: container: env: {
+				for envName, e in #config.extraEnv {
+					(envName): e
+				}
+			}
+		}
+
+		if #config.resources != _|_ {
+			spec: statelessWorkload: container: resources: #config.resources
+		}
+		if #config.podScheduling != _|_ {
+			spec: podScheduling: #config.podScheduling
+		}
+		if #config.podMetadata != _|_ {
+			spec: podMetadata: #config.podMetadata
+		}
+
 		spec: {
 			statelessWorkload: {
 				scaling: count: #config.replicas
 				restartPolicy: "Always"
-				// Declared, but note it does not currently reach the cluster:
-				// deployment_transformer.cue builds `_updateStrategy: *null | {…}`
-				// with null as the MARKED DEFAULT, so the disjunction resolves to
-				// null and the `if _updateStrategy != null` guard never fires — no
-				// Deployment this catalog renders carries a strategy (verified
-				// against live metallb and cert-manager on nas1). Harmless, because
-				// the API server defaults to exactly RollingUpdate 25%/25%; kept
-				// here so the intent is recorded and lands once the catalog is fixed.
+				// On the v1 catalog line this never reached the cluster (the
+				// transformer's `_updateStrategy: *null | {…}` marked default
+				// swallowed it); the v2 deployment_transformer fixed that with a
+				// guarded same-scope override, so the strategy now lands on the
+				// rendered Deployment. Identical to the API server default
+				// (RollingUpdate 25%/25%) either way.
 				updateStrategy: {
 					type: "RollingUpdate"
 					rollingUpdate: {}
@@ -151,12 +215,8 @@ import (
 							value: #config.backupImage.reference
 						}
 
-						if #config.timezone != "" {
-							TZ: {
-								name:  "TZ"
-								value: #config.timezone
-							}
-						}
+						// TZ is conditionally set from component level — see the
+						// hoisted guards above the spec block.
 
 						BACKUP_ENABLE_LEADER_ELECTION: {
 							name:  "BACKUP_ENABLE_LEADER_ELECTION"
@@ -171,52 +231,20 @@ import (
 							value: "\(#config.skipSnapshotSync)"
 						}
 
-						// Where EffectiveSchedules are stored. Unset means "my own
-						// namespace", which the chart expresses with the downward
-						// API rather than an empty string — an empty value here
-						// would not resolve to the running namespace.
+						// Where EffectiveSchedules are stored. The unset case ("my
+						// own namespace" via the downward API) is written from the
+						// hoisted guards above the spec block; only the scalar
+						// non-empty branch stays inline.
 						BACKUP_OPERATOR_NAMESPACE: {
 							name: "BACKUP_OPERATOR_NAMESPACE"
 							if #config.operatorNamespace != "" {
 								value: #config.operatorNamespace
 							}
-							if #config.operatorNamespace == "" {
-								fieldRef: fieldPath: "metadata.namespace"
-							}
 						}
 
-						// Job defaults. Each is emitted only when set — K8up reads
-						// an empty value as a real (invalid) quantity.
-						if #config.globalResources.requests.cpu != "" {
-							BACKUP_GLOBAL_CPU_REQUEST: {
-								name:  "BACKUP_GLOBAL_CPU_REQUEST"
-								value: #config.globalResources.requests.cpu
-							}
-						}
-						if #config.globalResources.requests.memory != "" {
-							BACKUP_GLOBAL_MEMORY_REQUEST: {
-								name:  "BACKUP_GLOBAL_MEMORY_REQUEST"
-								value: #config.globalResources.requests.memory
-							}
-						}
-						if #config.globalResources.limits.cpu != "" {
-							BACKUP_GLOBAL_CPU_LIMIT: {
-								name:  "BACKUP_GLOBAL_CPU_LIMIT"
-								value: #config.globalResources.limits.cpu
-							}
-						}
-						if #config.globalResources.limits.memory != "" {
-							BACKUP_GLOBAL_MEMORY_LIMIT: {
-								name:  "BACKUP_GLOBAL_MEMORY_LIMIT"
-								value: #config.globalResources.limits.memory
-							}
-						}
-
-						if #config.extraEnv != _|_ {
-							for envName, e in #config.extraEnv {
-								(envName): e
-							}
-						}
+						// BACKUP_GLOBAL_* Job defaults and #config.extraEnv are
+						// conditionally merged from component level — see the
+						// hoisted guards above the spec block.
 					}
 
 					// Fixed at 8080: K8up's metrics server binds it unconditionally
@@ -239,9 +267,8 @@ import (
 						periodSeconds:       10
 					}
 
-					if #config.resources != _|_ {
-						resources: #config.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guards above the spec block.
 
 					// The chart ships `securityContext: {}` and exposes it as a
 					// values knob; these two are that knob used, not a deviation.
@@ -297,12 +324,8 @@ import (
 				type: #config.metrics.serviceType
 			}
 
-			if #config.podScheduling != _|_ {
-				podScheduling: #config.podScheduling
-			}
-			if #config.podMetadata != _|_ {
-				podMetadata: #config.podMetadata
-			}
+			// The optional podScheduling / podMetadata specs are written from
+			// the hoisted guards above the spec block.
 		}
 	}
 

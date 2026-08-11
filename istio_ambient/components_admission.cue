@@ -1,7 +1,7 @@
 package istio_ambient
 
 import (
-	exp "opmodel.dev/catalogs/opm_experimental/resources"
+	exp "opmodel.dev/catalogs/opm/resources/v1alpha1"
 )
 
 /////////////////////////////////////////////////////////////////

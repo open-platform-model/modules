@@ -2,7 +2,7 @@
 
 **Complexity:** Intermediate
 **Workload Types:** `stateful` (StatefulSet) + `stateless` (Deployment, one per processing node)
-**Module path:** `opmodel.dev/modules/fileflows@v1`
+**Module path:** `opmodel.dev/modules/fileflows@v2`
 
 FileFlows is a .NET file-processing automation server. Libraries are scanned, matched
 files are pushed through user-authored *flows*, and the heavy step is almost always an
@@ -17,8 +17,8 @@ worker per `#config.nodes` entry, each typically owning a single GPU. See
 
 | | |
 |---|---|
-| `opmodel.dev/catalogs/opm` | **`>= v1.0.0-alpha.8`** — for `resources.gpus` (multi-GPU) |
-| `opmodel.dev/core` | `v1.0.0-alpha.3` |
+| `opmodel.dev/catalogs/opm@v2` | `v2.0.0-alpha.2` |
+| `opmodel.dev/core@v2` | `v2.0.0-alpha.4` |
 
 ## Hardware transcoding — one or more cards
 
@@ -178,8 +178,8 @@ metadata:
   namespace: fileflows
 spec:
   module:
-    path: opmodel.dev/modules/fileflows@v1
-    version: v1.0.0
+    path: opmodel.dev/modules/fileflows@v2
+    version: v2.0.0
   values:
     puid: 3005
     pgid: 3005
@@ -279,6 +279,8 @@ host is different and specific:
   card idles no matter how many runners are active.
 
 ```cue
+// #Secret literal branch: OPM creates the Secret itself. Alternatively supply
+// `secretName:` + `remoteKey:` to reference a pre-existing K8s Secret.
 accessToken: {value: "..."}          // required whenever nodes exist — see below
 
 nodes: {

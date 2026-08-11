@@ -3,26 +3,33 @@
 // - module.cue:     metadata and config schema
 // - components.cue: component definitions (catalog_opm blueprints/traits)
 //
-// Rebased onto the OPM core catalog (opmodel.dev/catalogs/opm@v1). The previous
+// Rebased onto the OPM core catalog (opmodel.dev/catalogs/opm@v2). The previous
 // K8up backup feature has been dropped — the core catalog has no backup
 // resource. Config storage, media mounts, the web Service, optional hardware
 // transcoding, optional Gateway HTTPRoute, and optional Serilog logging remain.
+//
+// OPM v2 line: path major v3 (the v1 train publishes this registry path at
+// major v2 — cross-train major separation), core@v2 identity reshape
+// (complete modulePath with major, identity/ package, derived fqn), and the
+// version-segment catalog imports (resources/v1beta1 etc.).
 package jellyfin
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // Module definition
 m.#Module
 
-// Module metadata
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
 	name:        "jellyfin"
-	version:     "2.5.0"
+	modulePath:  "opmodel.dev/modules/jellyfin@v3"
+	version:     "3.0.0"
 	description: "Jellyfin media server - a free software media system"
 }
 

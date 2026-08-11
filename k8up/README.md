@@ -1,8 +1,9 @@
 # k8up
 
-K8up restic-based backup operator for Kubernetes, ported to the OPM v1 catalog line
-(`opmodel.dev/catalogs/opm@v1`). Replaces the `v0_legacy` module published as
-`opmodel.dev/modules/k8up@v1`.
+K8up restic-based backup operator for Kubernetes, on the OPM v2 catalog line
+(`opmodel.dev/catalogs/opm@v2`), published as `opmodel.dev/modules/k8up@v3` — the v1 train
+publishes this path at major v2 (cross-train major separation). Replaces the `v0_legacy`
+module published as `opmodel.dev/modules/k8up@v1`.
 
 Deploys the operator, all 9 CRDs, and the four upstream ClusterRoles. After deployment you
 declare backup policy per application with `Schedule` / `PreBackupPod` CRs — those are
@@ -52,10 +53,11 @@ identical to that output, and all 9 CRDs match their source manifests exactly.
 2. **Metrics Service is `{instance}-{component}`**, so an instance named `k8up` yields
    `k8up-operator`; the chart calls it `k8up-metrics`. Scrape configs must target the
    rendered name.
-3. **No `strategy` on the Deployment.** The module declares `updateStrategy: RollingUpdate`,
-   but `deployment_transformer.cue` builds `_updateStrategy: *null | {…}` with `null` as the
-   marked default, so no Deployment this catalog renders carries a strategy. Harmless — the
-   API server defaults to exactly RollingUpdate 25%/25%.
+3. **`strategy` on the Deployment.** The module declares `updateStrategy: RollingUpdate`. On
+   the v1 catalog line this never rendered (`deployment_transformer.cue` built
+   `_updateStrategy: *null | {…}` with `null` as the marked default); the v2 transformer
+   fixed that, so the strategy now lands. Identical to the API server default
+   (RollingUpdate 25%/25%) either way.
 4. **No cleanup Job.** The chart's `pre-delete` Helm hook (which strips k8up finalizers on
    uninstall) has no OPM equivalent and is not needed; the operator's pruner handles removal.
 5. **Container hardening added.** `allowPrivilegeEscalation: false` and `capabilities.drop:

@@ -1,7 +1,8 @@
 # metallb
 
-MetalLB bare metal load-balancer for Kubernetes, ported to the OPM v1 catalog line
-(`opmodel.dev/catalogs/opm@v1` + `opmodel.dev/catalogs/opm_experimental@v1`).
+MetalLB bare metal load-balancer for Kubernetes, on the OPM v2 line
+(`opmodel.dev/catalogs/opm@v2` + `opmodel.dev/core@v2`; module path
+`opmodel.dev/modules/metallb@v2`).
 
 Deploys the MetalLB controller and speaker alongside all required CRDs, cluster-wide RBAC,
 and the `metallb-system` namespace (exact name, PSS-privileged labels). After deployment,
@@ -52,6 +53,16 @@ Deploy as an instance named exactly `metallb` in namespace `metallb-system`.
 
 See `#config` in `module.cue`: `image{repository,tag,digest,pullPolicy}`,
 `controller{logLevel,replicas,resources?}`, `speaker{logLevel,resources?,memberlistKey}`.
+
+The v2 `#Secret` is a disjunction — pick a concrete branch in instance values.
+The usual choice here is the literal branch (OPM creates and manages the Secret):
+
+```cue
+speaker: memberlistKey: value: "<generated key>"
+```
+
+Alternatively reference a pre-existing Secret with the k8s-ref branch
+(`secretName:` + `remoteKey:` — OPM emits no Secret resource then).
 
 Generate a memberlist key with:
 

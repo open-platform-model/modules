@@ -7,8 +7,8 @@ Exposes Intel GPUs to Kubernetes as schedulable `gpu.intel.com/i915` (or
 |---|---|
 | Upstream | [intel/intel-device-plugins-for-kubernetes](https://github.com/intel/intel-device-plugins-for-kubernetes) |
 | Pinned release | `0.36.0` |
-| Registry path | `opmodel.dev/modules/intel_gpu_device_plugin@v1` |
-| Catalog | `opmodel.dev/catalogs/opm@v1` ≥ `v1.0.0-alpha.7` |
+| Registry path | `opmodel.dev/modules/intel_gpu_device_plugin@v2` |
+| Catalog | `opmodel.dev/catalogs/opm@v2` ≥ `v2.0.0-alpha.2` |
 
 ## Architecture
 

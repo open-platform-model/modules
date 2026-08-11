@@ -5,8 +5,8 @@
 package seerr
 
 import (
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // #components contains component definitions.
@@ -30,6 +30,38 @@ import (
 		metadata: name: "seerr"
 
 		_volumes: spec.statefulWorkload.volumes
+
+		// Conditional struct-valued spec fields, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+		if #config.logLevel != _|_ {
+			spec: statefulWorkload: container: env: LOG_LEVEL: {
+				name:  "LOG_LEVEL"
+				value: #config.logLevel
+			}
+		}
+		if #config.resources != _|_ {
+			spec: statefulWorkload: container: resources: #config.resources
+		}
+		if #config.httpRoute != _|_ {
+			spec: httpRoute: {
+				hostnames: #config.httpRoute.hostnames
+				rules: [{
+					matches: [{
+						path: {
+							type:  "PathPrefix"
+							value: "/"
+						}
+					}]
+					backendPort: #config.port
+				}]
+			}
+		}
+		if #config.httpRoute != _|_ if #config.httpRoute.gatewayRef != _|_ {
+			spec: httpRoute: gatewayRef: #config.httpRoute.gatewayRef
+		}
 
 		spec: {
 			// fsGroup ensures volume files are group-accessible by Seerr (UID 1000).
@@ -78,12 +110,8 @@ import (
 							name:  "PORT"
 							value: "\(#config.port)"
 						}
-						if #config.logLevel != _|_ {
-							LOG_LEVEL: {
-								name:  "LOG_LEVEL"
-								value: #config.logLevel
-							}
-						}
+						// LOG_LEVEL is conditionally set from component level — see
+						// the hoisted guards above the spec block.
 					}
 					// Seerr's /api/v1/status handler blocks on an upstream
 					// api.github.com version check; when the cluster has no egress
@@ -109,9 +137,8 @@ import (
 						timeoutSeconds:      10
 						failureThreshold:    5
 					}
-					if #config.resources != _|_ {
-						resources: #config.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guards above the spec block.
 					volumeMounts: config: _volumes.config & {
 						mountPath: #config.storage.config.mountPath
 					}
@@ -155,24 +182,8 @@ import (
 				type: #config.serviceType
 			}
 
-			// Optional HTTPRoute.
-			if #config.httpRoute != _|_ {
-				httpRoute: {
-					hostnames: #config.httpRoute.hostnames
-					rules: [{
-						matches: [{
-							path: {
-								type:  "PathPrefix"
-								value: "/"
-							}
-						}]
-						backendPort: #config.port
-					}]
-					if #config.httpRoute.gatewayRef != _|_ {
-						gatewayRef: #config.httpRoute.gatewayRef
-					}
-				}
-			}
+			// The optional HTTPRoute is written from the hoisted guards above
+			// the spec block.
 		}
 	}
 }

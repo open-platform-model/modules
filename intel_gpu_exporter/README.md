@@ -89,8 +89,8 @@ metadata:
   namespace: monitoring
 spec:
   module:
-    path: opmodel.dev/modules/intel_gpu_exporter@v1
-    version: v1.0.0
+    path: opmodel.dev/modules/intel_gpu_exporter@v2
+    version: v2.0.0
   values:
     device: drm:/dev/dri/card0
     serviceName: intel-gpu-exporter
@@ -104,6 +104,7 @@ Renders a DaemonSet plus a ClusterIP Service on port 9100 with its port named `m
 ```
 intel_gpu_exporter/
 ├── cue.mod/module.cue    # CUE dependencies
+├── identity/identity.cue # module path + version (core v2 identity package)
 ├── module.cue            # metadata + #config schema
 ├── components.cue        # DaemonSet + Service
 └── README.md

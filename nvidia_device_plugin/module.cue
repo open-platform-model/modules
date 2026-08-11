@@ -37,18 +37,20 @@
 package nvidia_device_plugin
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 // Module definition
 m.#Module
 
-// Module metadata
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
-	name:        "nvidia-device-plugin"
-	version:     "1.0.0"
+	name:        "nvidia_device_plugin"
+	modulePath:  "opmodel.dev/modules/nvidia_device_plugin@v2"
+	version:     "2.0.0"
 	description: "NVIDIA GPU device plugin — exposes NVIDIA GPUs as nvidia.com/gpu resources for Kubernetes workload scheduling"
 }
 

@@ -7,9 +7,9 @@ package jellyfin
 import (
 	"encoding/json"
 
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // #components contains component definitions.
@@ -110,6 +110,7 @@ import (
 		if !_hwEnabled {
 			_hwResource: ""
 		}
+
 		if _hwEnabled {
 			if #config.hardwareAcceleration.resource != _|_ {
 				_hwResource: #config.hardwareAcceleration.resource
@@ -122,6 +123,130 @@ import (
 					_hwResource: "nvidia.com/gpu"
 				}
 			}
+		}
+
+		// Conditional struct- and list-valued spec fields, HOISTED to component
+		// level rather than guarded inside the spec block — the in-spec form
+		// trips the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+
+		if #config.publishedServerUrl != _|_ {
+			spec: statefulWorkload: container: env: JELLYFIN_PublishedServerUrl: {
+				name:  "JELLYFIN_PublishedServerUrl"
+				value: #config.publishedServerUrl
+			}
+		}
+
+		// Emitted only for NVIDIA, i.e. only where a runtime reads it. See the
+		// schema field for why `video` and `compute` both matter, and why
+		// NVIDIA_VISIBLE_DEVICES is never set here.
+		if _hwNvidia {
+			spec: statefulWorkload: container: env: NVIDIA_DRIVER_CAPABILITIES: {
+				name:  "NVIDIA_DRIVER_CAPABILITIES"
+				value: #config.hardwareAcceleration.driverCapabilities
+			}
+		}
+
+		if #config.resources != _|_ {
+			spec: statefulWorkload: container: resources: #config.resources
+		}
+
+		// Unified INTO whatever the instance set for cpu/memory rather than
+		// replacing it, so the two can be written independently. The catalog
+		// emits the claim to requests AND limits, which is what Kubernetes
+		// requires for an extended resource — they cannot be overcommitted.
+		//
+		// An instance that ALSO writes resources.gpu by hand with different
+		// values fails here on a CUE conflict. That is the intended outcome:
+		// two disagreeing declarations of which card to use should not resolve
+		// last-one-wins.
+		if _hwEnabled {
+			spec: statefulWorkload: container: resources: gpu: {
+				resource: _hwResource
+				count:    #config.hardwareAcceleration.count
+			}
+		}
+
+		// Serilog logging config — ConfigMap, its volume, and the subPath
+		// mount, all only when logging is configured. The mount is built fresh
+		// (not unified from _volumes) so readOnly can be true without
+		// conflicting with the volume's readOnly: false.
+		if #config.logging != _|_ {
+			spec: statefulWorkload: container: volumeMounts: "jellyfin-logging": {
+				name:      "jellyfin-logging"
+				configMap: spec.configMaps["jellyfin-logging"]
+				mountPath: "/config/logging.json"
+				subPath:   "logging.json"
+				readOnly:  true
+			}
+		}
+		if #config.logging != _|_ {
+			spec: statefulWorkload: volumes: "jellyfin-logging": {
+				name:      "jellyfin-logging"
+				readOnly:  false
+				configMap: spec.configMaps["jellyfin-logging"]
+			}
+		}
+		if #config.logging != _|_ {
+			spec: configMaps: "jellyfin-logging": {
+				immutable: false
+				data: {
+					"logging.json": "\(json.Marshal({
+						Serilog: {
+							MinimumLevel: {
+								Default: #config.logging.defaultLevel
+								if #config.logging.overrides != _|_ {
+									Override: #config.logging.overrides
+								}
+							}
+						}
+					}))"
+				}
+			}
+		}
+
+		// Render-group supplemental GIDs, so the process can open
+		// /dev/dri/renderD*. Only meaningful when a device is attached.
+		if _hwEnabled {
+			spec: securityContext: supplementalGroups: #config.hardwareAcceleration.renderGroups
+		}
+
+		// Legacy arm: an instance claiming a device through resources.gpu
+		// directly, as everything before v2.5.0 had to. Kept so those
+		// instances render exactly as they did, and guarded on !_hwEnabled
+		// so the two can never both assign supplementalGroups.
+		if !_hwEnabled if #config.resources != _|_ if #config.resources.gpu != _|_ {
+			spec: securityContext: supplementalGroups: [44, 109]
+		}
+
+		// Passed through verbatim; the schemas are the catalog's own, so
+		// there is nothing to translate.
+		if #config.podScheduling != _|_ {
+			spec: podScheduling: #config.podScheduling
+		}
+		if #config.podMetadata != _|_ {
+			spec: podMetadata: #config.podMetadata
+		}
+
+		// Optional HTTPRoute, with the two-level form for the nested
+		// optional gatewayRef.
+		if #config.httpRoute != _|_ {
+			spec: httpRoute: {
+				hostnames: #config.httpRoute.hostnames
+				rules: [{
+					matches: [{
+						path: {
+							type:  "PathPrefix"
+							value: "/"
+						}
+					}]
+					backendPort: #config.port
+				}]
+			}
+		}
+		if #config.httpRoute != _|_ if #config.httpRoute.gatewayRef != _|_ {
+			spec: httpRoute: gatewayRef: #config.httpRoute.gatewayRef
 		}
 
 		spec: {
@@ -174,23 +299,10 @@ import (
 							name:  "JELLYFIN_DATA_DIR"
 							value: #config.storage.config.mountPath
 						}
-						if #config.publishedServerUrl != _|_ {
-							JELLYFIN_PublishedServerUrl: {
-								name:  "JELLYFIN_PublishedServerUrl"
-								value: #config.publishedServerUrl
-							}
-						}
-
-						// Emitted only for NVIDIA, i.e. only where a runtime
-						// reads it. See the schema field for why `video` and
-						// `compute` both matter, and why NVIDIA_VISIBLE_DEVICES
-						// is never set here.
-						if _hwNvidia {
-							NVIDIA_DRIVER_CAPABILITIES: {
-								name:  "NVIDIA_DRIVER_CAPABILITIES"
-								value: #config.hardwareAcceleration.driverCapabilities
-							}
-						}
+						// JELLYFIN_PublishedServerUrl and
+						// NVIDIA_DRIVER_CAPABILITIES are conditionally set from
+						// component level — see the hoisted guards above the
+						// spec block.
 					}
 					// Every threshold here is sized to ride out a VACUUM rather
 					// than restart through one — Jellyfin's own "Optimize
@@ -257,46 +369,20 @@ import (
 							failureThreshold: 12
 						}
 					}
-					if #config.resources != _|_ {
-						resources: #config.resources
-					}
-
-					// Unified INTO whatever the instance set for cpu/memory
-					// rather than replacing it, so the two can be written
-					// independently. The catalog emits the claim to requests
-					// AND limits, which is what Kubernetes requires for an
-					// extended resource — they cannot be overcommitted.
-					//
-					// An instance that ALSO writes resources.gpu by hand with
-					// different values fails here on a CUE conflict. That is
-					// the intended outcome: two disagreeing declarations of
-					// which card to use should not resolve last-one-wins.
-					if _hwEnabled {
-						resources: gpu: {
-							resource: _hwResource
-							count:    #config.hardwareAcceleration.count
-						}
-					}
+					// resources (both the instance's requests/limits and the
+					// derived GPU claim) are conditionally set from component
+					// level — see the hoisted guards above the spec block.
 					volumeMounts: {
-						for vName, v in _allVolumes {
+						for vName, v in _allVolumes
+						// The Serilog logging config subPath mount is
+						// conditionally set from component level — see the
+						// hoisted guards above the spec block.
+						{
 							// _volumes[vName] already carries readOnly from the
 							// volume source, so unifying propagates it here — the
 							// two can never disagree by construction.
 							(vName): _volumes[vName] & {
 								mountPath: v.mountPath
-							}
-						}
-
-						// Serilog logging config — mounted as a single file via subPath.
-						// Built fresh (not unified from _volumes) so readOnly can be
-						// true without conflicting with the volume's readOnly: false.
-						if #config.logging != _|_ {
-							"jellyfin-logging": {
-								name:      "jellyfin-logging"
-								configMap: spec.configMaps["jellyfin-logging"]
-								mountPath: "/config/logging.json"
-								subPath:   "logging.json"
-								readOnly:  true
 							}
 						}
 					}
@@ -307,7 +393,11 @@ import (
 				// every field must be set concretely — the release must finalize
 				// to a fully concrete value before transformers run.
 				volumes: {
-					for name, v in _allVolumes {
+					for name, v in _allVolumes
+					// The logging ConfigMap volume is conditionally set from
+					// component level — see the hoisted guards above the spec
+					// block.
+					{
 						(name): {
 							"name": name
 							// From #storageVolume, which defaults it to false — so
@@ -349,33 +439,17 @@ import (
 							}
 						}
 					}
-
-					// Logging ConfigMap volume — only when logging is configured.
-					if #config.logging != _|_ {
-						"jellyfin-logging": {
-							name:      "jellyfin-logging"
-							readOnly:  false
-							configMap: spec.configMaps["jellyfin-logging"]
-						}
-					}
 				}
 			}
 
-			// Render-group supplemental GIDs, so the process can open
-			// /dev/dri/renderD*. Only meaningful when a device is attached.
-			if _hwEnabled {
-				securityContext: supplementalGroups: #config.hardwareAcceleration.renderGroups
-			}
-
-			// Legacy arm: an instance claiming a device through resources.gpu
-			// directly, as everything before v2.5.0 had to. Kept so those
-			// instances render exactly as they did, and guarded on !_hwEnabled
-			// so the two can never both assign supplementalGroups.
-			if !_hwEnabled if #config.resources != _|_ if #config.resources.gpu != _|_ {
-				securityContext: supplementalGroups: [44, 109]
-			}
+			// securityContext.supplementalGroups (both the hardware-
+			// acceleration arm and the legacy resources.gpu arm) is
+			// conditionally set from component level — see the hoisted guards
+			// above the spec block.
 
 			// NVIDIA only — Intel devices work under the default runtime.
+			// Stays in-spec: runtimeClass is a scalar (string) write, which
+			// the closedness regression does not affect.
 			if _hwNvidia {
 				runtimeClass: #config.hardwareAcceleration.runtimeClass
 			}
@@ -385,15 +459,6 @@ import (
 			// SQLite write — see the schema field for the numbers.
 			gracefulShutdown: terminationGracePeriodSeconds: #config.terminationGracePeriodSeconds
 
-			// Passed through verbatim; the schemas are the catalog's own, so
-			// there is nothing to translate.
-			if #config.podScheduling != _|_ {
-				podScheduling: #config.podScheduling
-			}
-			if #config.podMetadata != _|_ {
-				podMetadata: #config.podMetadata
-			}
-
 			// Expose the web UI as a Service.
 			expose: {
 				ports: http: statefulWorkload.container.ports.http & {
@@ -402,45 +467,9 @@ import (
 				type: #config.serviceType
 			}
 
-			// Optional HTTPRoute.
-			if #config.httpRoute != _|_ {
-				httpRoute: {
-					hostnames: #config.httpRoute.hostnames
-					rules: [{
-						matches: [{
-							path: {
-								type:  "PathPrefix"
-								value: "/"
-							}
-						}]
-						backendPort: #config.port
-					}]
-					if #config.httpRoute.gatewayRef != _|_ {
-						gatewayRef: #config.httpRoute.gatewayRef
-					}
-				}
-			}
-
-			// Serilog logging config injected as a ConfigMap — only when configured.
-			if #config.logging != _|_ {
-				configMaps: {
-					"jellyfin-logging": {
-						immutable: false
-						data: {
-							"logging.json": "\(json.Marshal({
-								Serilog: {
-									MinimumLevel: {
-										Default: #config.logging.defaultLevel
-										if #config.logging.overrides != _|_ {
-											Override: #config.logging.overrides
-										}
-									}
-								}
-							}))"
-						}
-					}
-				}
-			}
+			// podScheduling, podMetadata, the optional HTTPRoute and the
+			// Serilog logging ConfigMap are written from the hoisted guards
+			// above the spec block.
 		}
 	}
 }
