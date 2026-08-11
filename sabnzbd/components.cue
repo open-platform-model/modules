@@ -6,8 +6,8 @@ package sabnzbd
 import (
 	"strings"
 
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // #components contains component definitions.
@@ -42,6 +42,62 @@ import (
 			if #config.storage.downloads != _|_ {
 				downloads: #config.storage.downloads
 			}
+		}
+
+		// Conditional struct-valued spec fields, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+		if #config.hostWhitelist != _|_ {
+			// Rewritten into sabnzbd.ini on every start. Comma-joined
+			// because the entrypoint seds the value in verbatim.
+			spec: statefulWorkload: container: env: SABNZBD__HOST_WHITELIST_ENTRIES: {
+				name:  "SABNZBD__HOST_WHITELIST_ENTRIES"
+				value: strings.Join(#config.hostWhitelist, ", ")
+			}
+		}
+		if #config.localRanges != _|_ {
+			spec: statefulWorkload: container: env: SABNZBD__LOCAL_RANGES_ENTRIES: {
+				name:  "SABNZBD__LOCAL_RANGES_ENTRIES"
+				value: strings.Join(#config.localRanges, ", ")
+			}
+		}
+		if #config.env != _|_ {
+			spec: statefulWorkload: container: env: {
+				for k, v in #config.env {
+					(k): {
+						name:  k
+						value: v
+					}
+				}
+			}
+		}
+		if #config.resources != _|_ {
+			spec: statefulWorkload: container: resources: #config.resources
+		}
+		if #config.podScheduling != _|_ {
+			spec: podScheduling: #config.podScheduling
+		}
+		if #config.podMetadata != _|_ {
+			spec: podMetadata: #config.podMetadata
+		}
+		if #config.httpRoute != _|_ {
+			spec: httpRoute: {
+				hostnames: #config.httpRoute.hostnames
+				rules: [{
+					matches: [{
+						path: {
+							type:  "PathPrefix"
+							value: "/"
+						}
+					}]
+					backendPort: #config.port
+				}]
+			}
+		}
+		if #config.httpRoute != _|_ if #config.httpRoute.gatewayRef != _|_ {
+			spec: httpRoute: gatewayRef: #config.httpRoute.gatewayRef
 		}
 
 		spec: {
@@ -86,28 +142,9 @@ import (
 							name:  "SABNZBD__PORT"
 							value: "\(#config.port)"
 						}
-						// Rewritten into sabnzbd.ini on every start. Comma-joined
-						// because the entrypoint seds the value in verbatim.
-						if #config.hostWhitelist != _|_ {
-							SABNZBD__HOST_WHITELIST_ENTRIES: {
-								name:  "SABNZBD__HOST_WHITELIST_ENTRIES"
-								value: strings.Join(#config.hostWhitelist, ", ")
-							}
-						}
-						if #config.localRanges != _|_ {
-							SABNZBD__LOCAL_RANGES_ENTRIES: {
-								name:  "SABNZBD__LOCAL_RANGES_ENTRIES"
-								value: strings.Join(#config.localRanges, ", ")
-							}
-						}
-						if #config.env != _|_ {
-							for k, v in #config.env {
-								(k): {
-									name:  k
-									value: v
-								}
-							}
-						}
+						// The conditional entries (host whitelist, local ranges,
+						// extra env) are written from the hoisted guards above
+						// the spec block.
 					}
 
 					// SABnzbd accepts raw IP addresses in the Host header
@@ -161,9 +198,8 @@ import (
 						failureThreshold:    5
 					}
 
-					if #config.resources != _|_ {
-						resources: #config.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guards above the spec block.
 
 					// Container-scope security. The StatefulSet transformer maps
 					// only the identity fields to the pod, so these take effect
@@ -220,13 +256,6 @@ import (
 				}
 			}
 
-			if #config.podScheduling != _|_ {
-				podScheduling: #config.podScheduling
-			}
-			if #config.podMetadata != _|_ {
-				podMetadata: #config.podMetadata
-			}
-
 			expose: {
 				ports: http: statefulWorkload.container.ports.http & {
 					exposedPort: #config.port
@@ -237,23 +266,8 @@ import (
 				}
 			}
 
-			if #config.httpRoute != _|_ {
-				httpRoute: {
-					hostnames: #config.httpRoute.hostnames
-					rules: [{
-						matches: [{
-							path: {
-								type:  "PathPrefix"
-								value: "/"
-							}
-						}]
-						backendPort: #config.port
-					}]
-					if #config.httpRoute.gatewayRef != _|_ {
-						gatewayRef: #config.httpRoute.gatewayRef
-					}
-				}
-			}
+			// podScheduling, podMetadata and the optional HTTPRoute are written
+			// from the hoisted guards above the spec block.
 		}
 	}
 }

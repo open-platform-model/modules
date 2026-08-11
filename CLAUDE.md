@@ -63,13 +63,13 @@ This repo is split by OPM generation because the lines cannot share one CUE tool
 
 | Branch | Line | Purpose |
 | --- | --- | --- |
-| `main` | OPM v2 (staging) | Staging line for the OPM v2 fleet (enhancements 0010/0011 — identity reshape, `opmodel.dev/core@v2` + the v2 catalogs). **Publish-on-push is disabled here** until the v2 fleet is authored. |
+| `main` | OPM v2 | The OPM v2 line (enhancements 0010/0011 — identity reshape, `opmodel.dev/core@v2` + the v2 catalogs). The fleet is authored against core v2 + catalog v2. **Publish-on-push is still disabled here** — enabling it is a deliberate follow-up step. |
 | `v1` | OPM v1 | **Protected live maintenance line.** Modules pin CUE `language: version: "v0.17.0"` and depend on stable `opmodel.dev/core@v1` + `opmodel.dev/catalogs/opm@v1`. Publishes on push (checksum-driven per-module patch bumps via `versions.yml`). Fixes and new v1 modules go here. |
 | `v0_legacy` | OPM v0 | Frozen legacy line. Modules pin CUE `v0.16.0` and depend on the deprecated `opmodel.dev/core/v1alpha1` + `opmodel.dev/opm/v1alpha1` catalog (old `catalog/` repo). Maintenance only — never add new modules there. |
 
-**You are on `main`.** Nothing publishes from here on push. Until the v2 re-authoring
-begins, module fixes belong on `v1`, not here. **Never merge `main` into `v1`** once v2
-work lands on this branch.
+**You are on `main`.** Nothing publishes from here on push yet. The v2 re-authoring has
+landed — v2-line module work happens here; fixes for the published v1 fleet belong on
+`v1`. **Never merge `main` into `v1`.**
 
 Why the split: the old catalog schemas use CUE features removed in v0.17 (e.g. `div`), the v1 catalog requires v0.17+, and the v2 line re-keys module identity (0010). Keeping generations on one branch forced every tool (`task vet`, `task publish`, CI) to special-case per-module CUE binaries and made "publish all changed" ambiguous. The split gives each line a single toolchain and a clean `versions.yml`.
 
@@ -112,7 +112,7 @@ modules/
 | --- | --- |
 | `jellyfin/` | Jellyfin media server |
 | `jellystat/` | Jellystat playback-statistics dashboard (bundled or external PostgreSQL) |
-| `jellyswarrm/` | Jellyswarrm proxy — merges multiple Jellyfin servers into one virtual endpoint. First v2-line module (core v2 identity, catalog v1beta1 imports); see its DEPLOYMENT_NOTES.md |
+| `jellyswarrm/` | Jellyswarrm proxy — merges multiple Jellyfin servers into one virtual endpoint; see its DEPLOYMENT_NOTES.md |
 | `seerr/` | Jellyseerr media request manager |
 | `web_app/` | Generic static/dynamic web application module |
 | `metallb/` | MetalLB load-balancer (v0.16.1) — controller, speaker, CRDs, RBAC, PSS-privileged namespace |

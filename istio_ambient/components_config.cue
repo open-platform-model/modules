@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"encoding/yaml"
 
-	res "opmodel.dev/catalogs/opm/resources"
-	exp "opmodel.dev/catalogs/opm_experimental/resources"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	exp "opmodel.dev/catalogs/opm/resources/v1alpha1"
 )
 
 /////////////////////////////////////////////////////////////////

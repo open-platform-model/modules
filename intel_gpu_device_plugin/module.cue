@@ -11,6 +11,11 @@
 // v0.0.14 against upstream 0.35.0) onto the v1 catalog. Config surface is
 // preserved; see DEPLOYMENT_NOTES.md for what changed.
 //
+// OPM v2 line: path major v2 (the v1 train publishes this registry path at
+// major v1 — cross-train major separation), core@v2 identity reshape
+// (complete modulePath with major, identity/ package, derived fqn), and the
+// version-segment catalog imports (resources/v1beta1 etc.).
+//
 // The plugin needs NO Kubernetes API access — it speaks the device-plugin gRPC
 // protocol to the kubelet over a socket — so this module emits no
 // ServiceAccount, Role or RoleBinding.
@@ -24,18 +29,20 @@
 package intel_gpu_device_plugin
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 // Module definition
 m.#Module
 
-// Module metadata
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
-	name:        "intel-gpu-device-plugin"
-	version:     "1.0.0"
+	name:        "intel_gpu_device_plugin"
+	modulePath:  "opmodel.dev/modules/intel_gpu_device_plugin@v2"
+	version:     "2.0.0"
 	description: "Intel GPU device plugin — exposes Intel GPUs (i915/Xe) as gpu.intel.com resources for Kubernetes workload scheduling"
 }
 

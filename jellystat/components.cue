@@ -13,9 +13,9 @@
 package jellystat
 
 import (
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // Jellystat's listener is hardcoded upstream; see #config.servicePort.
@@ -82,6 +82,59 @@ _healthPath: [
 
 		_volumes: spec.statefulWorkload.volumes
 
+		// Conditional struct-valued spec fields, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+		if #config.baseUrl != _|_ {
+			spec: statefulWorkload: container: env: JS_BASE_URL: {
+				name:  "JS_BASE_URL"
+				value: #config.baseUrl
+			}
+		}
+		if #config.server.newWatchEventThresholdHours != _|_ {
+			spec: statefulWorkload: container: env: NEW_WATCH_EVENT_THRESHOLD_HOURS: {
+				name:  "NEW_WATCH_EVENT_THRESHOLD_HOURS"
+				value: "\(#config.server.newWatchEventThresholdHours)"
+			}
+		}
+		if #config.geolite != _|_ {
+			spec: statefulWorkload: container: env: {
+				JS_GEOLITE_ACCOUNT_ID: {
+					name: "JS_GEOLITE_ACCOUNT_ID"
+					from: #config.geolite.accountId
+				}
+				JS_GEOLITE_LICENSE_KEY: {
+					name: "JS_GEOLITE_LICENSE_KEY"
+					from: #config.geolite.licenseKey
+				}
+			}
+		}
+		if #config.resources != _|_ {
+			spec: statefulWorkload: container: resources: #config.resources
+		}
+		if #config.httpRoute != _|_ {
+			spec: httpRoute: {
+				hostnames: #config.httpRoute.hostnames
+				rules: [{
+					matches: [{
+						path: {
+							type: "PathPrefix"
+							value: [
+								if #config.baseUrl != _|_ {#config.baseUrl},
+								"/",
+							][0]
+						}
+					}]
+					backendPort: #config.servicePort
+				}]
+			}
+		}
+		if #config.httpRoute != _|_ if #config.httpRoute.gatewayRef != _|_ {
+			spec: httpRoute: gatewayRef: #config.httpRoute.gatewayRef
+		}
+
 		spec: {
 			statefulWorkload: {
 				// Single replica — the app assumes exclusive ownership of its
@@ -126,12 +179,8 @@ _healthPath: [
 							name:  "JS_LISTEN_IP"
 							value: #config.listenIp
 						}
-						if #config.baseUrl != _|_ {
-							JS_BASE_URL: {
-								name:  "JS_BASE_URL"
-								value: #config.baseUrl
-							}
-						}
+						// JS_BASE_URL is conditionally set from component level —
+						// see the hoisted guards above the spec block.
 
 						// Database wiring.
 						POSTGRES_IP: {
@@ -181,23 +230,9 @@ _healthPath: [
 							name:  "REJECT_SELF_SIGNED_CERTIFICATES"
 							value: "\(#config.server.rejectSelfSignedCertificates)"
 						}
-						if #config.server.newWatchEventThresholdHours != _|_ {
-							NEW_WATCH_EVENT_THRESHOLD_HOURS: {
-								name:  "NEW_WATCH_EVENT_THRESHOLD_HOURS"
-								value: "\(#config.server.newWatchEventThresholdHours)"
-							}
-						}
-
-						if #config.geolite != _|_ {
-							JS_GEOLITE_ACCOUNT_ID: {
-								name: "JS_GEOLITE_ACCOUNT_ID"
-								from: #config.geolite.accountId
-							}
-							JS_GEOLITE_LICENSE_KEY: {
-								name: "JS_GEOLITE_LICENSE_KEY"
-								from: #config.geolite.licenseKey
-							}
-						}
+						// NEW_WATCH_EVENT_THRESHOLD_HOURS and the GeoLite env pair
+						// are conditionally set from component level — see the
+						// hoisted guards above the spec block.
 					}
 
 					// First start runs CREATE DATABASE plus the full migration
@@ -223,9 +258,8 @@ _healthPath: [
 						timeoutSeconds:      5
 						failureThreshold:    5
 					}
-					if #config.resources != _|_ {
-						resources: #config.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guards above the spec block.
 					volumeMounts: backup: _volumes.backup & {
 						mountPath: #config.storage.backup.mountPath
 					}
@@ -270,27 +304,8 @@ _healthPath: [
 				type: #config.serviceType
 			}
 
-			// Optional HTTPRoute.
-			if #config.httpRoute != _|_ {
-				httpRoute: {
-					hostnames: #config.httpRoute.hostnames
-					rules: [{
-						matches: [{
-							path: {
-								type: "PathPrefix"
-								value: [
-									if #config.baseUrl != _|_ {#config.baseUrl},
-									"/",
-								][0]
-							}
-						}]
-						backendPort: #config.servicePort
-					}]
-					if #config.httpRoute.gatewayRef != _|_ {
-						gatewayRef: #config.httpRoute.gatewayRef
-					}
-				}
-			}
+			// The optional HTTPRoute is written from the hoisted guards above
+			// the spec block.
 		}
 	}
 
@@ -307,6 +322,12 @@ _healthPath: [
 			metadata: name: "postgres"
 
 			_volumes: spec.statefulWorkload.volumes
+
+			// Conditional struct-valued spec field, HOISTED to component level —
+			// same closedness workaround as on the jellystat component above.
+			if #config.database.bundled.resources != _|_ {
+				spec: statefulWorkload: container: resources: #config.database.bundled.resources
+			}
 
 			spec: {
 				// Run as the image's own postgres user (999) rather than
@@ -368,9 +389,8 @@ _healthPath: [
 							timeoutSeconds:      5
 							failureThreshold:    6
 						}
-						if #config.database.bundled.resources != _|_ {
-							resources: #config.database.bundled.resources
-						}
+						// resources is conditionally set from component level — see
+						// the hoisted guard above the spec block.
 						volumeMounts: data: _volumes.data & {
 							mountPath: #config.database.bundled.storage.mountPath
 						}

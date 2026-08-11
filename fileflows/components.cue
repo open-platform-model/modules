@@ -16,9 +16,9 @@ package fileflows
 import (
 	"list"
 
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // NOTE ON ENFORCING accessToken — the obvious spelling does not work.
@@ -282,8 +282,101 @@ import (
 		if !_hwEnabled {
 			_hwClaims: {}
 		}
+
 		if _hwEnabled {
 			_hwClaims: (#GpuClaims & {#in: #config.hardwareAcceleration.devices}).out
+		}
+
+		// Conditional struct- and list-valued spec fields, HOISTED to component
+		// level rather than guarded inside the spec block — the in-spec form
+		// trips the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+
+		// The GPU claim is unified INTO whatever the instance set for
+		// cpu/memory. The catalog emits each claim to requests AND limits,
+		// which is what Kubernetes requires for an extended resource.
+		if #config.resources != _|_ {
+			spec: statefulWorkload: container: resources: #config.resources
+		}
+		if _hwEnabled {
+			spec: statefulWorkload: container: resources: gpus: _hwClaims
+		}
+
+		// NVIDIA only — Intel needs nothing here.
+		//
+		// ⚠ NVIDIA_VISIBLE_DEVICES is deliberately NOT set, even though every
+		// upstream Docker example sets it to `all`. Under Kubernetes the device
+		// plugin owns that variable — it writes the UUID of the GPU it
+		// allocated into the container's environment. Setting it in the pod
+		// spec overrides that allocation and hands the container every GPU on
+		// the node, quietly defeating the scheduler's accounting.
+		if _hwNvidia {
+			spec: statefulWorkload: container: env: NVIDIA_DRIVER_CAPABILITIES: {
+				name:  "NVIDIA_DRIVER_CAPABILITIES"
+				value: #config.hardwareAcceleration.driverCapabilities
+			}
+		}
+
+		if #config.ffmpegInjection != _|_ {
+			// Built fresh rather than unified from _volumes, so readOnly can be
+			// true here without conflicting with the volume's own readOnly:
+			// false — the init container has to write the tree before this
+			// container may read it.
+			spec: statefulWorkload: container: volumeMounts: "ffmpeg-bin": {
+				name: "ffmpeg-bin"
+				emptyDir: {}
+				mountPath: #config.ffmpegInjection.path
+				readOnly:  true
+			}
+
+			// Scratch space for the injected FFmpeg tree. emptyDir, not a PVC:
+			// it is rebuilt from the donor image on every start, so persisting
+			// it would only let a stale copy outlive the image pin that
+			// produced it.
+			spec: statefulWorkload: volumes: "ffmpeg-bin": {
+				name:     "ffmpeg-bin"
+				readOnly: false
+				emptyDir: {}
+			}
+		}
+
+		// Render-group GIDs, so the process can open /dev/dri/renderD*.
+		// The legacy arm keeps an instance that still sets resources.gpu
+		// directly rendering exactly as it did before.
+		if _hwEnabled {
+			spec: securityContext: supplementalGroups: #config.hardwareAcceleration.renderGroups
+		}
+		if !_hwEnabled if #config.resources != _|_ if #config.resources.gpu != _|_ {
+			spec: securityContext: supplementalGroups: [44, 109]
+		}
+
+		// Passed through verbatim; the schemas are the catalog's own, so there
+		// is nothing to translate.
+		if #config.podScheduling != _|_ {
+			spec: podScheduling: #config.podScheduling
+		}
+		if #config.podMetadata != _|_ {
+			spec: podMetadata: #config.podMetadata
+		}
+
+		// Optional HTTPRoute.
+		if #config.httpRoute != _|_ {
+			spec: httpRoute: {
+				hostnames: #config.httpRoute.hostnames
+				rules: [{
+					matches: [{
+						path: {
+							type:  "PathPrefix"
+							value: "/"
+						}
+					}]
+					backendPort: #config.port
+				}]
+			}
+		}
+		if #config.httpRoute != _|_ if #config.httpRoute.gatewayRef != _|_ {
+			spec: httpRoute: gatewayRef: #config.httpRoute.gatewayRef
 		}
 
 		spec: {
@@ -375,22 +468,9 @@ import (
 							value: #config.timezone
 						}
 
-						// NVIDIA only — Intel needs nothing here.
-						//
-						// ⚠ NVIDIA_VISIBLE_DEVICES is deliberately NOT set,
-						// even though every upstream Docker example sets it to
-						// `all`. Under Kubernetes the device plugin owns that
-						// variable — it writes the UUID of the GPU it allocated
-						// into the container's environment. Setting it in the pod
-						// spec overrides that allocation and hands the container
-						// every GPU on the node, quietly defeating the scheduler's
-						// accounting.
-						if _hwNvidia {
-							NVIDIA_DRIVER_CAPABILITIES: {
-								name:  "NVIDIA_DRIVER_CAPABILITIES"
-								value: #config.hardwareAcceleration.driverCapabilities
-							}
-						}
+						// NVIDIA_DRIVER_CAPABILITIES is conditionally set from
+						// component level — see the hoisted guards above the
+						// spec block.
 					}
 
 					// TCP rather than HTTP on all three: FileFlows publishes no
@@ -441,22 +521,15 @@ import (
 						}
 					}
 
-					// The GPU claim is unified INTO whatever the instance set for
-					// cpu/memory. The catalog emits it to requests AND limits,
-					// which is what Kubernetes requires for an extended resource.
-					if #config.resources != _|_ {
-						resources: #config.resources
-					}
-
-					// Plural: one entry per attached card. The catalog emits each
-					// to requests AND limits, which Kubernetes requires for
-					// extended resources.
-					if _hwEnabled {
-						resources: gpus: _hwClaims
-					}
+					// resources (cpu/memory and GPU claims) are conditionally set
+					// from component level — see the hoisted guards above the
+					// spec block.
 
 					volumeMounts: {
-						for vName, v in _allVolumes {
+						for vName, v in _allVolumes
+						// The optional ffmpeg-bin mount is written from the
+						// hoisted guards above the spec block.
+						{
 							// _volumes[vName] already carries readOnly from the
 							// volume source, so unifying propagates it here — the
 							// two can never disagree by construction.
@@ -464,65 +537,32 @@ import (
 								mountPath: v.mountPath
 							}
 						}
-
-						// Built fresh rather than unified from _volumes, so
-						// readOnly can be true here without conflicting with the
-						// volume's own readOnly: false — the init container has
-						// to write the tree before this container may read it.
-						if #config.ffmpegInjection != _|_ {
-							"ffmpeg-bin": {
-								name: "ffmpeg-bin"
-								emptyDir: {}
-								mountPath: #config.ffmpegInjection.path
-								readOnly:  true
-							}
-						}
 					}
 				}
 
 				// All volumes rendered from _allVolumes via the shared type-switch.
+				// The optional ffmpeg-bin volume is written from the hoisted
+				// guards above the spec block.
 				volumes: {
 					(#VolumeSources & {#in: _allVolumes}).out
-
-					// Scratch space for the injected FFmpeg tree. emptyDir, not
-					// a PVC: it is rebuilt from the donor image on every start,
-					// so persisting it would only let a stale copy outlive the
-					// image pin that produced it.
-					if #config.ffmpegInjection != _|_ {
-						"ffmpeg-bin": {
-							name:     "ffmpeg-bin"
-							readOnly: false
-							emptyDir: {}
-						}
-					}
 				}
 			}
 
-			// Render-group GIDs, so the process can open /dev/dri/renderD*.
-			// The legacy arm keeps an instance that still sets resources.gpu
-			// directly rendering exactly as it did before.
-			if _hwEnabled {
-				securityContext: supplementalGroups: #config.hardwareAcceleration.renderGroups
-			}
-			if !_hwEnabled if #config.resources != _|_ if #config.resources.gpu != _|_ {
-				securityContext: supplementalGroups: [44, 109]
-			}
+			// securityContext.supplementalGroups is conditionally set from
+			// component level — see the hoisted guards above the spec block.
 
 			// Long enough that a SIGTERM arriving mid-transcode is not escalated
 			// to SIGKILL — see the schema field for why that matters.
 			gracefulShutdown: terminationGracePeriodSeconds: #config.terminationGracePeriodSeconds
 
-			// Passed through verbatim; the schemas are the catalog's own, so
-			// there is nothing to translate.
+			// Passed through verbatim; the schema is the catalog's own, so
+			// there is nothing to translate. Scalar, so it may stay in-spec.
 			if _hwNvidia {
 				runtimeClass: #config.hardwareAcceleration.runtimeClass
 			}
-			if #config.podScheduling != _|_ {
-				podScheduling: #config.podScheduling
-			}
-			if #config.podMetadata != _|_ {
-				podMetadata: #config.podMetadata
-			}
+
+			// podScheduling / podMetadata / httpRoute are written from the
+			// hoisted guards above the spec block.
 
 			// Expose the web UI as a Service.
 			expose: {
@@ -530,25 +570,6 @@ import (
 					exposedPort: #config.port
 				}
 				type: #config.serviceType
-			}
-
-			// Optional HTTPRoute.
-			if #config.httpRoute != _|_ {
-				httpRoute: {
-					hostnames: #config.httpRoute.hostnames
-					rules: [{
-						matches: [{
-							path: {
-								type:  "PathPrefix"
-								value: "/"
-							}
-						}]
-						backendPort: #config.port
-					}]
-					if #config.httpRoute.gatewayRef != _|_ {
-						gatewayRef: #config.httpRoute.gatewayRef
-					}
-				}
 			}
 		}
 	}
@@ -682,28 +703,85 @@ import (
 				#config.terminationGracePeriodSeconds,
 			][0]
 
+			// Conditional struct- and list-valued spec fields, HOISTED to
+			// component level rather than guarded inside the spec block — the
+			// in-spec form trips the CUE v0.17 closedness regression on the v2
+			// catalog's closed blueprint spec (catalog CLAUDE.md authoring
+			// pitfall; see docs/cue-guard-closedness-workaround.md there). Do
+			// not inline these.
+
+			// `enabled: false` parks the node: the pod goes away and RELEASES
+			// ITS GPU while the entry stays in git.
+			if _n.enabled {
+				spec: statelessWorkload: scaling: count: 1
+			}
+			if !_n.enabled {
+				spec: statelessWorkload: scaling: count: 0
+			}
+
+			if _n.resources != _|_ {
+				spec: statelessWorkload: container: resources: _n.resources
+			}
+			if _hwEnabled {
+				spec: statelessWorkload: container: resources: gpus: _hwClaims
+			}
+
+			if _n.runners != _|_ {
+				spec: statelessWorkload: container: env: NodeRunnerCount: {
+					name:  "NodeRunnerCount"
+					value: "\(_n.runners)"
+				}
+			}
+
+			// NVIDIA only. NVIDIA_VISIBLE_DEVICES stays unset for the same
+			// reason as on the server: the device plugin owns it, and setting
+			// it hands the container every GPU on the host.
+			if _hwNvidia {
+				spec: statelessWorkload: container: env: NVIDIA_DRIVER_CAPABILITIES: {
+					name:  "NVIDIA_DRIVER_CAPABILITIES"
+					value: _n.hardwareAcceleration.driverCapabilities
+				}
+			}
+
+			if #config.ffmpegInjection != _|_ {
+				spec: volumes: "ffmpeg-bin": {
+					name:     "ffmpeg-bin"
+					readOnly: false
+					emptyDir: {}
+				}
+
+				// Built fresh rather than unified from _volumes, so readOnly
+				// can be true here without conflicting with the volume's own
+				// readOnly: false.
+				spec: statelessWorkload: container: volumeMounts: "ffmpeg-bin": {
+					name: "ffmpeg-bin"
+					emptyDir: {}
+					mountPath: #config.ffmpegInjection.path
+					readOnly:  true
+				}
+			}
+
+			if _hwEnabled {
+				spec: securityContext: supplementalGroups: _n.hardwareAcceleration.renderGroups
+			}
+
+			if _n.podScheduling != _|_ {
+				spec: podScheduling: _n.podScheduling
+			}
+			if _n.podMetadata != _|_ {
+				spec: podMetadata: _n.podMetadata
+			}
+
 			spec: {
+				// The optional ffmpeg-bin volume is written from the hoisted
+				// guards above the spec block.
 				volumes: {
 					(#VolumeSources & {#in: _allVolumes}).out
-
-					if #config.ffmpegInjection != _|_ {
-						"ffmpeg-bin": {
-							name:     "ffmpeg-bin"
-							readOnly: false
-							emptyDir: {}
-						}
-					}
 				}
 
 				statelessWorkload: {
-					// `enabled: false` parks the node: the pod goes away and
-					// RELEASES ITS GPU while the entry stays in git.
-					if _n.enabled {
-						scaling: count: 1
-					}
-					if !_n.enabled {
-						scaling: count: 0
-					}
+					// scaling.count is written from the hoisted enabled/parked
+					// guards above the spec block.
 					restartPolicy: "Always"
 
 					// ⚠ RECREATE, NOT ROLLINGUPDATE, and this is not a style
@@ -816,12 +894,8 @@ import (
 								value: _n.temp.mountPath
 							}
 
-							if _n.runners != _|_ {
-								NodeRunnerCount: {
-									name:  "NodeRunnerCount"
-									value: "\(_n.runners)"
-								}
-							}
+							// The optional NodeRunnerCount is written from the
+							// hoisted guards above the spec block.
 
 							// Sent as an x-token header when the node registers.
 							//
@@ -838,61 +912,39 @@ import (
 								from: #config.accessToken
 							}
 
-							// NVIDIA only. NVIDIA_VISIBLE_DEVICES stays unset for
-							// the same reason as on the server: the device plugin
-							// owns it, and setting it hands the container every
-							// GPU on the host.
-							if _hwNvidia {
-								NVIDIA_DRIVER_CAPABILITIES: {
-									name:  "NVIDIA_DRIVER_CAPABILITIES"
-									value: _n.hardwareAcceleration.driverCapabilities
-								}
-							}
+							// NVIDIA_DRIVER_CAPABILITIES is conditionally set
+							// from component level — see the hoisted guards
+							// above the spec block.
 						}
 
-						if _n.resources != _|_ {
-							resources: _n.resources
-						}
-						if _hwEnabled {
-							resources: gpus: _hwClaims
-						}
+						// resources (cpu/memory and GPU claims) are conditionally
+						// set from component level — see the hoisted guards above
+						// the spec block.
 
 						volumeMounts: {
-							for vName, v in _allVolumes {
+							for vName, v in _allVolumes
+							// The optional ffmpeg-bin mount is written from the
+							// hoisted guards above the spec block.
+							{
 								(vName): _volumes[vName] & {
 									mountPath: v.mountPath
-								}
-							}
-
-							// Built fresh rather than unified from _volumes, so
-							// readOnly can be true here without conflicting with
-							// the volume's own readOnly: false.
-							if #config.ffmpegInjection != _|_ {
-								"ffmpeg-bin": {
-									name: "ffmpeg-bin"
-									emptyDir: {}
-									mountPath: #config.ffmpegInjection.path
-									readOnly:  true
 								}
 							}
 						}
 					}
 				}
 
-				if _hwEnabled {
-					securityContext: supplementalGroups: _n.hardwareAcceleration.renderGroups
-				}
+				// securityContext.supplementalGroups is conditionally set from
+				// component level — see the hoisted guards above the spec block.
 
 				gracefulShutdown: terminationGracePeriodSeconds: _grace
 
-				if _hwNvidia {
+				// Scalar, so it may stay in-spec.
+				if _hwNvidia
+				// podScheduling / podMetadata are written from the hoisted
+				// guards above the spec block.
+				{
 					runtimeClass: _n.hardwareAcceleration.runtimeClass
-				}
-				if _n.podScheduling != _|_ {
-					podScheduling: _n.podScheduling
-				}
-				if _n.podMetadata != _|_ {
-					podMetadata: _n.podMetadata
 				}
 			}
 		}

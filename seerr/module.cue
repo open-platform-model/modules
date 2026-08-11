@@ -3,25 +3,32 @@
 // - module.cue:     metadata and config schema
 // - components.cue: component definitions (catalog_opm blueprints/traits)
 //
-// Rebased onto the OPM core catalog (opmodel.dev/catalogs/opm@v1) and
-// simplified: the K8up backup, external PostgreSQL, and API-key-secret options
-// were dropped. Seerr stores its settings in a SQLite database on the config
-// PVC; service integrations are configured via the web UI after deploy.
+// Rebased onto the OPM core catalog and simplified: the K8up backup, external
+// PostgreSQL, and API-key-secret options were dropped. Seerr stores its
+// settings in a SQLite database on the config PVC; service integrations are
+// configured via the web UI after deploy.
+//
+// OPM v2 line: path major v2 (the v1 train publishes this registry path at
+// major v1 — cross-train major separation), core@v2 identity reshape
+// (complete modulePath with major, identity/ package, derived fqn), and the
+// version-segment catalog imports (resources/v1beta1 etc.).
 package seerr
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 // Module definition
 m.#Module
 
-// Module metadata
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
 	name:        "seerr"
-	version:     "1.0.0"
+	modulePath:  "opmodel.dev/modules/seerr@v2"
+	version:     "2.0.0"
 	description: "Seerr media request manager - request and manage media for Jellyfin, Plex, and Emby"
 }
 

@@ -5,8 +5,8 @@
 
 A real-world single-component stateful application demonstrating persistent storage, health checks, dynamic volume provisioning, and conditional configuration.
 
-> **v2 — rebased onto the OPM core catalog** (`opmodel.dev/catalogs/opm@v1`,
-> module path `opmodel.dev/modules/jellyfin@v2`). The component now composes the
+> **v2 — rebased onto the OPM core catalog** (now `opmodel.dev/catalogs/opm@v2`,
+> module path `opmodel.dev/modules/jellyfin@v3` on the v2 line). The component now composes the
 > catalog's `#StatefulWorkload` blueprint plus the `#Expose`, `#SecurityContext`,
 > `#ConfigMaps`, and (optional) `#HttpRoute` traits. The previous K8up backup
 > feature was dropped — the core catalog has no backup resource. Config storage,
@@ -152,8 +152,8 @@ metadata:
   namespace: jellyfin
 spec:
   module:
-    path: opmodel.dev/modules/jellyfin@v2
-    version: v2.0.0
+    path: opmodel.dev/modules/jellyfin@v3
+    version: v3.0.0
   serviceAccountName: opm-applier
   prune: true
   values:

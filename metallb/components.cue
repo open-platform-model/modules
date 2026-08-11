@@ -17,10 +17,10 @@
 package metallb
 
 import (
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
-	exp "opmodel.dev/catalogs/opm_experimental/resources"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
+	exp "opmodel.dev/catalogs/opm/resources/v1alpha1"
 )
 
 #components: {
@@ -128,6 +128,15 @@ import (
 		tr.#WorkloadIdentity
 		tr.#GracefulShutdown
 
+		// Conditional struct-valued spec field, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline this.
+		if #config.controller.resources != _|_ {
+			spec: statelessWorkload: container: resources: #config.controller.resources
+		}
+
 		spec: {
 			statelessWorkload: {
 				scaling: count: #config.controller.replicas
@@ -181,9 +190,8 @@ import (
 						initialDelaySeconds: 10
 					}
 
-					if #config.controller.resources != _|_ {
-						resources: #config.controller.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guard above the spec block.
 
 					// Container hardening — matches the chart's container securityContext.
 					securityContext: {
@@ -241,6 +249,12 @@ import (
 		tr.#SecurityContext
 		tr.#WorkloadIdentity
 		tr.#GracefulShutdown
+
+		// Conditional struct-valued spec field, HOISTED to component level —
+		// same CUE v0.17 closedness workaround as the controller above.
+		if #config.speaker.resources != _|_ {
+			spec: daemonWorkload: container: resources: #config.speaker.resources
+		}
 
 		spec: {
 			daemonWorkload: {
@@ -317,9 +331,8 @@ import (
 						}
 					}
 
-					if #config.speaker.resources != _|_ {
-						resources: #config.speaker.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guard above the spec block.
 
 					// Memberlist secret key — mounted from the OPM-managed Secret.
 					// excludel2.yaml lands in /etc/metallb, where the speaker reads it.

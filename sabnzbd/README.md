@@ -3,7 +3,7 @@
 Single stateful component: a config PVC, an optional downloads mount, a web Service, health
 checks and an optional Gateway API HTTPRoute.
 
-`opmodel.dev/modules/sabnzbd@v1` · pins `catalogs/opm@v1.0.0-alpha.6` + `core@v1.0.0-alpha.3`.
+`opmodel.dev/modules/sabnzbd@v2` · pins `catalogs/opm@v2.0.0-alpha.2` + `core@v2.0.0-alpha.4`.
 
 Shares the identity model of the `radarr` / `sonarr` modules — `USER nobody:nogroup`, no
 PUID/PGID, no s6-overlay, so identity is `runAsUser`/`runAsGroup`/`fsGroup` and no root init

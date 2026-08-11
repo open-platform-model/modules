@@ -6,8 +6,8 @@ Exposes NVIDIA GPUs to Kubernetes as schedulable `nvidia.com/gpu` resources.
 |---|---|
 | Upstream | [NVIDIA/k8s-device-plugin](https://github.com/NVIDIA/k8s-device-plugin) |
 | Pinned release | `v0.19.3` |
-| Registry path | `opmodel.dev/modules/nvidia_device_plugin@v1` |
-| Catalog | `opmodel.dev/catalogs/opm@v1` ≥ `v1.0.0-alpha.7` |
+| Registry path | `opmodel.dev/modules/nvidia_device_plugin@v2` |
+| Catalog | `opmodel.dev/catalogs/opm@v2` ≥ `v2.0.0-alpha.2` |
 
 ## Architecture
 

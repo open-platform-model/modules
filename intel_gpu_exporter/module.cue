@@ -38,18 +38,20 @@
 package intel_gpu_exporter
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 // Module definition
 m.#Module
 
-// Module metadata
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
-	name:        "intel-gpu-exporter"
-	version:     "1.0.0"
+	name:        "intel_gpu_exporter"
+	modulePath:  "opmodel.dev/modules/intel_gpu_exporter@v2"
+	version:     "2.0.0"
 	description: "Intel GPU exporter — republishes intel_gpu_top engine statistics for an i915 GPU as Prometheus metrics"
 }
 

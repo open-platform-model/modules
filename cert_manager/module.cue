@@ -5,7 +5,7 @@
 // namespace:
 // - module.cue:     metadata and config schema
 // - components.cue: component definitions (catalog_opm blueprints/traits +
-//                   catalog_opm_experimental #Namespaces / webhook resources)
+//                   the v1alpha1 #Namespaces / webhook resources)
 // - crds_data.cue:  vendored upstream CRDs (generated from crds/*.yaml)
 //
 // https://cert-manager.io | https://github.com/cert-manager/cert-manager
@@ -22,16 +22,19 @@
 package cert_manager
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 m.#Module
 
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
-	name:        "cert-manager"
-	version:     "1.1.0"
+	name:        "cert_manager"
+	modulePath:  "opmodel.dev/modules/cert_manager@v2"
+	version:     "2.0.0"
 	description: "cert-manager X.509 certificate manager for Kubernetes — deploys controller, webhook, cainjector, CRDs, webhook configurations, and full RBAC"
 }
 
