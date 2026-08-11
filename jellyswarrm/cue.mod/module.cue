@@ -1,0 +1,15 @@
+module: "opmodel.dev/modules/jellyswarrm@v2"
+language: {
+	version: "v0.17.0"
+}
+source: {
+	kind: "self"
+}
+deps: {
+	"opmodel.dev/catalogs/opm@v2": {
+		v: "v2.0.0-alpha.2"
+	}
+	"opmodel.dev/core@v2": {
+		v: "v2.0.0-alpha.4"
+	}
+}
