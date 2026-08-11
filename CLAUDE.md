@@ -112,6 +112,7 @@ modules/
 | --- | --- |
 | `jellyfin/` | Jellyfin media server |
 | `jellystat/` | Jellystat playback-statistics dashboard (bundled or external PostgreSQL) |
+| `jellyswarrm/` | Jellyswarrm proxy — merges multiple Jellyfin servers into one virtual endpoint (CUE-rendered TOML config; see its DEPLOYMENT_NOTES.md) |
 | `seerr/` | Jellyseerr media request manager |
 | `web_app/` | Generic static/dynamic web application module |
 | `metallb/` | MetalLB load-balancer (v0.16.1) — controller, speaker, CRDs, RBAC, PSS-privileged namespace |
