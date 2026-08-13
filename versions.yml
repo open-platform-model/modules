@@ -2,6 +2,8 @@
 # Format: {version: vMAJOR.MINOR.PATCH, checksum: sha256}
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart
 
+apprise:
+  version: v2.0.0
 cert_manager:
   version: v2.0.0
 fileflows:

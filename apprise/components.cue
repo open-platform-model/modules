@@ -7,9 +7,9 @@
 package apprise
 
 import (
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	res "opmodel.dev/catalogs/opm/resources"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // #components contains component definitions.
@@ -56,6 +56,69 @@ import (
 		// APPRISE_CONFIG_DIR to it.
 		_configDir: "/config"
 
+		// Conditional struct-valued spec fields, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+		//
+		// Upstream ignores the deny list whenever an allow list is present, so
+		// only one of the two is ever emitted — writing both would imply they
+		// compose.
+		if #config.allowServices != _|_ {
+			spec: statelessWorkload: container: env: APPRISE_ALLOW_SERVICES: {
+				name:  "APPRISE_ALLOW_SERVICES"
+				value: #config.allowServices
+			}
+		}
+		if #config.allowServices == _|_ {
+			spec: statelessWorkload: container: env: APPRISE_DENY_SERVICES: {
+				name:  "APPRISE_DENY_SERVICES"
+				value: #config.denyServices
+			}
+		}
+		if #config.baseUrl != _|_ {
+			spec: statelessWorkload: container: env: APPRISE_BASE_URL: {
+				name:  "APPRISE_BASE_URL"
+				value: #config.baseUrl
+			}
+		}
+		if #config.webhookUrl != _|_ {
+			spec: statelessWorkload: container: env: APPRISE_WEBHOOK_URL: {
+				name:  "APPRISE_WEBHOOK_URL"
+				value: #config.webhookUrl
+			}
+		}
+
+		// Credential-bearing, so it arrives from a Secret rather than the
+		// manifest.
+		if #config.mode == "stateless" if #config.statelessUrls != _|_ {
+			spec: statelessWorkload: container: env: APPRISE_STATELESS_URLS: {
+				name: "APPRISE_STATELESS_URLS"
+				from: #config.statelessUrls
+			}
+		}
+		if #config.resources != _|_ {
+			spec: statelessWorkload: container: resources: #config.resources
+		}
+		if #config.httpRoute != _|_ {
+			spec: httpRoute: {
+				hostnames: #config.httpRoute.hostnames
+				rules: [{
+					matches: [{
+						path: {
+							type:  "PathPrefix"
+							value: "/"
+						}
+					}]
+					backendPort: #config.port
+				}]
+			}
+		}
+		if #config.httpRoute != _|_ if #config.httpRoute.gatewayRef != _|_ {
+			spec: httpRoute: gatewayRef: #config.httpRoute.gatewayRef
+		}
+
 		spec: {
 			statelessWorkload: {
 				// Safe to scale: every replica mounts the same read-only
@@ -80,6 +143,11 @@ import (
 					}
 
 					env: {
+						// APPRISE_ALLOW_SERVICES / APPRISE_DENY_SERVICES,
+						// APPRISE_BASE_URL, APPRISE_WEBHOOK_URL and
+						// APPRISE_STATELESS_URLS are conditionally set from
+						// component level — see the hoisted guards above the
+						// spec block.
 						TZ: {
 							name:  "TZ"
 							value: #config.timezone
@@ -170,44 +238,6 @@ import (
 								value: "0"
 							}
 						}
-
-						// Upstream ignores the deny list whenever an allow
-						// list is present, so only one of the two is ever
-						// emitted — writing both would imply they compose.
-						if #config.allowServices != _|_ {
-							APPRISE_ALLOW_SERVICES: {
-								name:  "APPRISE_ALLOW_SERVICES"
-								value: #config.allowServices
-							}
-						}
-						if #config.allowServices == _|_ {
-							APPRISE_DENY_SERVICES: {
-								name:  "APPRISE_DENY_SERVICES"
-								value: #config.denyServices
-							}
-						}
-
-						if #config.baseUrl != _|_ {
-							APPRISE_BASE_URL: {
-								name:  "APPRISE_BASE_URL"
-								value: #config.baseUrl
-							}
-						}
-						if #config.webhookUrl != _|_ {
-							APPRISE_WEBHOOK_URL: {
-								name:  "APPRISE_WEBHOOK_URL"
-								value: #config.webhookUrl
-							}
-						}
-
-						// Credential-bearing, so it arrives from a Secret
-						// rather than the manifest.
-						if #config.mode == "stateless" if #config.statelessUrls != _|_ {
-							APPRISE_STATELESS_URLS: {
-								name: "APPRISE_STATELESS_URLS"
-								from: #config.statelessUrls
-							}
-						}
 					}
 
 					// 200 when healthy, 417 when Apprise cannot write where
@@ -236,9 +266,8 @@ import (
 						failureThreshold:    3
 					}
 
-					if #config.resources != _|_ {
-						resources: #config.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guards above the spec block.
 
 					if #config.mode == "stateful" {
 						volumeMounts: config: spec.volumes.config & {
@@ -277,24 +306,8 @@ import (
 				type: #config.serviceType
 			}
 
-			// Optional HTTPRoute.
-			if #config.httpRoute != _|_ {
-				httpRoute: {
-					hostnames: #config.httpRoute.hostnames
-					rules: [{
-						matches: [{
-							path: {
-								type:  "PathPrefix"
-								value: "/"
-							}
-						}]
-						backendPort: #config.port
-					}]
-					if #config.httpRoute.gatewayRef != _|_ {
-						gatewayRef: #config.httpRoute.gatewayRef
-					}
-				}
-			}
+			// The optional HTTPRoute is written from the hoisted guards above
+			// the spec block.
 		}
 	}
 }

@@ -27,21 +27,28 @@
 // its own credential (discord://id/token, mailto://user:pass@host), and a
 // config file is a single blob that cannot carry a secretKeyRef. CUE owns
 // which keys exist and how they are mounted; the bodies live in the Secret.
+//
+// OPM v2 line: path major v2 (the v1 train publishes this registry path at
+// major v1 — cross-train major separation), core@v2 identity reshape
+// (complete modulePath with major, identity/ package, derived fqn), and the
+// version-segment catalog imports (resources/v1beta1 etc.).
 package apprise
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 // Module definition
 m.#Module
 
-// Module metadata
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
 	name:        "apprise"
-	version:     "1.0.0"
+	modulePath:  "opmodel.dev/modules/apprise@v2"
+	version:     "2.0.0"
 	description: "Apprise API - notification router fanning one HTTP call out to 130+ services"
 }
 
@@ -96,6 +103,11 @@ metadata: {
 	// Default targets for /notify calls that carry no URLs and no {KEY}.
 	// Only meaningful when mode is "stateless"; the value is a set of
 	// credential-bearing Apprise URLs, hence a Secret.
+	//
+	// The v2 #Secret is a disjunction: the instance either supplies `value`
+	// (a literal — the transformer creates the Kubernetes Secret) or
+	// `secretName` + `remoteKey` (a reference to a pre-existing Secret; OPM
+	// emits no resource and only wires the secretKeyRef).
 	statelessUrls?: res.#Secret & {
 		$secretName:  string | *"apprise"
 		$dataKey:     string | *"stateless-urls"

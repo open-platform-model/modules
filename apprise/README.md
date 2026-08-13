@@ -6,6 +6,10 @@ Telegram, and so on.
 
 Image pinned to `v1.5.1` by digest.
 
+> This is the OPM **v2-line** authoring of the module (`opmodel.dev/modules/apprise` at
+> path major v2, core v2 + catalog v2). It renders the same workload as the v1-train
+> module — verified by diffing the rendered component spec.
+
 > This wraps `caronc/apprise-api`, the REST service — not the Apprise Python library of
 > the same name. The Docker image is confusingly called `caronc/apprise` either way.
 
