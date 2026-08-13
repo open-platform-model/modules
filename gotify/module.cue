@@ -15,21 +15,28 @@
 // of ntfy's auth-users. This module owns the server settings and the
 // bootstrap admin account, and nothing beyond that. Getting a token for an
 // alerting system is a manual step, by design of the upstream.
+//
+// OPM v2 line: path major v2 (the v1 train publishes this registry path at
+// major v1 — cross-train major separation), core@v2 identity reshape
+// (complete modulePath with major, identity/ package, derived fqn), and the
+// version-segment catalog imports (resources/v1beta1 etc.).
 package gotify
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 // Module definition
 m.#Module
 
-// Module metadata
+// Module metadata — modulePath is the COMPLETE CUE module path including the
+// major, byte-identical to cue.mod's module field and identity/identity.cue;
+// fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
-	modulePath:  "opmodel.dev/modules"
 	name:        "gotify"
-	version:     "1.0.0"
+	modulePath:  "opmodel.dev/modules/gotify@v2"
+	version:     "2.0.0"
 	description: "Gotify - self-hosted push notification server with REST API and WebSocket streaming"
 }
 
@@ -71,6 +78,11 @@ metadata: {
 	// database, where it must be changed through the UI. The upstream default
 	// password is literally "admin", so supplying a Secret is not optional in
 	// any deployment reachable from outside the cluster.
+	//
+	// The v2 #Secret is a disjunction: the instance either supplies `value`
+	// (a literal — the transformer creates the Kubernetes Secret) or
+	// `secretName` + `remoteKey` (a reference to a pre-existing Secret; OPM
+	// emits no resource and only wires the secretKeyRef).
 	defaultUser: {
 		name: string | *"admin"
 		password: res.#Secret & {

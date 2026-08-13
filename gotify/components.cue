@@ -7,8 +7,8 @@
 package gotify
 
 import (
-	bp "opmodel.dev/catalogs/opm/blueprints/workload"
-	tr "opmodel.dev/catalogs/opm/traits"
+	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
+	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
 // #components contains component definitions.
@@ -38,6 +38,45 @@ import (
 		// wherever the volume is mounted.
 		_dataDir: #config.storage.data.mountPath
 
+		// Conditional struct-valued spec fields, HOISTED to component level
+		// rather than guarded inside the spec block — the in-spec form trips
+		// the CUE v0.17 closedness regression on the v2 catalog's closed
+		// blueprint spec (catalog CLAUDE.md authoring pitfall; see
+		// docs/cue-guard-closedness-workaround.md there). Do not inline these.
+		//
+		// Escape hatch — OIDC, CORS, trusted proxies, and any other GOTIFY_*
+		// option this schema does not model.
+		if #config.extraEnv != _|_ {
+			spec: statefulWorkload: container: env: {
+				for k, v in #config.extraEnv {
+					(k): {
+						name:  k
+						value: v
+					}
+				}
+			}
+		}
+		if #config.resources != _|_ {
+			spec: statefulWorkload: container: resources: #config.resources
+		}
+		if #config.httpRoute != _|_ {
+			spec: httpRoute: {
+				hostnames: #config.httpRoute.hostnames
+				rules: [{
+					matches: [{
+						path: {
+							type:  "PathPrefix"
+							value: "/"
+						}
+					}]
+					backendPort: #config.port
+				}]
+			}
+		}
+		if #config.httpRoute != _|_ if #config.httpRoute.gatewayRef != _|_ {
+			spec: httpRoute: gatewayRef: #config.httpRoute.gatewayRef
+		}
+
 		spec: {
 			statefulWorkload: {
 				// Single replica — the default SQLite database sits on a
@@ -61,6 +100,8 @@ import (
 					}
 
 					env: {
+						// The extraEnv escape hatch is written from component
+						// level — see the hoisted guards above the spec block.
 						TZ: {
 							name:  "TZ"
 							value: #config.timezone
@@ -125,21 +166,11 @@ import (
 								value: "\(_dataDir)/gotify.db"
 							}
 						}
+
 						if #config.database.dialect != "sqlite3" {
 							GOTIFY_DATABASE_CONNECTION: {
 								name: "GOTIFY_DATABASE_CONNECTION"
 								from: #config.database.connection
-							}
-						}
-
-						// Escape hatch — OIDC, CORS, trusted proxies, and any
-						// other GOTIFY_* option this schema does not model.
-						if #config.extraEnv != _|_ {
-							for k, v in #config.extraEnv {
-								(k): {
-									name:  k
-									value: v
-								}
 							}
 						}
 					}
@@ -169,9 +200,8 @@ import (
 						failureThreshold:    3
 					}
 
-					if #config.resources != _|_ {
-						resources: #config.resources
-					}
+					// resources is conditionally set from component level — see
+					// the hoisted guards above the spec block.
 
 					volumeMounts: data: _volumes.data & {
 						mountPath: _dataDir
@@ -216,24 +246,8 @@ import (
 				type: #config.serviceType
 			}
 
-			// Optional HTTPRoute.
-			if #config.httpRoute != _|_ {
-				httpRoute: {
-					hostnames: #config.httpRoute.hostnames
-					rules: [{
-						matches: [{
-							path: {
-								type:  "PathPrefix"
-								value: "/"
-							}
-						}]
-						backendPort: #config.port
-					}]
-					if #config.httpRoute.gatewayRef != _|_ {
-						gatewayRef: #config.httpRoute.gatewayRef
-					}
-				}
-			}
+			// The optional HTTPRoute is written from the hoisted guards above
+			// the spec block.
 		}
 	}
 }

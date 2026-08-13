@@ -7,6 +7,10 @@ Android app (Play and F-Droid), and a CLI.
 
 Image pinned to `3.0.0` by digest.
 
+> This is the OPM **v2-line** authoring of the module (`opmodel.dev/modules/gotify` at
+> path major v2, core v2 + catalog v2). It renders the same workload as the v1-train
+> module — verified by diffing the rendered component spec.
+
 > **No iOS app.** Gotify is Android and web only. If you need iPhone delivery, use the
 > `ntfy` module instead — it has native apps for both platforms.
 
