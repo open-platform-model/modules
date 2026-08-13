@@ -115,6 +115,7 @@ modules/
 | `jellyswarrm/` | Jellyswarrm proxy — merges multiple Jellyfin servers into one virtual endpoint (CUE-rendered TOML config; see its DEPLOYMENT_NOTES.md) |
 | `seerr/` | Jellyseerr media request manager |
 | `ntfy/` | ntfy push-notification server — CUE-rendered `server.yml`, provisioned users/ACLs/tokens |
+| `gotify/` | Gotify push-notification server — env-only config; applications/tokens are UI-managed, not declarative |
 | `web_app/` | Generic static/dynamic web application module |
 | `metallb/` | MetalLB load-balancer (v0.16.1) — controller, speaker, CRDs, RBAC, PSS-privileged namespace |
 | `cert_manager/` | cert-manager control plane (v1.21.0) — controller/webhook/cainjector, CRDs, webhook configs, RBAC |

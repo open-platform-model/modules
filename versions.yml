@@ -6,6 +6,8 @@ cert_manager:
   version: v1.1.1
 fileflows:
   version: v1.1.2
+gotify:
+  version: v1.0.0
 intel_gpu_device_plugin:
   version: v1.0.1
 intel_gpu_exporter:
