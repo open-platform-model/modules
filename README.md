@@ -8,7 +8,7 @@ This repo is split by OPM generation because the lines cannot share one CUE tool
 
 | Branch | OPM line | CUE language | Catalog dependencies | Status |
 | --- | --- | --- | --- | --- |
-| `main` (this one) | v2 | `v0.17.0` | `opmodel.dev/core@v2`, `opmodel.dev/catalogs/opm@v2` | Active development. The fleet is authored against the v2 prereleases; **publish-on-push is disabled** until the v2 fleet publishes (a deliberate enablement step). |
+| `main` (this one) | v2 | `v0.17.0` | `opmodel.dev/core@v2`, `opmodel.dev/catalogs/opm@v2` | Active development. Versions are decided per module by release-please from conventional commits and published with `opm module publish`; **publish-on-push is disabled** until the v2 fleet publishes (a deliberate enablement step — the publish job is dispatch-only until then). |
 | `v1` | v1 | `v0.17.0` | `opmodel.dev/core@v1`, `opmodel.dev/catalogs/opm@v1` | **Protected live maintenance line** — publishes on push (checksum-driven patch bumps via `versions.yml`). Fixes for the published v1 fleet go here. |
 | `v0_legacy` | v0 | `v0.16.0` | `opmodel.dev/core/v1alpha1`, `opmodel.dev/opm/v1alpha1` | Frozen legacy line, maintenance only. |
 
@@ -32,5 +32,5 @@ New modules land here on `main` against the v2 line. A registry path may exist o
 
 - `CLAUDE.md` — repo working rules and agent guidance (read first; includes the branch rules above in normative form).
 - `DESIGN_PATTERNS.md` — reusable CUE patterns across modules.
-- `Taskfile.yml` — `task fmt` / `task vet` / `task check` / `task publish`.
-- `versions.yml` — published version + checksum registry for this branch's modules.
+- `Taskfile.yml` — `task fmt` / `task vet` / `task tidy` / `task check`. There is no publish task: publishing is CI's, through `opm module publish`.
+- `release-please-config.json` / `.release-please-manifest.json` — per-module version decisions. release-please writes the manifest and the changelogs; `opm module version set` is the only writer of a module's `identity/identity.cue`.

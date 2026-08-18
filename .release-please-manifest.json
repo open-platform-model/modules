@@ -1,0 +1,22 @@
+{
+  "apprise": "2.0.0",
+  "cert_manager": "2.0.0",
+  "fileflows": "2.0.0",
+  "gotify": "2.0.0",
+  "intel_gpu_device_plugin": "2.0.0",
+  "intel_gpu_exporter": "2.0.0",
+  "istio_ambient": "2.0.0",
+  "jellyfin": "3.0.0",
+  "jellystat": "2.0.0",
+  "jellyswarrm": "2.0.0",
+  "k8up": "3.0.0",
+  "metallb": "2.0.0",
+  "ntfy": "2.0.0",
+  "nvidia_device_plugin": "2.0.0",
+  "nvidia_gpu_exporter": "2.0.0",
+  "radarr": "2.0.0",
+  "sabnzbd": "2.0.0",
+  "seerr": "2.0.0",
+  "sonarr": "2.0.0",
+  "web_app": "1.0.0"
+}
