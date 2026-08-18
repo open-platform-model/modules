@@ -11,6 +11,7 @@
 package web_app
 
 import (
+	id "opmodel.dev/modules/web_app/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
@@ -22,8 +23,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "web_app"
-	modulePath:  "opmodel.dev/modules/web_app@v1"
-	version:     "1.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "Minimal stateless web app — renders a Deployment + Service"
 }
 

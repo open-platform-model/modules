@@ -35,6 +35,7 @@
 package apprise
 
 import (
+	id "opmodel.dev/modules/apprise/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
@@ -47,8 +48,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "apprise"
-	modulePath:  "opmodel.dev/modules/apprise@v2"
-	version:     "2.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "Apprise API - notification router fanning one HTTP call out to 130+ services"
 }
 

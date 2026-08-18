@@ -15,6 +15,7 @@
 package seerr
 
 import (
+	id "opmodel.dev/modules/seerr/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
@@ -27,8 +28,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "seerr"
-	modulePath:  "opmodel.dev/modules/seerr@v2"
-	version:     "2.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "Seerr media request manager - request and manage media for Jellyfin, Plex, and Emby"
 }
 

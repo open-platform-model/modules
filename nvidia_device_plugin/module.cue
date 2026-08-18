@@ -37,6 +37,7 @@
 package nvidia_device_plugin
 
 import (
+	id "opmodel.dev/modules/nvidia_device_plugin/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
@@ -49,8 +50,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "nvidia_device_plugin"
-	modulePath:  "opmodel.dev/modules/nvidia_device_plugin@v2"
-	version:     "2.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "NVIDIA GPU device plugin — exposes NVIDIA GPUs as nvidia.com/gpu resources for Kubernetes workload scheduling"
 }
 

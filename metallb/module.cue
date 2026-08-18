@@ -22,6 +22,7 @@
 package metallb
 
 import (
+	id "opmodel.dev/modules/metallb/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
@@ -34,8 +35,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "metallb"
-	modulePath:  "opmodel.dev/modules/metallb@v2"
-	version:     "2.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "MetalLB bare metal load-balancer for Kubernetes — deploys controller, speaker, CRDs, RBAC, and the metallb-system namespace"
 }
 

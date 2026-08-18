@@ -37,6 +37,7 @@
 package istio_ambient
 
 import (
+	id "opmodel.dev/modules/istio_ambient/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
@@ -48,8 +49,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "istio_ambient"
-	modulePath:  "opmodel.dev/modules/istio_ambient@v2"
-	version:     "2.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "Istio ambient mesh control plane — istiod, istio-cni and ztunnel, with CRDs, admission configuration and RBAC"
 }
 

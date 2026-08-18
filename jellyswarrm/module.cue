@@ -20,6 +20,7 @@
 package jellyswarrm
 
 import (
+	id "opmodel.dev/modules/jellyswarrm/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
@@ -32,8 +33,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "jellyswarrm"
-	modulePath:  "opmodel.dev/modules/jellyswarrm@v2"
-	version:     "2.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "Jellyswarrm reverse proxy - combine multiple Jellyfin servers into one virtual Jellyfin endpoint"
 }
 

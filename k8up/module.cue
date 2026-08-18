@@ -30,6 +30,7 @@
 package k8up
 
 import (
+	id "opmodel.dev/modules/k8up/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
@@ -43,8 +44,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "k8up"
-	modulePath:  "opmodel.dev/modules/k8up@v3"
-	version:     "3.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "K8up restic-based backup operator for Kubernetes — deploys the operator, all 9 CRDs, and the manager/executor/edit/view ClusterRoles"
 }
 
