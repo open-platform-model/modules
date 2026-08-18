@@ -92,7 +92,7 @@ Read these on entry:
 
 - `CLAUDE.md` — repo working rules (this file).
 - `DESIGN_PATTERNS.md` (if present) — reusable patterns across modules (catalog schema helpers, volume type-switch, ConfigMap rendering, sidecar container pattern). Read before writing any new CUE.
-- `Taskfile.yml` — authoritative format/validate/publish entrypoints.
+- `Taskfile.yml` — authoritative format/validate entrypoints (publishing is CI's; see Registry).
 - `catalog/CLAUDE.md` — referenced CUE style guidelines.
 
 ## Repository Layout
@@ -100,6 +100,8 @@ Read these on entry:
 ```text
 modules/
   <module-name>/          — OPM module definition
+    cue.mod/module.cue    — CUE module manifest (opmodel.dev/modules/<name> at its major)
+    identity/identity.cue — committed identity package (ModulePath + Version)
     module.cue            — Module metadata and #config schema
     components.cue        — Workload/resource component definitions
     README.md             — Usage, architecture, quick start
@@ -108,27 +110,21 @@ modules/
 
 ### Current modules
 
-| Module | Description |
-| --- | --- |
-| `jellyfin/` | Jellyfin media server |
-| `jellystat/` | Jellystat playback-statistics dashboard (bundled or external PostgreSQL) |
-| `jellyswarrm/` | Jellyswarrm proxy — merges multiple Jellyfin servers into one virtual endpoint; see its DEPLOYMENT_NOTES.md |
-| `seerr/` | Jellyseerr media request manager |
-| `web_app/` | Generic static/dynamic web application module |
-| `metallb/` | MetalLB load-balancer (v0.16.1) — controller, speaker, CRDs, RBAC, PSS-privileged namespace |
-| `cert_manager/` | cert-manager control plane (v1.21.0) — controller/webhook/cainjector, CRDs, webhook configs, RBAC |
-| `cdi/` | Design only — KubeVirt Containerized Data Importer (no CUE yet) |
-| `snapshot_controller/` | Design only — CSI external-snapshotter (no CUE yet) |
+The fleet is the source of truth; this list is generated from it rather than maintained by hand.
 
-The former v0.16 fleet (wolf, metallb, linstor, k8up, …) lives on the `v0_legacy` branch.
+**20 CUE modules** — `apprise/`, `cert_manager/`, `fileflows/`, `gotify/`, `intel_gpu_device_plugin/`, `intel_gpu_exporter/`, `istio_ambient/`, `jellyfin/`, `jellystat/`, `jellyswarrm/`, `k8up/`, `metallb/`, `ntfy/`, `nvidia_device_plugin/`, `nvidia_gpu_exporter/`, `radarr/`, `sabnzbd/`, `seerr/`, `sonarr/`, `web_app/`.
+
+**Design-only (no CUE yet)** — `cdi/`, `snapshot_controller/`.
+
+Each module's own `README.md` describes what it deploys. The v0.16 fleet lives on the `v0_legacy` branch, the live v1 fleet on `v1`.
 
 ## Registry
 
 Follow the Registry Policy in the root `CLAUDE.md`. In this repo that means:
 
-- `fmt` / `vet` / `tidy` / `check` / `versions` read deps (`opmodel.dev/core`, `opmodel.dev/catalogs/*`) from GHCR — no local registry needed.
-- Real releases are published by CI (`.github/workflows/publish.yml`) to GHCR on push to `main` / `v0_legacy`.
-- `task publish` / `task publish:one` are **local publishes to `localhost:5000`** (the task forces a local mapping in-script). Run them **only when the user explicitly asks for a local publish in the current prompt** — never agent-initiated. They require the local registry (`task registry:start` from workspace root).
+- `fmt` / `vet` / `tidy` / `check` read deps (`opmodel.dev/core`, `opmodel.dev/catalogs/*`) from GHCR — no local registry needed.
+- **There is no publish task.** Releases are CI's: release-please decides each module's version from conventional commits, the release workflow writes it with `opm module version set`, and `opm module publish` pushes the committed tree to GHCR. On `main` the publish job is dispatch-only until the v2 fleet republish enables it.
+- A local publish is a gated exception (Registry Policy rule 2): point `OPM_REGISTRY` at `localhost:5000` deliberately and run `opm module publish` yourself. Never agent-initiated.
 
 ## Build And Dev Commands
 
@@ -141,10 +137,7 @@ Run all commands from `modules/`.
 | `task vet CONCRETE=true` | Validate with concreteness check (`-c`) | When checking fully-resolved values |
 | `task tidy` | Tidy dependencies for all modules | After changing imports or updating deps |
 | `task check` | Run `fmt` then `vet` | Pre-commit quality gate |
-| `task versions` | Show version and change status | Before publishing |
-| `task publish` | Publish all changed modules **to the local registry** | Gated — only on explicit user request (see Registry) |
-| `task publish:one MODULE=<name>` | Publish a single module **to the local registry** | Gated — only on explicit user request (see Registry) |
-| `task publish:dry` | Dry run of publish | To preview what would be published |
+| `opm module publish ./<name> --dry-run` | Run every publish gate without pushing | Before opening a PR; CI runs the same per module |
 
 ## CUE Style Guidelines
 
@@ -153,7 +146,7 @@ Follow the CUE style used across the workspace catalog. See `catalog/CLAUDE.md` 
 - `#` prefixes for definitions: `#Module`, `#ContainerResource`.
 - `_` prefixes for hidden fields / scratch bindings.
 - `!` for required, `?` for optional fields, `*` for explicit defaults.
-- Pin `language: version: "v0.17.0"` in `cue.mod/module.cue` (this branch is the OPM v1 / CUE v0.17 line; `v0_legacy` pins `v0.16.0`).
+- Pin `language: version: "v0.17.0"` in `cue.mod/module.cue` (this branch is the OPM v2 / CUE v0.17 line; `v0_legacy` pins `v0.16.0`).
 
 ## Working Style for Agents
 
@@ -161,8 +154,10 @@ Follow the CUE style used across the workspace catalog. See `catalog/CLAUDE.md` 
 
 Before writing any CUE, read `DESIGN_PATTERNS.md` (if present) — it documents the reusable patterns used across all modules in this directory.
 
-1. Create `modules/<name>/` directory.
-2. Write `module.cue` (module metadata + `#config` schema) and `components.cue` (#components).
-3. Add `README.md` with architecture overview, quick start, and configuration reference.
-4. Add `DEPLOYMENT_NOTES.md` as issues are discovered during deployment.
+1. Create `modules/<name>/` — the directory name is the module's snake_case name and must equal the module path's leaf.
+2. Scaffold with `opm mod init opmodel.dev/modules/<name>@v2`, which writes `cue.mod/module.cue` and the `identity/identity.cue` package (`ModulePath` + a defaulted `Version`). Never hand-write identity: `opm module version set` is its only writer.
+3. Write `module.cue` (module metadata + `#config` schema, deriving `modulePath`/`version` from the identity package) and `components.cue` (#components).
+4. Add `README.md` with architecture overview, quick start, and configuration reference; add `DEPLOYMENT_NOTES.md` as issues surface.
+5. Register the module in `release-please-config.json` (`packages`) and seed `.release-please-manifest.json` with its starting version — a module absent from both is never released.
+6. Verify with `opm module publish ./<name> --dry-run` before opening the PR. Commit with a conventional-commit scope naming the module (`feat(<name>): …`); release-please attributes bumps by the files a commit touches.
 

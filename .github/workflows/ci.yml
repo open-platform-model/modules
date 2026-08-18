@@ -1,0 +1,86 @@
+name: CI
+
+# This repo validated nothing on pull requests before the publish cutover: a
+# module that violates a publish gate surfaced only at release time. This runs
+# the same gates `opm module publish` will run, without pushing.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OPM_CLI_VERSION: 'v1.0.0-alpha.11'
+  # Both: `cue`/`task` read CUE_REGISTRY, `opm` reads OPM_REGISTRY only.
+  OPM_REGISTRY: 'opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
+  CUE_REGISTRY: 'opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
+  CUE_VERSION: 'v0.17.1'
+
+jobs:
+  check:
+    name: Validate modules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: cue-lang/setup-cue@a93fa358375740cd8b0078f76355512b9a9769f7 # v1.0.1
+        with:
+          version: ${{ env.CUE_VERSION }}
+
+      - uses: go-task/setup-task@3be4020d13a2ef4f5abb0c02b58ecb2c8e4b0a9a # v2.0.0
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to GHCR
+        # Read-only: resolving each module's core and catalog dependencies.
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Format, vet, tidy check
+        run: task check
+
+      - name: Install opm
+        run: |
+          set -euo pipefail
+          base="https://github.com/open-platform-model/cli/releases/download/${OPM_CLI_VERSION}"
+          curl -fsSLO "${base}/opm-linux-amd64.tar.gz"
+          curl -fsSLO "${base}/checksums.txt"
+          grep ' opm-linux-amd64.tar.gz$' checksums.txt | sha256sum -c -
+          tar -xzf opm-linux-amd64.tar.gz opm
+          sudo install -m 0755 opm /usr/local/bin/opm
+          rm -f opm opm-linux-amd64.tar.gz checksums.txt LICENSE
+
+      # Every gate, no push. A dry run whose ONLY refusal is already-published
+      # still passes: on a PR the committed version may legitimately be live.
+      # Every other refusal fails the check.
+      - name: Publish gates dry-run
+        run: |
+          set -euo pipefail
+          fail=0
+          for dir in */; do
+            name="${dir%/}"
+            [ -d "${name}/cue.mod" ] || continue
+            echo "==> ${name}"
+            if out=$(opm module publish --dry-run "./${name}" 2>&1); then
+              echo "${out}"
+              continue
+            fi
+            echo "${out}"
+            if echo "${out}" | grep -q "already holds" && echo "${out}" | grep -q "1 refusal"; then
+              echo "only refusal is already-published - acceptable outside a release"
+              continue
+            fi
+            echo "::error::${name}: publish gates refused"
+            fail=1
+          done
+          [ "$fail" -eq 0 ]

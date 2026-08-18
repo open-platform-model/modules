@@ -1,0 +1,222 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "a3db48d501bfaff038b0a0e271b0075fa647915e",
+  "include-component-in-tag": true,
+  "tag-separator": "/",
+  "separate-pull-requests": false,
+  "packages": {
+    "apprise": {
+      "release-type": "simple",
+      "component": "modules/apprise",
+      "package-name": "apprise",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "cert_manager": {
+      "release-type": "simple",
+      "component": "modules/cert_manager",
+      "package-name": "cert_manager",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "fileflows": {
+      "release-type": "simple",
+      "component": "modules/fileflows",
+      "package-name": "fileflows",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "gotify": {
+      "release-type": "simple",
+      "component": "modules/gotify",
+      "package-name": "gotify",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "intel_gpu_device_plugin": {
+      "release-type": "simple",
+      "component": "modules/intel_gpu_device_plugin",
+      "package-name": "intel_gpu_device_plugin",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "intel_gpu_exporter": {
+      "release-type": "simple",
+      "component": "modules/intel_gpu_exporter",
+      "package-name": "intel_gpu_exporter",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "istio_ambient": {
+      "release-type": "simple",
+      "component": "modules/istio_ambient",
+      "package-name": "istio_ambient",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "jellyfin": {
+      "release-type": "simple",
+      "component": "modules/jellyfin",
+      "package-name": "jellyfin",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "jellystat": {
+      "release-type": "simple",
+      "component": "modules/jellystat",
+      "package-name": "jellystat",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "jellyswarrm": {
+      "release-type": "simple",
+      "component": "modules/jellyswarrm",
+      "package-name": "jellyswarrm",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "k8up": {
+      "release-type": "simple",
+      "component": "modules/k8up",
+      "package-name": "k8up",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "metallb": {
+      "release-type": "simple",
+      "component": "modules/metallb",
+      "package-name": "metallb",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "ntfy": {
+      "release-type": "simple",
+      "component": "modules/ntfy",
+      "package-name": "ntfy",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "nvidia_device_plugin": {
+      "release-type": "simple",
+      "component": "modules/nvidia_device_plugin",
+      "package-name": "nvidia_device_plugin",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "nvidia_gpu_exporter": {
+      "release-type": "simple",
+      "component": "modules/nvidia_gpu_exporter",
+      "package-name": "nvidia_gpu_exporter",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "radarr": {
+      "release-type": "simple",
+      "component": "modules/radarr",
+      "package-name": "radarr",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "sabnzbd": {
+      "release-type": "simple",
+      "component": "modules/sabnzbd",
+      "package-name": "sabnzbd",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "seerr": {
+      "release-type": "simple",
+      "component": "modules/seerr",
+      "package-name": "seerr",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "sonarr": {
+      "release-type": "simple",
+      "component": "modules/sonarr",
+      "package-name": "sonarr",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "web_app": {
+      "release-type": "simple",
+      "component": "modules/web_app",
+      "package-name": "web_app",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    }
+  },
+  "changelog-sections": [
+    {
+      "type": "feat",
+      "section": "Features"
+    },
+    {
+      "type": "fix",
+      "section": "Bug Fixes"
+    },
+    {
+      "type": "perf",
+      "section": "Performance Improvements"
+    },
+    {
+      "type": "revert",
+      "section": "Reverts"
+    },
+    {
+      "type": "docs",
+      "section": "Documentation",
+      "hidden": true
+    },
+    {
+      "type": "refactor",
+      "section": "Code Refactoring",
+      "hidden": true
+    },
+    {
+      "type": "style",
+      "section": "Styles",
+      "hidden": true
+    },
+    {
+      "type": "test",
+      "section": "Tests",
+      "hidden": true
+    },
+    {
+      "type": "ci",
+      "section": "Continuous Integration",
+      "hidden": true
+    },
+    {
+      "type": "build",
+      "section": "Build System",
+      "hidden": true
+    },
+    {
+      "type": "chore",
+      "section": "Miscellaneous",
+      "hidden": true
+    }
+  ]
+}

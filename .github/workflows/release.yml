@@ -1,0 +1,288 @@
+name: Release
+
+# Versions are decided by release-please, per module, from conventional
+# commits (enhancement 0011 D15 permits this for modules; it does not require
+# it). release-please writes CHANGELOGs and .release-please-manifest.json and
+# NOTHING else — the only writer of identity/identity.cue is `opm module
+# version set`, run by the advance step below. An x-release-please-version
+# annotation pointed at identity.cue would make release-please a second writer
+# beside D3's, which is the drift this design removes.
+#
+# PUBLISHING IS DISABLED ON PUSH. The publish job is workflow_dispatch-only
+# while main is the v2 staging line; widening its condition to the
+# post-release push path is the deliberate enablement step that IS 0010's
+# modules-fleet-republish slice.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run every gate without pushing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Pinned OPM CLI release used for identity writes and publishing; bump
+  # deliberately, never float.
+  OPM_CLI_VERSION: 'v1.0.0-alpha.11'
+  # BOTH are required: `cue` reads CUE_REGISTRY, `opm` reads OPM_REGISTRY
+  # (--registry > OPM_REGISTRY > ~/.opm/config.cue — never CUE_REGISTRY).
+  # With only CUE_REGISTRY set, opm falls through to the runner's personal
+  # config, which happens to work on a bare runner and misleads everywhere else.
+  OPM_REGISTRY: 'opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
+  CUE_REGISTRY: 'opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
+  CUE_VERSION: 'v0.17.1'
+  # Modules whose language.version doesn't match this prefix belong on the
+  # other branch and fail the run.
+  CUE_LANGUAGE_PREFIX: 'v0.17'
+  ORG: 'open-platform-model'
+  # The other train's branch. Both trains may publish the same registry path
+  # (directory names differ, e.g. jellyfin_v016/ vs jellyfin/ both publish
+  # opmodel.dev/modules/jellyfin), so their majors must differ. This is the
+  # LIVE v1 train — main's majors were chosen to dodge it, which is why
+  # jellyfin and k8up sit at major v3. Retires with the v1 branch itself.
+  OTHER_BRANCH: 'v1'
+
+jobs:
+  release-please:
+    name: Release Please
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Clone the code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install opm
+        run: |
+          set -euo pipefail
+          base="https://github.com/open-platform-model/cli/releases/download/${OPM_CLI_VERSION}"
+          curl -fsSLO "${base}/opm-linux-amd64.tar.gz"
+          curl -fsSLO "${base}/checksums.txt"
+          grep ' opm-linux-amd64.tar.gz$' checksums.txt | sha256sum -c -
+          tar -xzf opm-linux-amd64.tar.gz opm
+          sudo install -m 0755 opm /usr/local/bin/opm
+          rm -f opm opm-linux-amd64.tar.gz checksums.txt LICENSE
+
+      # release-please decides the version; opm writes it. The manifest on the
+      # release branch is the source, so this converges even when release-please
+      # force-updates the branch: the next push to main re-runs the advance.
+      # With separate-pull-requests false there is ONE combined release branch
+      # carrying every bumped module, so this loops the manifest.
+      - name: Advance identity.Version on the release PR
+        run: |
+          set -euo pipefail
+          BRANCH="release-please--branches--main"
+          if ! git fetch origin "$BRANCH" 2>/dev/null; then
+            echo "no open release branch - nothing to advance"
+            exit 0
+          fi
+          git checkout -B "$BRANCH" FETCH_HEAD
+          # `version set` is idempotent by contract — it does not write when the
+          # value already matches — so this runs unconditionally over every
+          # module and lets `git diff` decide whether anything moved. That keeps
+          # the step free of a CUE toolchain: opm and jq are all it needs.
+          while read -r module version; do
+            [ -d "${module}/identity" ] || continue
+            opm module version set "$version" "./${module}"
+          done < <(jq -r 'to_entries[] | "\(.key) \(.value)"' .release-please-manifest.json)
+          if git diff --quiet; then
+            echo "every module's identity.Version already matches the manifest"
+            exit 0
+          fi
+          echo "advancing:"
+          git diff --name-only
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ./*/identity/identity.cue
+          git commit -m "chore: advance identity.Version to the released versions"
+          git push origin "$BRANCH"
+
+  publish:
+    name: Publish modules
+    # workflow_dispatch only while main is the v2 staging line. 0010's
+    # modules-fleet-republish widens this to the post-release push path.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Install CUE
+        run: |
+          set -euo pipefail
+          go install "cuelang.org/go/cmd/cue@${CUE_VERSION}"
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+
+      - name: Install opm
+        run: |
+          set -euo pipefail
+          base="https://github.com/open-platform-model/cli/releases/download/${OPM_CLI_VERSION}"
+          curl -fsSLO "${base}/opm-linux-amd64.tar.gz"
+          curl -fsSLO "${base}/checksums.txt"
+          grep ' opm-linux-amd64.tar.gz$' checksums.txt | sha256sum -c -
+          tar -xzf opm-linux-amd64.tar.gz opm
+          sudo install -m 0755 opm /usr/local/bin/opm
+          rm -f opm opm-linux-amd64.tar.gz checksums.txt LICENSE
+
+      - name: Discover modules
+        id: discover
+        run: |
+          set -euo pipefail
+          MODULES=""
+          for dir in */; do
+            name="${dir%/}"
+            [ -d "${name}/cue.mod" ] || continue
+            lv=$(sed -n '/^language:/,/}/{s/.*version:[[:space:]]*"\([^"]*\)".*/\1/p;}' "${name}/cue.mod/module.cue" | head -1)
+            case "$lv" in
+              "${CUE_LANGUAGE_PREFIX}"*) : ;;
+              *)
+                echo "::error::${name}: language.version ${lv:-<missing>} does not match this branch's train (${CUE_LANGUAGE_PREFIX}.x). v0.16 modules belong on the v0_legacy branch."
+                exit 1
+                ;;
+            esac
+            MODULES="${MODULES} ${name}"
+          done
+          MODULES="${MODULES# }"
+          echo "modules=${MODULES}" >> "$GITHUB_OUTPUT"
+          echo "Found modules: ${MODULES}"
+
+      - name: Cross-train major separation guard
+        run: |
+          set -euo pipefail
+          # A registry path present on both trains must use a different
+          # major on each, so the trains never publish into each other's
+          # version line (e.g. v1-train jellyfin@v2 vs main jellyfin@v3).
+          if ! git fetch -q origin "${OTHER_BRANCH}" 2>/dev/null; then
+            echo "origin/${OTHER_BRANCH} not found — skipping cross-train check"
+            exit 0
+          fi
+          path_and_major() { sed -n 's/^module:[[:space:]]*"\(.*\)@\(v[0-9][0-9]*\)".*/\1 \2/p' | head -1; }
+          fail=0
+          while read -r f; do
+            other=$(git show "FETCH_HEAD:${f}" | path_and_major)
+            [ -n "$other" ] || continue
+            opath=${other% *}; omajor=${other#* }
+            for dir in */; do
+              name="${dir%/}"
+              [ -f "${name}/cue.mod/module.cue" ] || continue
+              local_pm=$(path_and_major < "${name}/cue.mod/module.cue")
+              lpath=${local_pm% *}; lmajor=${local_pm#* }
+              if [ "$lpath" = "$opath" ] && [ "$lmajor" = "$omajor" ]; then
+                echo "::error::${name}: ${lpath}@${lmajor} is also published at ${omajor} from ${OTHER_BRANCH} (${f%/cue.mod/module.cue}/). Trains must be separated by major — bump this module's path major and version."
+                fail=1
+              fi
+            done
+          done < <(git ls-tree -r --name-only FETCH_HEAD | grep -E '^[^/]+/cue.mod/module.cue$')
+          [ "$fail" -eq 0 ] || exit 1
+          echo "No cross-train major collisions."
+
+      - name: Login to GHCR
+        # opm's push path reads the docker credential chain — docker login is
+        # the CI credential entry (`opm registry login` is interactive-only).
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # The sweep. Publish itself NEVER skips — an already-published tag is
+      # always a refusal (0011 D15) — so idempotency is this caller-side
+      # filter: a registry lookup, so nothing is predicted and no ledger is
+      # consulted. Running this twice, or on every commit, changes nothing.
+      - name: Publish modules
+        run: |
+          set -euo pipefail
+
+          # GHCR's /v2/ API rejects HTTP Basic auth (401) — it only accepts a
+          # bearer token from the token endpoint. Probing with `curl -u` always
+          # 401s, which silently reads as "unpublished" and re-publishes every
+          # module on every run. Exchange credentials for a scoped pull token,
+          # then treat only 404 as "not published"; any other status is a broken
+          # probe and must fail the run rather than trigger a bogus republish.
+          version_published() {
+            local repo="$1" tag="$2" base token code
+            base="${ORG}/opmodel.dev/modules/${repo}"
+
+            token=$(curl -fsS --retry 3 \
+              -u "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+              "https://ghcr.io/token?service=ghcr.io&scope=repository:${base}:pull" \
+              | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+            if [ -z "$token" ]; then
+              echo "::error::${repo}: could not obtain a GHCR pull token"
+              exit 1
+            fi
+
+            code=$(curl -sS --retry 3 -o /dev/null -w '%{http_code}' --head \
+              -H "Authorization: Bearer ${token}" \
+              -H "Accept: application/vnd.oci.image.manifest.v1+json,*/*" \
+              "https://ghcr.io/v2/${base}/manifests/${tag}")
+
+            case "$code" in
+              200) return 0 ;;
+              404) return 1 ;;
+              *)
+                echo "::error::${repo}@${tag}: unexpected status ${code} from ghcr.io/v2/${base}/manifests/${tag}"
+                exit 1
+                ;;
+            esac
+          }
+
+          # The GHCR repository name is the module path's leaf, which may
+          # differ from the directory name.
+          module_leaf_from_cue() {
+            local name="$1"
+            grep -E '^module:' "${name}/cue.mod/module.cue" \
+              | head -1 \
+              | sed -E 's|.*/([^/@"]+)@.*|\1|'
+          }
+
+          failed=""
+          published=""
+          for name in ${{ steps.discover.outputs.modules }}; do
+            version=$(cd "$name" && cue eval ./identity --out text -e Version)
+            leaf=$(module_leaf_from_cue "$name")
+            tag="v${version}"
+
+            if version_published "$leaf" "$tag"; then
+              echo "==> ${name}: ${tag} already published — skipped by the caller-side filter (D15)"
+              continue
+            fi
+
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "==> ${name}: dry-run at ${tag}"
+              if ! opm module publish --dry-run "./${name}"; then
+                failed="${failed} ${name}"
+              fi
+              continue
+            fi
+
+            echo "==> ${name}: publishing ${tag}"
+            if opm module publish "./${name}"; then
+              published="${published} ${name}:${tag}"
+            else
+              failed="${failed} ${name}"
+            fi
+          done
+
+          echo "published:${published:- none}"
+          if [ -n "$failed" ]; then
+            echo "::error::failed:${failed}"
+            exit 1
+          fi
