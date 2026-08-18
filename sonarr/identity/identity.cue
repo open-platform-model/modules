@@ -16,4 +16,4 @@ package identity
 ModulePath: "opmodel.dev/modules/sonarr@v2"
 
 // Version is the module's bare SemVer; its major must agree with ModulePath's.
-Version: #VersionType | *"2.0.0"
+Version: #VersionType | *"2.0.1"
