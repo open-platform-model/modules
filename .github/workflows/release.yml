@@ -24,11 +24,6 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: write
-  pull-requests: write
-  packages: write
-
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -60,6 +55,9 @@ jobs:
     name: Release Please
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Run release-please
         id: release
@@ -122,6 +120,10 @@ jobs:
     # modules-fleet-republish widens this to the post-release push path.
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # Publishes an OCI artifact; it neither commits nor opens a PR.
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Clone the code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -153,6 +155,10 @@ jobs:
           for dir in */; do
             name="${dir%/}"
             [ -d "${name}/cue.mod" ] || continue
+            if [ ! -d "${name}/identity" ]; then
+              echo "::warning::${name}: no identity package — skipped (it cannot declare a version)"
+              continue
+            fi
             lv=$(sed -n '/^language:/,/}/{s/.*version:[[:space:]]*"\([^"]*\)".*/\1/p;}' "${name}/cue.mod/module.cue" | head -1)
             case "$lv" in
               "${CUE_LANGUAGE_PREFIX}"*) : ;;
@@ -253,6 +259,8 @@ jobs:
               | sed -E 's|.*/([^/@"]+)@.*|\1|'
           }
 
+          # Each module publishes independently so one failure does not abort
+          # the rest; failures are recorded and the job exits non-zero at the end.
           failed=""
           published=""
           for name in ${{ steps.discover.outputs.modules }}; do
