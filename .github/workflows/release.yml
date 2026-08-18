@@ -8,10 +8,12 @@ name: Release
 # annotation pointed at identity.cue would make release-please a second writer
 # beside D3's, which is the drift this design removes.
 #
-# PUBLISHING IS DISABLED ON PUSH. The publish job is workflow_dispatch-only
-# while main is the v2 staging line; widening its condition to the
-# post-release push path is the deliberate enablement step that IS 0010's
-# modules-fleet-republish slice.
+# PUBLISHING IS ENABLED. The v2 fleet was republished through this pipeline
+# on 2026-08-18 (0010's modules-fleet-republish), so the publish job now runs
+# on every push to main as well as on dispatch. The sweep is idempotent by
+# construction: it filters caller-side to modules whose declared version the
+# registry does not already hold, so running it on every commit changes
+# nothing (0011 D15).
 
 on:
   push:
@@ -116,9 +118,9 @@ jobs:
 
   publish:
     name: Publish modules
-    # workflow_dispatch only while main is the v2 staging line. 0010's
-    # modules-fleet-republish widens this to the post-release push path.
-    if: github.event_name == 'workflow_dispatch'
+    # Runs on push and on dispatch. Publishing what is already published is
+    # not a no-op but a refusal (D15), so the sweep filters first — which is
+    # what makes an unconditional run safe.
     runs-on: ubuntu-latest
     # Publishes an OCI artifact; it neither commits nor opens a PR.
     permissions:
