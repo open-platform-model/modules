@@ -16,4 +16,4 @@ package identity
 ModulePath: "opmodel.dev/modules/web_app@v1"
 
 // Version is the module's bare SemVer; its major must agree with ModulePath's.
-Version: #VersionType | *"1.0.0"
+Version: #VersionType | *"1.0.1"

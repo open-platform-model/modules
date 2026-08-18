@@ -16,4 +16,4 @@ package identity
 ModulePath: "opmodel.dev/modules/jellyfin@v3"
 
 // Version is the module's bare SemVer; its major must agree with ModulePath's.
-Version: #VersionType | *"3.0.0"
+Version: #VersionType | *"3.0.1"
