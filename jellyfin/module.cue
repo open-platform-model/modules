@@ -15,6 +15,7 @@
 package jellyfin
 
 import (
+	id "opmodel.dev/modules/jellyfin/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
@@ -28,8 +29,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "jellyfin"
-	modulePath:  "opmodel.dev/modules/jellyfin@v3"
-	version:     "3.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "Jellyfin media server - a free software media system"
 }
 

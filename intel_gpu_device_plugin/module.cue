@@ -29,6 +29,7 @@
 package intel_gpu_device_plugin
 
 import (
+	id "opmodel.dev/modules/intel_gpu_device_plugin/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
@@ -41,8 +42,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "intel_gpu_device_plugin"
-	modulePath:  "opmodel.dev/modules/intel_gpu_device_plugin@v2"
-	version:     "2.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "Intel GPU device plugin — exposes Intel GPUs (i915/Xe) as gpu.intel.com resources for Kubernetes workload scheduling"
 }
 

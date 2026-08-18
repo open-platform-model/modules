@@ -38,6 +38,7 @@
 package intel_gpu_exporter
 
 import (
+	id "opmodel.dev/modules/intel_gpu_exporter/identity"
 	m "opmodel.dev/core@v2"
 	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
@@ -50,8 +51,8 @@ m.#Module
 // fqn/registryPath/uuid derive from it (enhancement 0010).
 metadata: {
 	name:        "intel_gpu_exporter"
-	modulePath:  "opmodel.dev/modules/intel_gpu_exporter@v2"
-	version:     "2.0.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "Intel GPU exporter — republishes intel_gpu_top engine statistics for an i915 GPU as Prometheus metrics"
 }
 
