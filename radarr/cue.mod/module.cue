@@ -7,9 +7,9 @@ source: {
 }
 deps: {
 	"opmodel.dev/catalogs/opm@v2": {
-		v: "v2.0.0-alpha.2"
+		v: "v2.0.0-alpha.4"
 	}
 	"opmodel.dev/core@v2": {
-		v: "v2.0.0-alpha.4"
+		v: "v2.0.0-alpha.5"
 	}
 }
