@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  OPM_CLI_VERSION: 'v1.0.0-alpha.11'
+  OPM_CLI_VERSION: 'v1.0.0-alpha.14'
   # Both: `cue`/`task` read CUE_REGISTRY, `opm` reads OPM_REGISTRY only.
   OPM_REGISTRY: 'opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
   CUE_REGISTRY: 'opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
