@@ -33,7 +33,7 @@ concurrency:
 env:
   # Pinned OPM CLI release used for identity writes and publishing; bump
   # deliberately, never float.
-  OPM_CLI_VERSION: 'v1.0.0-alpha.11'
+  OPM_CLI_VERSION: 'v1.0.0-alpha.14'
   # BOTH are required: `cue` reads CUE_REGISTRY, `opm` reads OPM_REGISTRY
   # (--registry > OPM_REGISTRY > ~/.opm/config.cue — never CUE_REGISTRY).
   # With only CUE_REGISTRY set, opm falls through to the runner's personal
