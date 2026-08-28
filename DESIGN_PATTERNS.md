@@ -20,6 +20,7 @@ Patterns are extracted from `modules/jellyfin/` and `modules/wolf/`. Every code 
 10. [Sidecar Container Pattern](#10-sidecar-container-pattern)
 11. [debugValues Block](#11-debugvalues-block)
 12. [Component Trait Composition](#12-component-trait-composition)
+13. [Module Identity](#13-module-identity)
 
 ---
 
@@ -621,6 +622,42 @@ These blueprints compose the necessary traits internally — do not add `traits_
 
 ---
 
+## 13. Module Identity
+
+Every module carries a committed `identity` package (`identity/identity.cue`) holding the two values a release moves: `ModulePath` and `Version`. `module.cue` imports it as `id` and mirrors both as plain references; nothing else authors the path or the version.
+
+```cue
+// web_app/identity/identity.cue
+package identity
+
+ModulePath: "opmodel.dev/modules/web_app@v1"
+
+// Version is the module's bare SemVer; its major must agree with ModulePath's.
+// A concrete literal, never a defaulted disjunction: the kernel's loader gate
+// requires a value, and core's #IdentityPackage (which publish unifies this
+// package against) supplies the SemVer constraint.
+Version: "1.0.1"
+```
+
+```cue
+// web_app/module.cue
+import id "opmodel.dev/modules/web_app/identity"
+
+metadata: {
+    name:       "web_app"
+    modulePath: id.ModulePath
+    version:    id.Version
+}
+```
+
+**`Version` MUST be a concrete string literal.** Not `#VersionType | *"1.0.1"` (the form older scaffolds emitted) and not an open constraint. Two checks read it and they ask different questions: `opm module publish` / `vet` unify the package against `core.#IdentityPackage` and read the value through `String()`, which resolves a default, so the defaulted form passes publish; the kernel's loader shape gate (`library/opm/helper/loader/internal/shape`, run by `opm module build`, the registry loader and the operator at reconcile) asks `IsConcrete()`, which a defaulted disjunction fails. A module in the defaulted form publishes fine and then cannot be loaded by anything. The literal satisfies both.
+
+**No local `#VersionType`.** The SemVer constraint is `core.#IdentityPackage`'s `Version!: #VersionType`, applied at publish, and `core.#Module` types `metadata.version` at load; a malformed literal is refused by both. A duplicate regex in `identity.cue` that nothing references is surface without a consumer.
+
+**`identity/identity.cue` is written only by `opm module version set`** (the release workflow runs it over every module on the release PR; it is idempotent and rewrites the literal in place). Never hand-edit the version and never put a literal version in `module.cue`. The one-off move from the defaulted form to the literal (change `fleet-identity-version-literal`, 2026-08-28) was a shape edit, not a version edit.
+
+---
+
 ## Quick Reference
 
 | Pattern | Where | Key construct |
@@ -641,3 +678,4 @@ These blueprints compose the necessary traits internally — do not add `traits_
 | Sidecar list | `components.cue` | `let _s = [if ... { {...} }]` + `list.Concat([...])` |
 | Debug values | `module.cue` | `debugValues: { ... }` — concrete values for `cue vet -c` |
 | Stateful label | `components.cue` | `metadata: labels: "core.opmodel.dev/workload-type": "stateful"` |
+| Module identity | `identity/identity.cue` | `Version: "x.y.z"` literal, no local `#VersionType`; `module.cue` mirrors `id.ModulePath` / `id.Version` |
