@@ -1,0 +1,156 @@
+schema: module-change
+
+context: |
+  # OPM Modules Development Constitution
+
+  This repo holds the workspace's OPM module definitions, one CUE module per directory,
+  published as `opmodel.dev/modules/<name>` at its major. A module is a CONSUMER of the
+  published contracts (`opmodel.dev/core@v2`, `opmodel.dev/catalogs/*`); it defines no core
+  constructs and no catalog members. Pure CUE, no Go. `main` is the OPM v2 line; the live v1
+  fleet is on the protected `v1` branch. Check the branch before scaffolding any change.
+
+  ### I. The Module Is a Published Artifact
+  Each module is released independently by release-please and pushed by `opm module publish`
+  from the committed tree. What an operator pinned cannot change under them.
+  - `identity/identity.cue` is written only by `opm module version set`; dependency pins only
+    by `task deps:update` from the workspace root. Never hand-edit either.
+  - Release class is decided per module by the conventional commit that touches it; a commit
+    spanning several module directories bumps each of them.
+  - A removed or renamed `#config` field, a changed default an operator relies on, or a
+    rendered object that changes kind or name is `feat!:`. Crossing a path major is a separate,
+    deliberate decision a proposal MUST name (cross-train major separation rule).
+  - Never publish by hand; CI publishes on release. The only exception is a local-registry
+    publish the user explicitly asks for in the current prompt.
+
+  ### II. The Definition Is the Spec
+  A module's contract is `module.cue` (`#config` plus doc comments), `README.md` and the
+  manifests its components render. This workspace has no specs artifact: no `openspec/specs/`,
+  never a `specs/` directory inside a change, and every `.openspec.yaml` carries
+  `skip_specs: true`. The proposal's **Before / After** CUE block is the review surface.
+  A decision a FUTURE author or operator needs lands in `DESIGN_PATTERNS.md`, the module's
+  `DEPLOYMENT_NOTES.md` or `CLAUDE.md` before the change is archived; `design.md` § Durable
+  decisions declares it. An archived change is never the only home of a rule.
+
+  ### III. Catalog First
+  Build components from `opmodel.dev/catalogs/opm` abstraction members; the `k8s-*` raw family
+  is a last resort a proposal MUST justify. If the catalog cannot express what a module needs,
+  the fix is a `catalog_opm` change, never a workaround baked into the module. Follow
+  `DESIGN_PATTERNS.md`; a shape used by more than one module lands there or is not a pattern.
+  Constraints go in `#config` where CUE checks them, not in README prose; derived values are
+  computed, never authored twice.
+
+  ### IV. Fleet Consistency
+  One style across the fleet so a reader of one module can read all of them: the standard file
+  layout, registration in `release-please-config.json` and `.release-please-manifest.json`,
+  `language: version: "v0.17.0"`, and the shape the neighbouring modules already use over a
+  locally cleverer one.
+
+  ### V. Simplicity & YAGNI
+  Every `#config` field is a support obligation to every operator who might set it. Start with
+  the simplest `#config` a real deployment needs; a knob nothing configures is surface without a
+  consumer. Leave it out.
+
+  ### VI. Small Batch Sizes
+  All changes MUST be kept TINY: the unit is one module, or one pattern applied across modules.
+  - **WARNING & BLOCK**: if a request is too large (re-authoring several modules at once, a new
+    module plus a new pattern plus a dep bump in one go, a fleet-wide refactor), the Agent MUST
+    warn, block, and propose a split into smaller sequential tasks.
+  - One commit touches one module, or one coherent fleet-wide edit.
+
+  ## Execution Gate (Agent Directive)
+  Before beginning ANY implementation, evaluate the request against Principle VI. If it is too
+  large, reply with:
+  "🛑 **Scope Warning**: This request is too large for a single safe iteration. I suggest we split
+  it into the following smaller steps: [list 2-3 logical, tiny steps]. Should we start with step 1?"
+
+  ## Everything Else Lives in CLAUDE.md
+  Commands, registry variables, CUE style, commit conventions, and the attribution and `@name`
+  rules are in `CLAUDE.md`, loaded in every session and not repeated here. Artifact-level
+  requirements are in the `rules` below and the schema's per-artifact `instruction`.
+
+rules:
+  proposal:
+    - "Focus: WHY we're doing this, WHAT's in/out of scope"
+    - "Updates when: Scope changes, intent clarifies, approach fundamentally shifts"
+    - Group What Changes by module directory and state the release class (`feat:` / `fix:` /
+      `feat!:`) per module; a commit touching several module directories bumps each of them.
+    - State whether any module's path major moves and, if so, that it obeys the cross-train
+      major separation rule in `CLAUDE.md`.
+    - Breaking changes MUST be called out explicitly with the operator's migration cost — a
+      changed default, a renamed `#config` field or a rendered object that changes kind or
+      name counts as breaking even when nothing is removed.
+    - The Before / After section MUST show the `#config` and component CUE shape, not a prose
+      description (Principle II). "none" is the Before of a new module. Add the rendered
+      object's shape when rendering changes.
+    - The Catalog contract section MUST name the core and catalog versions required, whether
+      `task deps:update` must run first, and any catalog member the change needs that does not
+      exist yet (Principle III).
+    - Any use of a `k8s-*` passthrough member MUST be justified against Principle III.
+    - Additions to `#config` MUST justify themselves against Principle V.
+    - Scope MUST be small enough to implement in a short session (Principle VI).
+    - "Never add a Capabilities section and never create a `specs/` directory; the change's `.openspec.yaml` MUST carry `skip_specs: true` (Principle II)."
+    - When the change implements a slice of an enhancement, cite the entry and the decision
+      numbers it satisfies (e.g. `enhancements/0011` D13, D17) rather than restating the design.
+    - "If this change implements decisions from an enhancement in the sibling enhancements/ repo, create enhancement.yaml in this change directory declaring it (implements: [{enhancement: \"NNNN\", decisions: [D1, ...], resolves: []}]). Write it at creation time, while the enhancement is in context; it is what makes archive-time delivery logging mechanical."
+
+  design:
+    - "Focus: HOW we'll implement it technically"
+    - "Updates when: Implementation reveals better approach, constraints change"
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
+    - MUST include a "Research & Decisions" section when exploration was done.
+    # Every entry in a rules list MUST be a plain string. OpenSpec 1.3.1 drops
+    # the WHOLE artifact's rules with `Rules for 'design' must be an array of
+    # strings, ignoring this artifact's rules` if any entry is a mapping — so
+    # the familiar `- Format: |` block silently disables every design rule
+    # beside it. Keep this one a block scalar, not a `Format:` key.
+    - |
+      Format for that section:
+
+      ## Research & Decisions
+
+      ### [Topic]
+      **Context**: [Why this decision was needed]
+      **Explored**: [What was investigated - link to exploration notes]
+      **Decision**: [Chosen option]
+      **Rationale**: [Why this option was selected]
+    - Show the CUE, not a description of the CUE — the component's shape is the design.
+    - Name every module directory and file the change touches, and the `DESIGN_PATTERNS.md`
+      patterns it uses or deviates from.
+    - Call out any change to a `#config` field's default, requiredness or closedness, and any
+      change to a rendered object's kind, name or selector — these break running instances in
+      ways an added optional field does not.
+    - MUST include a "Durable decisions" section naming where each promoted decision lands
+      (`DESIGN_PATTERNS.md`, `<module>/DEPLOYMENT_NOTES.md`, `CLAUDE.md`), or "None."
+
+  tasks:
+    - "Focus: STEPS to take for implementation"
+    - "Updates when: Tasks complete, new tasks discovered, blockers identified"
+    - "CRITICAL: Break tasks into TINY chunks (max 1-2 hours)."
+    - "CRITICAL: If the task list grows too long (>10 items) or re-authors several modules at
+      once, suggest splitting into a new OpenSpec change."
+    - Group tasks by module directory; a fleet-wide change groups by file or pattern instead.
+    - A dependency bump is a `task deps:update` task run from the workspace root, never a hand
+      edit of `cue.mod/module.cue`.
+    - A new module includes `opm mod init`, `README.md`, and registration in
+      `release-please-config.json` plus `.release-please-manifest.json`.
+    - Include one task per durable decision in design.md that lands it in `DESIGN_PATTERNS.md`,
+      `DEPLOYMENT_NOTES.md` or `CLAUDE.md`.
+    - Include the validation gates as final tasks (`task check`, then `opm module publish
+      ./<name> --dry-run` per touched module).
+    - "NEVER include delivery operations as tasks: no committing, pushing, branching,
+      opening or merging PRs, tagging, cutting releases, and no commit-message or PR-body
+      hygiene checks. tasks.md covers implementation and verification only — delivery
+      happens afterwards under the repo's normal git workflow and needs no spelling out.
+      Sole exception: a change whose stated deliverable is itself a release or publishing
+      operation; there those steps ARE the implementation."
+
+# Post-archive hook: served to the archiving agent by
+# `openspec instructions archive --change <name> --json` as operationGuidance.
+# The openspec-archive-change skill carries the same three points as mandatory
+# steps (3b, 3c); this block is what an unpatched or non-Claude agent sees.
+operations:
+  archive:
+    guidance:
+      - "Archive with `--skip-specs`: this workspace has no specs and the change declares skip_specs. Never let archive create an openspec/specs/ directory."
+      - "Before archiving, read design.md's Durable decisions section. Every entry marked for promotion MUST already be landed in DESIGN_PATTERNS.md, the module's DEPLOYMENT_NOTES.md or CLAUDE.md; if one is not, stop and land it first. An archived change must not be the only home of an authoring rule."
+      - "If this change directory contains enhancement.yaml, finish the archive by logging the landing: from the workspace root run `task enhancements:delivery:log FROM=modules/openspec/changes/archive/<archived-change> SUMMARY=\"<one line: what landed>\"`. It appends a CUE-validated entry to each declared enhancement's delivery.yaml; confirm it printed 'logged' for every declared enhancement. `task enhancements:delivery:reconcile` reports any archived change that declared an entry and was never logged."

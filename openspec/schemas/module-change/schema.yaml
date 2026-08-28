@@ -1,0 +1,143 @@
+name: module-change
+version: 1
+description: Module change workflow - proposal -> design -> tasks (no specs artifact)
+# Why a project-local schema: a module is a consumer of the core and catalog
+# contracts, and its own contract to operators is module.cue (#config plus doc
+# comments), README.md and the manifests its components render. A prose spec
+# would be a copy no gate keeps honest. This schema therefore has NO specs
+# artifact. `openspec validate` still asks for spec deltas regardless of schema,
+# so every change's .openspec.yaml sets `skip_specs: true`; the
+# openspec-new-change and openspec-ff-change skills write that marker at
+# creation time, and enhancement.yaml beside it when an enhancement is implemented.
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: Why the change is needed and what it changes, with the #config and component shape before and after
+    template: proposal.md
+    instruction: |
+      Create the proposal document that establishes WHY this change is needed.
+
+      Sections:
+      - **Why**: 1-2 sentences on the problem or opportunity. What problem does this solve? Why now?
+      - **What Changes**: Bullet list of changes, grouped by module directory. Be specific
+        about new modules, `#config` fields, components, traits, rendered objects, or
+        removals. Mark breaking changes with **BREAKING**: a removed or renamed `#config`
+        field, a changed default an operator relies on, or a rendered object that changes
+        kind or name. A breaking change that crosses the module's path major names the new
+        major explicitly (cross-train major separation rule, `CLAUDE.md`).
+      - **Before / After**: The CUE shape of every `#config` field and component the change
+        touches, as CUE, not prose. For a new module, "Before" is "none" and "After" is the
+        `#config` schema plus the component list. Where the change alters what a component
+        renders, add the rendered object's shape too. This block is the review surface: it
+        carries what a spec would have carried, so a reviewer sees intended behavior before
+        any code exists. Keep it to the fields that change.
+      - **Catalog contract**: The `opmodel.dev/core` and `opmodel.dev/catalogs/*` versions
+        the change requires, and whether it needs `task deps:update` from the workspace root
+        first. If the change needs a catalog member that does not exist, say so: the fix is
+        a `catalog_opm` change, never a `k8s-*` passthrough smuggled into the module.
+      - **Impact**: Which module directories are touched (release-please bumps each one a
+        commit touches), the release class per module (`feat:` / `fix:` / `feat!:`), whether
+        any module's path major moves, and what an operator of the module has to do.
+      - **Enhancement**: When the change implements decisions from an entry in the sibling
+        `enhancements/` repo, cite the entry and decision numbers instead of restating the
+        design, and create `enhancement.yaml` in this change directory now.
+
+      This schema has no specs artifact. Do not add a Capabilities section and do not
+      create a `specs/` directory. The change's `.openspec.yaml` carries
+      `skip_specs: true`; if it is missing, add it before continuing.
+
+      Keep it concise (1-2 pages). Focus on the "why" not the "how" -
+      implementation details belong in design.md.
+    requires: []
+
+  - id: design
+    generates: design.md
+    description: Technical design with decisions, and which decisions outlive the change
+    template: design.md
+    instruction: |
+      Create the design document that explains HOW to implement the change.
+
+      Sections:
+      - **Context**: Only the current state and constraints needed to explain the approach.
+        Reference the proposal for motivation instead of restating it. Name every module
+        directory and file touched, and the `DESIGN_PATTERNS.md` patterns the change uses.
+      - **Goals / Non-Goals**: What this design achieves and explicitly excludes. Add only
+        design-level boundaries; the proposal owns scope.
+      - **Decisions**: Key technical choices with rationale (why X over Y?). Include the
+        alternatives considered. Show the CUE: the component's shape IS the design. Call
+        out any deviation from an existing `DESIGN_PATTERNS.md` pattern and why.
+      - **Research & Decisions**: Required when exploration was done (a `cue` experiment, a
+        rendered-manifest comparison, a deployment test). Use the format from
+        `openspec/config.yaml`.
+      - **Risks / Trade-offs**: Known limitations, things that could go wrong.
+        Format: [Risk] -> Mitigation.
+      - **Durable decisions**: Every decision a FUTURE module author or operator needs, with
+        where it lands at archive time: `DESIGN_PATTERNS.md` (a reusable CUE pattern), the
+        module's `DEPLOYMENT_NOTES.md` (a pitfall specific to that module), a `CLAUDE.md`
+        rule, or "stays with the change". An archived change must never be the only home
+        of an authoring rule. If nothing is durable, write "None." rather than omitting
+        the section.
+      - **Open Questions**: Unknowns that can safely be answered later without changing the
+        approach or the task breakdown. Omit if none. A question that would change the
+        approach is not open; resolve it now by asking the user.
+
+      Call out any change to a `#config` field's default, requiredness or closedness, and
+      any change to a rendered object's kind, name or selector: those break running
+      instances in ways an added optional field does not.
+
+      Focus on architecture and approach, not line-by-line implementation.
+    requires:
+      - proposal
+
+  - id: tasks
+    generates: tasks.md
+    description: Implementation checklist with trackable tasks
+    template: tasks.md
+    instruction: |
+      Create the task list that breaks down the implementation work.
+
+      Before writing tasks, check design.md for Open Questions. If any of them
+      would change what gets built, resolve them with the user first; do not
+      bake an unstated assumption into the task list.
+
+      **IMPORTANT: Follow the template below exactly.** The apply phase parses
+      checkbox format to track progress. Tasks not using `- [ ]` won't be tracked.
+
+      Guidelines:
+      - Group tasks by module directory (`<name>/`) under ## numbered headings; a
+        fleet-wide change groups by the file or pattern instead
+      - Each task MUST be a checkbox: `- [ ] X.Y Task description`
+      - Tasks should be small enough to complete in one session
+      - Order tasks by dependency (what must be done first?)
+      - A dep bump is `task deps:update` from the workspace root, never a hand edit
+      - A new module includes `opm mod init`, `README.md`, and registration in
+        `release-please-config.json` plus `.release-please-manifest.json`
+      - Include a task that lands each durable decision from design.md in
+        `DESIGN_PATTERNS.md`, `DEPLOYMENT_NOTES.md` or `CLAUDE.md`
+      - End with the validation gates (`task check`, then
+        `opm module publish ./<name> --dry-run` per touched module)
+
+      Example:
+      ```
+      ## 1. sonarr/
+
+      - [ ] 1.1 Add the `metrics.enabled` field to `#config` with its default
+      - [ ] 1.2 Render the ServiceMonitor component when enabled
+
+      ## 2. Verification
+
+      - [ ] 2.1 `task check`
+      - [ ] 2.2 `opm module publish ./sonarr --dry-run`
+      ```
+
+      Reference the proposal for what needs to be built and the design for how to build it.
+      Each task should be verifiable: you know when it's done.
+    requires:
+      - design
+
+apply:
+  requires: [tasks]
+  tracks: tasks.md
+  instruction: |
+    Read context files, work through pending tasks, mark complete as you go.
+    Pause if you hit blockers or need clarification.
