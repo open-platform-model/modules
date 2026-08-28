@@ -27,7 +27,6 @@ import (
 		res.#ServiceAccount
 		tr.#Expose
 		tr.#WorkloadIdentity
-		tr.#ResourceName
 		tr.#PodMetadata
 		tr.#PodScheduling
 
@@ -100,9 +99,10 @@ import (
 			spec: disruptionBudget: minAvailable: #config.pilot.pdb.minAvailable
 		}
 
-		spec: {
-			resourceName: "istiod"
+		// Exact name: the mesh discovery identity (external contract).
+		metadata: resourceName: "istiod"
 
+		spec: {
 			statelessWorkload: {
 				restartPolicy: "Always"
 				updateStrategy: {
@@ -352,7 +352,7 @@ import (
 // The Service name is the mesh's discovery identity — assert it against the
 // same value the mesh ConfigMap embeds, so the two can never drift.
 _istiodExposeName:   "\(#components.istiod.spec.expose.name)" & "istiod"
-_istiodResourceName: "\(#components.istiod.spec.resourceName)" & "istiod"
+_istiodResourceName: "\(#components.istiod.#names.resourceName)" & "istiod"
 
 // 443 -> 15017 specifically: the webhook configurations rely on the default
 // port, and getting this wrong presents as a TLS/connection error at admission
