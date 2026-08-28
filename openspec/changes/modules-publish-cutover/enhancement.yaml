@@ -1,4 +1,0 @@
-implements:
-  - enhancement: "0011"
-    decisions: [D13, D15, D17]
-    resolves: []
