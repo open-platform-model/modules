@@ -40,7 +40,6 @@ _nodeAgentScheduling: {
 		res.#Volumes
 		res.#ServiceAccount
 		tr.#WorkloadIdentity
-		tr.#ResourceName
 		tr.#PodMetadata
 		tr.#PodScheduling
 		tr.#GracefulShutdown
@@ -57,9 +56,10 @@ _nodeAgentScheduling: {
 			spec: networkPolicy: _cniNetworkPolicy
 		}
 
-		spec: {
-			resourceName: "istio-cni-node"
+		// Exact name: the CNI plugin's failsafe matches on it (external contract).
+		metadata: resourceName: "istio-cni-node"
 
+		spec: {
 			daemonWorkload: {
 				restartPolicy: "Always"
 				updateStrategy: {
@@ -243,7 +243,6 @@ _nodeAgentScheduling: {
 		res.#Volumes
 		res.#ServiceAccount
 		tr.#WorkloadIdentity
-		tr.#ResourceName
 		tr.#PodMetadata
 		tr.#PodScheduling
 		tr.#GracefulShutdown
@@ -257,9 +256,10 @@ _nodeAgentScheduling: {
 			spec: networkPolicy: _ztunnelNetworkPolicy
 		}
 
-		spec: {
-			resourceName: "ztunnel"
+		// Exact name (external contract).
+		metadata: resourceName: "ztunnel"
 
+		spec: {
 			daemonWorkload: {
 				restartPolicy: "Always"
 				updateStrategy: {
@@ -425,7 +425,7 @@ _nodeAgentScheduling: {
 
 // The name the CNI plugin's failsafe matches on. Getting this wrong deadlocks
 // a node, so it is asserted rather than trusted.
-_cniResourceName: "\(#components["istio-cni"].spec.resourceName)" & "istio-cni-node"
+_cniResourceName: "\(#components["istio-cni"].#names.resourceName)" & "istio-cni-node"
 
 // ...and the label istiod's node-untainter selects on, which is a separate
 // contract from the name.

@@ -620,6 +620,32 @@ For one-shot tasks (Configarr) use `blueprints_workload.#TaskWorkload` from the 
 
 These blueprints compose the necessary traits internally — do not add `traits_workload.#Scaling` or `traits_network.#Expose` when using them.
 
+### Exact object names
+
+When a workload's rendered name is an external contract (a CNI failsafe matches on it, a mesh
+discovery address embeds it), set it with `metadata: resourceName:` at component level and assert
+it on `#names.resourceName`, the projection every transformer reads (`catalogs/opm` >= 2.0.0-alpha.7,
+enhancement 0019 D15):
+
+```cue
+// istio_ambient/components_dataplane.cue
+"istio-cni": {
+    bp.#DaemonWorkload
+    // ...
+    metadata: resourceName: "istio-cni-node"
+    spec: {...}
+}
+
+_cniResourceName: "\(#components["istio-cni"].#names.resourceName)" & "istio-cni-node"
+```
+
+`traits_workload.#ResourceName` (`spec.resourceName`) is retired: the catalog reads the trait for one
+release behind a seam and then deletes it. Do not attach it.
+
+The guard is concrete without an instance only because the override is explicit; a default-named
+component's `#names` is incomplete under plain `cue vet` and the guard would pass vacuously, so
+`task vet CONCRETE=true` is the gate for any module carrying one.
+
 ---
 
 ## 13. Module Identity
@@ -678,4 +704,5 @@ metadata: {
 | Sidecar list | `components.cue` | `let _s = [if ... { {...} }]` + `list.Concat([...])` |
 | Debug values | `module.cue` | `debugValues: { ... }` — concrete values for `cue vet -c` |
 | Stateful label | `components.cue` | `metadata: labels: "core.opmodel.dev/workload-type": "stateful"` |
+| Exact name | `components.cue` | `metadata: resourceName: "x"` + guard on `#names.resourceName`; never `tr.#ResourceName` |
 | Module identity | `identity/identity.cue` | `Version: "x.y.z"` literal, no local `#VersionType`; `module.cue` mirrors `id.ModulePath` / `id.Version` |
