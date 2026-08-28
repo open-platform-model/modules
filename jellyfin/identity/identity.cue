@@ -15,4 +15,4 @@ ModulePath: "opmodel.dev/modules/jellyfin@v3"
 // A concrete literal, never a defaulted disjunction: the kernel's loader gate
 // requires a value, and core's #IdentityPackage (which publish unifies this
 // package against) supplies the SemVer constraint.
-Version: "3.0.1"
+Version: "3.0.2"
