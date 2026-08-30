@@ -17,7 +17,6 @@ Playback statistics and monitoring dashboard for Jellyfin (and Emby). Jellystat 
 ## Architecture
 
 ```text
-opm-secrets (Secret)            — jwt-secret, postgres-password, optional GeoLite creds
 jellystat (StatefulSet, replicas: 1)
   ├── initContainer wait-for-db — blocks until PostgreSQL accepts connections
   └── jellystat container (port 3000)
@@ -29,9 +28,7 @@ postgres (StatefulSet, replicas: 1)   — only when database.mode == "bundled"
 
 Both workloads compose the catalog's `#StatefulWorkload` blueprint plus an `#Expose` trait; `jellystat` adds `#HttpRoute` when `httpRoute` is set, and `postgres` adds a `#SecurityContext` trait. All persistent application state lives in PostgreSQL — the app's own PVC only holds backup exports, so back up the **database**, not just the volume.
 
-### Three details worth knowing
-
-**The secrets component is named `opm-secrets` on purpose.** The catalog's secret transformer renders that component's secrets as `{instance}-{secretName}`, and that is the only shape a container's `env.from` secretKeyRef resolves to. Under any other component name the Secret would render as `{instance}-{component}-{secretName}` and every env reference would point at an object that does not exist.
+### Two details worth knowing
 
 **`POSTGRES_DB` is deliberately not set on the bundled database.** Jellystat's `create_database.js` connects with no database named, so node-pg falls back to a database matching the *role name*, and only then issues `CREATE DATABASE jfstat`. The official Postgres image creates a database named after `POSTGRES_USER` when `POSTGRES_DB` is unset — which is exactly the database that bootstrap needs. Setting it would break first start. Upstream's compose omits it for the same reason.
 
@@ -84,18 +81,10 @@ spec:
   values:
     timezone: Europe/Stockholm
     serviceType: ClusterIP
-    jwtSecret:
-      $secretName: jellystat
-      $dataKey: jwt-secret
-      secretName: jellystat-credentials   # pre-existing cluster Secret
-      remoteKey: jwt-secret
+    jwtSecret: "<generated jwt secret>"
     database:
       mode: bundled
-      password:
-        $secretName: jellystat
-        $dataKey: postgres-password
-        secretName: jellystat-credentials
-        remoteKey: postgres-password
+      password: "<generated postgres password>"
       bundled:
         storage:
           type: pvc
@@ -116,10 +105,9 @@ spec:
 
 ### Secrets
 
-`jwtSecret` and `database.password` are required and accept either form of the catalog's `#Secret` contract:
-
-- **`#SecretK8sRef`** (`secretName` + `remoteKey`, as above) — points at a Secret that already exists in the cluster. OPM emits no Secret of its own. Use this with SOPS/SealedSecrets.
-- **`#SecretLiteral`** (`value`) — OPM creates the Secret as `{instance}-jellystat`. Convenient for testing; do not commit real values.
+`jwtSecret` and `database.password` are required plain strings for the interim: the value
+lands in the rendered manifest in clear (no pre-existing cluster Secret can be referenced
+until `core` ships the new `#Secret`, enhancement 0013).
 
 Generate a JWT key with `openssl rand -hex 32`.
 
@@ -136,11 +124,7 @@ values:
     ssl:
       enabled: true
       rejectUnauthorized: true
-    password:
-      $secretName: jellystat
-      $dataKey: postgres-password
-      secretName: jellystat-credentials
-      remoteKey: postgres-password
+    password: "<generated postgres password>"
 ```
 
 No `postgres` component is rendered; the `wait-for-db` init container still runs and gates startup on the external server.
@@ -154,11 +138,11 @@ No `postgres` component is rendered; the `wait-for-db` init container still runs
 | `timezone` | string | `Europe/Stockholm` | `TZ` |
 | `listenIp` | string | `0.0.0.0` | `JS_LISTEN_IP` |
 | `baseUrl` | string | *(unset)* | `JS_BASE_URL`, e.g. `/jellystat`. Must start with `/` and not end with one. Probe paths and the HTTPRoute match are shifted under it automatically |
-| `jwtSecret` | `#Secret` | *(required)* | Key used to sign authentication JWTs |
+| `jwtSecret` | string | *(required)* | Key used to sign authentication JWTs |
 | `database.mode` | `bundled`\|`external` | `bundled` | Whether this module renders PostgreSQL |
 | `database.name` | string | `jfstat` | `POSTGRES_DB` — created by Jellystat on first start |
 | `database.user` | string | `jellystat` | Role Jellystat authenticates as |
-| `database.password` | `#Secret` | *(required)* | Password for that role |
+| `database.password` | string | *(required)* | Password for that role |
 | `database.port` | int | `5432` | Port the app dials |
 | `database.ssl.enabled` | bool | `false` | `POSTGRES_SSL_ENABLED` |
 | `database.ssl.rejectUnauthorized` | bool | `true` | `POSTGRES_SSL_REJECT_UNAUTHORIZED` |
@@ -171,7 +155,7 @@ No `postgres` component is rendered; the `wait-for-db` init container still runs
 | `server.useWebsockets` | bool | `true` | `JF_USE_WEBSOCKETS` |
 | `server.rejectSelfSignedCertificates` | bool | `true` | Set `false` for a media server behind an internal CA |
 | `server.newWatchEventThresholdHours` | int | *(unset)* | `NEW_WATCH_EVENT_THRESHOLD_HOURS` |
-| `geolite.accountId` / `geolite.licenseKey` | `#Secret` | *(unset)* | MaxMind GeoLite2 credentials for session geolocation |
+| `geolite.accountId` / `geolite.licenseKey` | string | *(unset)* | MaxMind GeoLite2 credentials for session geolocation |
 | `storage.backup` | `#storageVolume` | pvc `5Gi` at `/app/backend/backup-data` | Jellystat's backup exports |
 | `serviceType` | enum | `ClusterIP` | Service type |
 | `httpRoute` | struct | *(unset)* | Gateway API HTTPRoute (`hostnames`, optional `gatewayRef`) |
