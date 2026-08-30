@@ -117,25 +117,14 @@ metadata: {
 		//
 		// REQUIRED: with defaultAccess deny-all and no users, nothing can
 		// publish or subscribe at all, which is never what you want.
-		//
-		// The v2 #Secret is a disjunction: the instance either supplies
-		// `value` (a literal — the transformer creates the Kubernetes Secret)
-		// or `secretName` + `remoteKey` (a reference to a pre-existing Secret;
-		// OPM emits no resource and only wires the secretKeyRef).
-		users: res.#Secret & {
-			$secretName:  string | *"ntfy"
-			$dataKey:     string | *"auth-users"
-			$description: "ntfy provisioned users — comma-separated user:bcrypt-hash:role entries"
-		}
+		// 0013: becomes c.#Secret when core ships it; plain string until then.
+		users: string
 
 		// Optional pre-created access tokens, as a comma-separated list of
 		// "<username>:tk_<32 chars>[:<label>]" entries. Useful for handing a
 		// fixed token to an alerting system instead of a password.
-		tokens?: res.#Secret & {
-			$secretName:  string | *"ntfy"
-			$dataKey:     string | *"auth-tokens"
-			$description: "ntfy provisioned access tokens — comma-separated user:token:label entries"
-		}
+		// 0013: becomes c.#Secret when core ships it; plain string until then.
+		tokens?: string
 
 		// Topic ACLs. These are not secret, so they render into server.yml
 		// where they stay reviewable in a diff.
@@ -219,20 +208,8 @@ debugValues: {
 	timezone:    "Europe/Stockholm"
 	auth: {
 		defaultAccess: "deny-all"
-		// The k8s-ref branch of the #Secret disjunction: references a
-		// pre-existing Secret, the shape SOPS-managed environments use.
-		users: {
-			$secretName: "ntfy"
-			$dataKey:    "auth-users"
-			secretName:  "ntfy"
-			remoteKey:   "auth-users"
-		}
-		tokens: {
-			$secretName: "ntfy"
-			$dataKey:    "auth-tokens"
-			secretName:  "ntfy"
-			remoteKey:   "auth-tokens"
-		}
+		users:         "emil:$2a$10$debughashdebughashdebughashdebughashdebug:admin"
+		tokens:        "emil:tk_debugdebugdebugdebugdebugdebugd:alerting"
 		access: [
 			{user: "emil", topic: "*", permission: "rw"},
 			{user: "alerts", topic: "nas1-*", permission: "wo"},

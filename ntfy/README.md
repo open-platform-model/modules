@@ -27,8 +27,9 @@ Single stateful component (`ntfy`):
   `attachments/`, all under one mountPath (default `/var/lib/ntfy`).
 - **Service** — `#config.port` (default 80) → container `listenPort` (default 80).
 - **HTTPRoute** (optional) — Gateway API ingress.
-- **Secret references** — provisioned users and tokens enter via `NTFY_AUTH_USERS` /
-  `NTFY_AUTH_TOKENS`, never the ConfigMap.
+- **Credential env vars** — provisioned users and tokens enter via `NTFY_AUTH_USERS` /
+  `NTFY_AUTH_TOKENS`, never the ConfigMap. Plain strings for the interim (0013) — the
+  values land in the rendered manifest in clear.
 
 The container runs `args: ["serve"]`. This is **required**: the image's entrypoint is
 the bare `ntfy` binary with no CMD, so without a subcommand it prints usage and exits 1.
@@ -39,19 +40,19 @@ ntfy seeds its auth database from three config options on **every start**:
 
 | Option | Format | Delivered as |
 | --- | --- | --- |
-| `auth-users` | `<user>:<bcrypt-hash>:<role>`, comma-separated | `NTFY_AUTH_USERS` env, from a Secret |
-| `auth-tokens` | `<user>:tk_<32 chars>[:<label>]`, comma-separated | `NTFY_AUTH_TOKENS` env, from a Secret |
+| `auth-users` | `<user>:<bcrypt-hash>:<role>`, comma-separated | `NTFY_AUTH_USERS` env |
+| `auth-tokens` | `<user>:tk_<32 chars>[:<label>]`, comma-separated | `NTFY_AUTH_TOKENS` env |
 | `auth-access` | `<user>:<topic-pattern>:<permission>` | rendered into `server.yml` |
 
 Users created this way are **managed**: drop one from config and it is deleted on the
 next restart. That means the auth model is declarative in the same way the rest of the
 module is — no `ntfy user add` against a live pod, no drift between the cluster and git.
 
-The split between ConfigMap and Secret is deliberate. Topic ACLs are not sensitive and
+The split between ConfigMap and env is deliberate. Topic ACLs are not sensitive and
 belong in a reviewable diff, so they render into `server.yml`. Bcrypt hashes and tokens
 are credential material — bcrypt is slow to crack but not unbreakable, and a ConfigMap
-is readable by anything with `get configmaps` in the namespace — so they travel as env
-vars sourced from a Secret. ntfy's env vars override the config file, so the two halves
+is readable by anything with `get configmaps` in the namespace — so they travel as
+container env vars instead. ntfy's env vars override the config file, so the two halves
 compose without conflicting.
 
 `auth.users` is **required** and `auth.defaultAccess` defaults to `deny-all`: a fresh
@@ -73,16 +74,9 @@ straight to your server, at the cost of a persistent notification and some batte
 
 ## Quick start
 
-The Secret must exist **before** the ModuleInstance is applied — this module references
-a pre-existing Secret and does not create one.
-
 ```bash
-# 1. Generate a bcrypt hash for each user
+# Generate a bcrypt hash for each user
 ntfy user hash            # prompts for the password, prints $2a$10$...
-
-# 2. Create the Secret (SOPS-encrypted in a GitOps repo)
-kubectl create secret generic ntfy -n notifications \
-  --from-literal=auth-users='emil:$2a$10$REPLACE:admin,alerts:$2a$10$REPLACE:user'
 ```
 
 ```cue
@@ -91,12 +85,7 @@ values: {
 
     auth: {
         defaultAccess: "deny-all"
-        users: {
-            $secretName: "ntfy"
-            $dataKey:    "auth-users"
-            secretName:  "ntfy"
-            remoteKey:   "auth-users"
-        }
+        users: "emil:$2a$10$REPLACE:admin,alerts:$2a$10$REPLACE:user"
         access: [
             {user: "emil", topic: "*", permission: "rw"},
             {user: "alerts", topic: "nas1-*", permission: "wo"},
@@ -132,8 +121,8 @@ curl -u alerts:<password> -d "Disk at 91%" https://ntfy.example.com/nas1-alerts
 | `behindProxy` | bool | `true` | trust `X-Forwarded-For` |
 | `timezone` | string | `Europe/Stockholm` | `TZ` |
 | `auth.defaultAccess` | enum | `deny-all` | fallback when no ACL matches |
-| `auth.users` | `#Secret` | — | **required**, comma-separated `user:hash:role` |
-| `auth.tokens` | `#Secret` | optional | comma-separated `user:token:label` |
+| `auth.users` | string | — | **required**, comma-separated `user:hash:role` |
+| `auth.tokens` | string | optional | comma-separated `user:token:label` |
 | `auth.access` | `[...#accessEntry]` | `[]` | `{user, topic, permission}`, permission `rw`/`ro`/`wo`/`deny` |
 | `unifiedPush` | bool | `false` | appends `*:up*:wo` to the ACL |
 | `cache.duration` | string | `12h` | message history window |
