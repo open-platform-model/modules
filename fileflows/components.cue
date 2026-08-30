@@ -1,11 +1,5 @@
 // Components defines the FileFlows workloads.
 //
-//   - opm-secrets: the module's Secret, rendered only when accessToken is set.
-//     Named exactly "opm-secrets" on purpose — the secret transformer renders
-//     that component's secrets as {instance}-{secretName}, which is the only
-//     shape a container's `env.from` secretKeyRef resolves to. Any other
-//     component name renders {instance}-{component}-{secretName} and every env
-//     ref points at an object that does not exist.
 //   - fileflows: the server. Stateful, with a persistent data volume, optional
 //     logs/temp and media mounts, a web Service, TCP health checks, and
 //     optional GPU / RuntimeClass / HTTPRoute wiring.
@@ -136,34 +130,6 @@ import (
 // #components contains component definitions.
 // Components reference #config which gets resolved to concrete values at build time.
 #components: {
-
-	/////////////////////////////////////////////////////////////////
-	//// Secrets - the processing-node access token
-	/////////////////////////////////////////////////////////////////
-
-	// Guarded: an instance with no nodes needs no token, and an unguarded
-	// #AutoSecrets over an empty result renders an empty Secret object.
-	if #config.accessToken != _|_ {
-		"opm-secrets": {
-			res.#Secrets
-
-			metadata: name: "opm-secrets"
-
-			// #AutoSecrets walks #config, collects every field carrying the $opm
-			// discriminator and groups it by $secretName/$dataKey. An entry
-			// supplied as #SecretK8sRef is skipped by the transformer, so
-			// pointing accessToken at a pre-existing cluster Secret emits
-			// nothing here and wires the env ref straight through.
-			spec: secrets: {
-				for _secretName, _data in (res.#AutoSecrets & {#in: #config}).out {
-					(_secretName): {
-						name: _secretName
-						data: _data
-					}
-				}
-			}
-		}
-	}
 
 	/////////////////////////////////////////////////////////////////
 	//// FileFlows - Stateful Processing Server
@@ -909,7 +875,8 @@ import (
 							// else.
 							AccessToken: {
 								name: "AccessToken"
-								from: #config.accessToken
+								// 0013: back to `from:` when the catalog regains an env secret path.
+								value: #config.accessToken
 							}
 
 							// NVIDIA_DRIVER_CAPABILITIES is conditionally set

@@ -279,9 +279,8 @@ host is different and specific:
   card idles no matter how many runners are active.
 
 ```cue
-// #Secret literal branch: OPM creates the Secret itself. Alternatively supply
-// `secretName:` + `remoteKey:` to reference a pre-existing K8s Secret.
-accessToken: {value: "..."}          // required whenever nodes exist — see below
+// Plain string for the interim (0013); required whenever nodes exist — see below.
+accessToken: "..."
 
 nodes: {
     p2200: {
@@ -297,8 +296,8 @@ nodes: {
 }
 ```
 
-Renders `{instance}-node-p2200` and `{instance}-node-arc-1` as Deployments, plus a Secret
-holding the access token. Nodes get **no Service and no HTTPRoute** — `FileFlows.Node.dll`
+Renders `{instance}-node-p2200` and `{instance}-node-arc-1` as Deployments. Nodes get
+**no Service and no HTTPRoute** — `FileFlows.Node.dll`
 has no HTTP listener; it dials the server and holds a SignalR connection. For the same
 reason they carry no probes: the entrypoint's `wait $dotnet_pid` makes container exit track
 process exit, so `restartPolicy` is the whole health story.
