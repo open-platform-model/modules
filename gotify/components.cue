@@ -139,7 +139,8 @@ import (
 						}
 						GOTIFY_DEFAULTUSER_PASS: {
 							name: "GOTIFY_DEFAULTUSER_PASS"
-							from: #config.defaultUser.password
+							// 0013: back to `from:` when the catalog regains an env secret path.
+							value: #config.defaultUser.password
 						}
 
 						// Storage paths, written absolutely so they follow the
@@ -170,7 +171,8 @@ import (
 						if #config.database.dialect != "sqlite3" {
 							GOTIFY_DATABASE_CONNECTION: {
 								name: "GOTIFY_DATABASE_CONNECTION"
-								from: #config.database.connection
+								// 0013: back to `from:` when the catalog regains an env secret path.
+								value: #config.database.connection
 							}
 						}
 					}

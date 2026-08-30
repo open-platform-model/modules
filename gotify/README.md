@@ -49,29 +49,20 @@ one-time setup step, not a recurring one, but it is not GitOps-managed.
 
 `defaultUser` is applied **only when the database is first created**. Changing the
 password in CUE later has no effect on an existing volume; change it in the UI. The
-upstream default password is literally `admin`, so supplying a Secret matters for any
-instance reachable from outside the cluster.
+upstream default password is literally `admin`, so supplying a real password matters for
+any instance reachable from outside the cluster.
+
+`defaultUser.password` and `database.connection` are plain strings for the interim: the
+value lands in the rendered manifest in clear (no pre-existing cluster Secret can be
+referenced until `core` ships the new `#Secret`, enhancement 0013).
 
 ## Quick start
-
-The Secret must exist **before** the ModuleInstance is applied — this module references
-a pre-existing Secret and does not create one.
-
-```bash
-kubectl create secret generic gotify -n notifications \
-  --from-literal=admin-password="$(openssl rand -base64 24)"
-```
 
 ```cue
 values: {
     defaultUser: {
-        name: "admin"
-        password: {
-            $secretName: "gotify"
-            $dataKey:    "admin-password"
-            secretName:  "gotify"
-            remoteKey:   "admin-password"
-        }
+        name:     "admin"
+        password: "<generated password>"
     }
 
     storage: data: {type: "pvc", size: "2Gi", storageClass: "local-path"}
@@ -100,9 +91,9 @@ curl -X POST "https://gotify.example.com/message?token=<app-token>" \
 | `timezone` | string | `Europe/Stockholm` | `TZ` |
 | `logLevel` | enum | `info` | `debug`/`info`/`warn`/`error` |
 | `defaultUser.name` | string | `admin` | bootstrap only |
-| `defaultUser.password` | `#Secret` | — | **required**, bootstrap only |
+| `defaultUser.password` | string | — | **required**, bootstrap only |
 | `database.dialect` | enum | `sqlite3` | `sqlite3`/`mysql`/`postgres` |
-| `database.connection` | `#Secret` | optional | required when dialect ≠ `sqlite3` |
+| `database.connection` | string | optional | required when dialect ≠ `sqlite3` |
 | `registration` | bool | `false` | self-service signup |
 | `passStrength` | int | `10` | bcrypt cost |
 | `streamPingPeriodSeconds` | int | `45` | WebSocket keepalive |
@@ -114,8 +105,7 @@ curl -X POST "https://gotify.example.com/message?token=<app-token>" \
 | `resources` | `#ResourceRequirementsSchema` | optional | |
 
 For `sqlite3` the connection path is derived from `storage.data.mountPath`, so the
-database always follows the volume. External dialects take a DSN carrying credentials,
-which is why it is a Secret rather than a plain string.
+database always follows the volume. External dialects take a DSN carrying credentials.
 
 ### extraEnv
 
