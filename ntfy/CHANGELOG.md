@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/open-platform-model/modules/compare/modules/ntfy/v2.1.1...modules/ntfy/v3.0.0) (2026-08-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ntfy:** drop legacy #Secret for auth users and tokens
+
+### Features
+
+* **ntfy:** drop legacy #Secret for auth users and tokens ([deae161](https://github.com/open-platform-model/modules/commit/deae161be798c34980225ea44d1b9c181c23d1fd))
+
 ## [2.1.1](https://github.com/open-platform-model/modules/compare/modules/ntfy/v2.1.0...modules/ntfy/v2.1.1) (2026-08-28)
 
 
