@@ -82,33 +82,32 @@ if #config.resources != _|_ {
 
 For modules with sidecars, each container that can have independent resource limits takes its own optional `resources?` field (see wolf's `dind.resources` and `manager.resources`).
 
-### schemas.#Secret
+### Sensitive fields (interim rule, pending enhancement 0013)
 
-Represents a reference to a value stored in a Kubernetes Secret. Use it wherever a sensitive string — API key, password, JWT secret — must be injected at runtime.
+Until `core` publishes 0013's `#Secret`, a sensitive `#config` field — API key, password,
+JWT secret — is typed `string`, not wrapped in any catalog secret schema. No module
+references a pre-existing cluster Secret, and no module names a component `opm-secrets`.
 
 ```cue
-// wolf/module.cue
-adminPassword: schemas.#Secret & {
-    $secretName:  "wolfmanager"
-    $dataKey:     "admin-password"
-    $description: "WolfManager admin account password"
+// module.cue
+// 0013: becomes c.#Secret when core ships it; plain string until then.
+jwtSecret: string
+```
+
+In `components.cue`, inject it via `value:` in the env entry, not `from:`:
+
+```cue
+JWT_SECRET: {
+    name: "JWT_SECRET"
+    // 0013: back to `from:` when the catalog regains an env secret path.
+    value: #config.jwtSecret
 }
 ```
 
-Three meta-fields describe the secret to tooling and humans:
-
-- `$secretName` — the Kubernetes Secret object name
-- `$dataKey` — the key within that Secret's `data` map
-- `$description` — human-readable explanation
-
-In `components.cue`, reference it via `from:` in the env entry:
-
-```cue
-Admin__Password: {
-    name: "Admin__Password"
-    from: #config.manager.adminPassword
-}
-```
+The value lands in the rendered manifest in clear. Accepted for the v2 staging line
+(publish disabled on `main`); each module's `README.md` states it. Every changed field
+and env site carries the `// 0013:` marker so reintroduction of the real `#Secret` is a
+grep.
 
 ---
 
@@ -559,7 +558,7 @@ Rules for `debugValues`:
 
 - Every optional field (`?`) should be provided with a realistic value so `cue vet -c` exercises those branches.
 - Every enum value should use the default to keep the example minimal.
-- Use realistic but obviously-fake values for secrets (`value: "debug-secret-key-32chars"`).
+- Use realistic but obviously-fake values for sensitive string fields (`"debug-secret-key-32chars"`).
 - Use obviously-fake UUIDs for fields like `uuid` (`"00000000-0000-0000-0000-000000000001"`).
 
 ---
@@ -690,7 +689,7 @@ metadata: {
 |---------|-------|---------------|
 | Container image | `module.cue` | `schemas.#Image & { repository: ..., tag: ..., digest: ... }` |
 | Resource limits | `module.cue` | `resources?: schemas.#ResourceRequirementsSchema` |
-| Secret reference | `module.cue` | `schemas.#Secret & { $secretName: ..., $dataKey: ..., $description: ... }` |
+| Sensitive field (interim) | `module.cue` | `string` field with a `// 0013:` marker; injected via `value:` in `components.cue` |
 | Volume schema | `module.cue` | `#storageVolume: { mountPath, type, size?, storageClass?, server?, path? }` |
 | Volume flattening | `components.cue` | `_allVolumes: { ... if optional !=_|_ { ... } }` |
 | Volume rendering | `components.cue` | `for name, v in _allVolumes { if v.type == "pvc" { ... } }` |

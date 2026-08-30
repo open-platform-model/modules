@@ -377,11 +377,8 @@ metadata: {
 	// Only meaningful when server security is actually enabled; with security
 	// off the server accepts unauthenticated registration and the label in the
 	// node UI reads "Optional Access Token".
-	accessToken?: res.#Secret & {
-		$secretName:  "fileflows"
-		$dataKey:     "access-token"
-		$description: "FileFlows server Access Token used by processing nodes to register"
-	}
+	// 0013: becomes c.#Secret when core ships it; plain string until then.
+	accessToken?: string
 
 	// Override the URL nodes dial. Almost never needed — the default is derived
 	// from the instance's own name and namespace, which is exactly where the
@@ -531,7 +528,7 @@ debugValues: {
 	ffmpegInjection: {}
 
 	// Required once `nodes` is non-empty — components.cue._validate enforces it.
-	accessToken: value: "debug-access-token"
+	accessToken: "debug-access-token"
 
 	// Three nodes, chosen so one render exercises every branch:
 	//   p2200    NVIDIA + emptyDir temp -> RuntimeClass, driver caps, chown init

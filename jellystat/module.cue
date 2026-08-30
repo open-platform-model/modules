@@ -70,11 +70,8 @@ metadata: {
 
 	// Key used to sign Jellystat's authentication JWTs. Required.
 	// Generate with: openssl rand -hex 32
-	jwtSecret: res.#Secret & {
-		$secretName:  "jellystat"
-		$dataKey:     "jwt-secret"
-		$description: "Key used to sign Jellystat's authentication JWTs"
-	}
+	// 0013: becomes c.#Secret when core ships it; plain string until then.
+	jwtSecret: string
 
 	// PostgreSQL connection. Jellystat cannot run without one.
 	database: {
@@ -98,11 +95,8 @@ metadata: {
 		// after this role, or first start fails to bootstrap.
 		user: string | *"jellystat"
 
-		password: res.#Secret & {
-			$secretName:  "jellystat"
-			$dataKey:     "postgres-password"
-			$description: "Password for the Jellystat PostgreSQL role"
-		}
+		// 0013: becomes c.#Secret when core ships it; plain string until then.
+		password: string
 
 		port: int & >0 & <=65535 | *5432
 
@@ -163,16 +157,10 @@ metadata: {
 
 	// Optional MaxMind GeoLite2 credentials for geolocating sessions.
 	geolite?: {
-		accountId: res.#Secret & {
-			$secretName:  "jellystat"
-			$dataKey:     "geolite-account-id"
-			$description: "MaxMind GeoLite2 account ID"
-		}
-		licenseKey: res.#Secret & {
-			$secretName:  "jellystat"
-			$dataKey:     "geolite-license-key"
-			$description: "MaxMind GeoLite2 license key"
-		}
+		// 0013: becomes c.#Secret when core ships it; plain string until then.
+		accountId: string
+		// 0013: becomes c.#Secret when core ships it; plain string until then.
+		licenseKey: string
 	}
 
 	// Storage definitions — backup holds Jellystat's own export/backup files.
@@ -211,25 +199,13 @@ debugValues: {
 	timezone:    "Europe/Stockholm"
 	listenIp:    "0.0.0.0"
 	baseUrl:     "/jellystat"
-	// The k8s-ref branch of the #Secret disjunction: references a
-	// pre-existing Secret, the shape the SOPS-managed environments use.
-	jwtSecret: {
-		$secretName: "jellystat"
-		$dataKey:    "jwt-secret"
-		secretName:  "jellystat"
-		remoteKey:   "jwt-secret"
-	}
+	jwtSecret:   "debug-jwt-secret"
 	database: {
-		mode: "bundled"
-		name: "jfstat"
-		user: "jellystat"
-		password: {
-			$secretName: "jellystat"
-			$dataKey:    "postgres-password"
-			secretName:  "jellystat"
-			remoteKey:   "postgres-password"
-		}
-		port: 5432
+		mode:     "bundled"
+		name:     "jfstat"
+		user:     "jellystat"
+		password: "debug-postgres-password"
+		port:     5432
 		ssl: {
 			enabled:            false
 			rejectUnauthorized: true
@@ -267,18 +243,8 @@ debugValues: {
 		newWatchEventThresholdHours:  4
 	}
 	geolite: {
-		accountId: {
-			$secretName: "jellystat"
-			$dataKey:    "geolite-account-id"
-			secretName:  "jellystat"
-			remoteKey:   "geolite-account-id"
-		}
-		licenseKey: {
-			$secretName: "jellystat"
-			$dataKey:    "geolite-license-key"
-			secretName:  "jellystat"
-			remoteKey:   "geolite-license-key"
-		}
+		accountId:  "debug-geolite-account-id"
+		licenseKey: "debug-geolite-license-key"
 	}
 	storage: {
 		backup: {

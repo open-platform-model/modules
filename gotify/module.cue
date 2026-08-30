@@ -77,20 +77,12 @@ metadata: {
 	// The bootstrap admin account. Applied ONLY when the database is first
 	// created — changing the password here later has no effect on an existing
 	// database, where it must be changed through the UI. The upstream default
-	// password is literally "admin", so supplying a Secret is not optional in
-	// any deployment reachable from outside the cluster.
-	//
-	// The v2 #Secret is a disjunction: the instance either supplies `value`
-	// (a literal — the transformer creates the Kubernetes Secret) or
-	// `secretName` + `remoteKey` (a reference to a pre-existing Secret; OPM
-	// emits no resource and only wires the secretKeyRef).
+	// password is literally "admin", so supplying a real password is not
+	// optional in any deployment reachable from outside the cluster.
 	defaultUser: {
 		name: string | *"admin"
-		password: res.#Secret & {
-			$secretName:  string | *"gotify"
-			$dataKey:     string | *"admin-password"
-			$description: "Gotify bootstrap admin password (applied only at database creation)"
-		}
+		// 0013: becomes c.#Secret when core ships it; plain string until then.
+		password: string
 	}
 
 	// Database backend. "sqlite3" keeps everything on the data volume and is
@@ -99,18 +91,14 @@ metadata: {
 	//
 	// For sqlite3 the connection path is derived from storage.data.mountPath,
 	// so the database always follows the volume. For mysql/postgres the
-	// connection string carries credentials and therefore arrives as a
-	// Secret.
+	// connection string carries credentials.
 	database: {
 		dialect: "sqlite3" | "mysql" | "postgres" | *"sqlite3"
 
 		// Required when dialect != "sqlite3". Full DSN, e.g.
 		// "host=db port=5432 user=gotify dbname=gotify password=..."
-		connection?: res.#Secret & {
-			$secretName:  string | *"gotify"
-			$dataKey:     string | *"database-connection"
-			$description: "Gotify external database connection string (DSN)"
-		}
+		// 0013: becomes c.#Secret when core ships it; plain string until then.
+		connection?: string
 	}
 
 	// Allow self-service account registration. Off by default.
@@ -172,24 +160,12 @@ debugValues: {
 	timezone:   "Europe/Stockholm"
 	logLevel:   "info"
 	defaultUser: {
-		name: "admin"
-		// The k8s-ref branch of the #Secret disjunction: references a
-		// pre-existing Secret, the shape SOPS-managed environments use.
-		password: {
-			$secretName: "gotify"
-			$dataKey:    "admin-password"
-			secretName:  "gotify"
-			remoteKey:   "admin-password"
-		}
+		name:     "admin"
+		password: "debug-admin-password"
 	}
 	database: {
-		dialect: "postgres"
-		connection: {
-			$secretName: "gotify"
-			$dataKey:    "database-connection"
-			secretName:  "gotify"
-			remoteKey:   "database-connection"
-		}
+		dialect:    "postgres"
+		connection: "host=db port=5432 user=gotify dbname=gotify password=debug"
 	}
 	registration:            false
 	passStrength:            10

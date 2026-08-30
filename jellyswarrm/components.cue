@@ -144,7 +144,8 @@ import (
 						// built-in default password unreachable.
 						JELLYSWARRM_PASSWORD: {
 							name: "JELLYSWARRM_PASSWORD"
-							from: #config.password
+							// 0013: back to `from:` when the catalog regains an env secret path.
+							value: #config.password
 						}
 						// Pin against kubelet service links: the Service named
 						// "jellyswarrm" injects JELLYSWARRM_PORT=tcp://... into

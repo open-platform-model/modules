@@ -1,12 +1,6 @@
 // Components defines the Jellystat workload.
 //
-// Three components:
-//   - opm-secrets: the module's Secret. Named exactly "opm-secrets" on
-//     purpose — the secret transformer renders that component's secrets as
-//     {instance}-{secretName}, which is the only shape a container's
-//     `env.from` secretKeyRef resolves to. Any other component name would
-//     render {instance}-{component}-{secretName} and the env refs would point
-//     at an object that does not exist.
+// Two components:
 //   - jellystat: the app itself, with a backup volume and the web Service.
 //   - postgres: the bundled database, rendered only when
 //     database.mode == "bundled".
@@ -14,7 +8,6 @@ package jellystat
 
 import (
 	bp "opmodel.dev/catalogs/opm/blueprints/v1beta1"
-	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 	tr "opmodel.dev/catalogs/opm/traits/v1beta1"
 )
 
@@ -41,29 +34,6 @@ _healthPath: [
 // #components contains component definitions.
 // Components reference #config which gets resolved to concrete values at build time.
 #components: {
-
-	/////////////////////////////////////////////////////////////////
-	//// Secrets - JWT key, database password, optional GeoLite creds
-	/////////////////////////////////////////////////////////////////
-
-	"opm-secrets": {
-		res.#Secrets
-
-		metadata: name: "opm-secrets"
-
-		// #AutoSecrets walks #config, collects every field carrying the $opm
-		// discriminator and groups it by $secretName/$dataKey. Entries supplied
-		// as #SecretK8sRef are skipped by the transformer, so pointing any of
-		// them at a pre-existing cluster Secret emits nothing here.
-		spec: secrets: {
-			for _secretName, _data in (res.#AutoSecrets & {#in: #config}).out {
-				(_secretName): {
-					name: _secretName
-					data: _data
-				}
-			}
-		}
-	}
 
 	/////////////////////////////////////////////////////////////////
 	//// Jellystat - Stateful Dashboard
@@ -103,11 +73,13 @@ _healthPath: [
 			spec: statefulWorkload: container: env: {
 				JS_GEOLITE_ACCOUNT_ID: {
 					name: "JS_GEOLITE_ACCOUNT_ID"
-					from: #config.geolite.accountId
+					// 0013: back to `from:` when the catalog regains an env secret path.
+					value: #config.geolite.accountId
 				}
 				JS_GEOLITE_LICENSE_KEY: {
 					name: "JS_GEOLITE_LICENSE_KEY"
-					from: #config.geolite.licenseKey
+					// 0013: back to `from:` when the catalog regains an env secret path.
+					value: #config.geolite.licenseKey
 				}
 			}
 		}
@@ -201,7 +173,8 @@ _healthPath: [
 						}
 						POSTGRES_PASSWORD: {
 							name: "POSTGRES_PASSWORD"
-							from: #config.database.password
+							// 0013: back to `from:` when the catalog regains an env secret path.
+							value: #config.database.password
 						}
 						POSTGRES_SSL_ENABLED: {
 							name:  "POSTGRES_SSL_ENABLED"
@@ -214,7 +187,8 @@ _healthPath: [
 
 						JWT_SECRET: {
 							name: "JWT_SECRET"
-							from: #config.jwtSecret
+							// 0013: back to `from:` when the catalog regains an env secret path.
+							value: #config.jwtSecret
 						}
 
 						// Media-server behaviour.
@@ -361,7 +335,8 @@ _healthPath: [
 							}
 							POSTGRES_PASSWORD: {
 								name: "POSTGRES_PASSWORD"
-								from: #config.database.password
+								// 0013: back to `from:` when the catalog regains an env secret path.
+								value: #config.database.password
 							}
 							// POSTGRES_DB is deliberately NOT set. The official
 							// image then creates a database named after

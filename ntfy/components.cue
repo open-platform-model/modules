@@ -109,7 +109,8 @@ import (
 		if #config.auth.tokens != _|_ {
 			spec: statefulWorkload: container: env: NTFY_AUTH_TOKENS: {
 				name: "NTFY_AUTH_TOKENS"
-				from: #config.auth.tokens
+				// 0013: back to `from:` when the catalog regains an env secret path.
+				value: #config.auth.tokens
 			}
 		}
 		if #config.resources != _|_ {
@@ -167,7 +168,8 @@ import (
 						// allowed to travel.
 						NTFY_AUTH_USERS: {
 							name: "NTFY_AUTH_USERS"
-							from: #config.auth.users
+							// 0013: back to `from:` when the catalog regains an env secret path.
+							value: #config.auth.users
 						}
 						// NTFY_AUTH_TOKENS is conditionally set from component
 						// level — see the hoisted guards above the spec block.

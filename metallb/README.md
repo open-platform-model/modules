@@ -54,15 +54,11 @@ Deploy as an instance named exactly `metallb` in namespace `metallb-system`.
 See `#config` in `module.cue`: `image{repository,tag,digest,pullPolicy}`,
 `controller{logLevel,replicas,resources?}`, `speaker{logLevel,resources?,memberlistKey}`.
 
-The v2 `#Secret` is a disjunction — pick a concrete branch in instance values.
-The usual choice here is the literal branch (OPM creates and manages the Secret):
+`speaker.memberlistKey` is a plain string; OPM creates and manages the Secret from it:
 
 ```cue
-speaker: memberlistKey: value: "<generated key>"
+speaker: memberlistKey: "<generated key>"
 ```
-
-Alternatively reference a pre-existing Secret with the k8s-ref branch
-(`secretName:` + `remoteKey:` — OPM emits no Secret resource then).
 
 Generate a memberlist key with:
 
