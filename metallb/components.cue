@@ -381,8 +381,8 @@ import (
 			}
 
 			// Memberlist gossip encryption key — managed by OPM. The operator
-			// provides the key value via #config.speaker.memberlistKey; the
-			// Secret renders as {instance}-speaker-memberlist and the volume
+			// provides the key as a plain string via #config.speaker.memberlistKey;
+			// the Secret renders as {instance}-speaker-memberlist and the volume
 			// ref below resolves to the same name automatically.
 			secrets: {
 				memberlist: {

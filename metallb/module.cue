@@ -69,13 +69,10 @@ metadata: {
 		// Resource requests and limits (optional — omit to use cluster defaults).
 		resources?: res.#ResourceRequirementsSchema
 		// Memberlist gossip encryption key — shared across all speaker pods.
-		// OPM creates and manages the K8s Secret; provide the key value in
-		// instance values. Generate with:
+		// OPM creates and manages the K8s Secret from this value. Generate with:
 		//   head -c 128 /dev/urandom | base64 | tr -d '\n'
-		memberlistKey: res.#Secret & {
-			$secretName: "memberlist"
-			$dataKey:    "secretkey"
-		}
+		// 0013: becomes c.#Secret when core ships it; plain string until then.
+		memberlistKey: string
 	}
 }
 
@@ -102,8 +99,8 @@ debugValues: {
 		}
 	}
 	speaker: {
-		logLevel: "info"
-		memberlistKey: value: "debug-gossip-key-for-cue-vet-only"
+		logLevel:      "info"
+		memberlistKey: "debug-gossip-key-for-cue-vet-only"
 		resources: {
 			requests: {
 				cpu:    "100m"
