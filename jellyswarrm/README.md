@@ -25,8 +25,9 @@ Single stateful component (`jellyswarrm`):
   libraries) at `/app/data`.
 - **Service** — `#config.port` (default 3000) → container 3000.
 - **HTTPRoute** (optional) — Gateway API ingress.
-- **Secret reference** — the management-UI admin password enters via the
-  `JELLYSWARRM_PASSWORD` env var, never the ConfigMap.
+- **Credential env var** — the management-UI admin password enters via the
+  `JELLYSWARRM_PASSWORD` env var, never the ConfigMap. A plain string for the
+  interim (0013) — the value lands in the rendered manifest in clear.
 
 ### Why a TOML file and not environment variables
 
@@ -78,14 +79,7 @@ jellyswarrm: {
 	values: {
 		serverId:      "d290f1ee6c544b0190e6d701748f0851" // openssl rand -hex 16
 		publicAddress: "https://swarm.example.com"
-		// #Secret k8s-ref branch: references a pre-existing Secret.
-		// Alternatively supply `value:` and OPM creates the Secret itself.
-		password: {
-			$secretName: "jellyswarrm"
-			$dataKey:    "admin-password"
-			secretName:  "jellyswarrm"
-			remoteKey:   "admin-password"
-		}
+		password:      "<generated admin password>"
 		servers: {
 			"Living Room": {
 				url:      "http://jellyfin.media.svc.cluster.local:8096"
@@ -102,15 +96,8 @@ jellyswarrm: {
 }
 ```
 
-Create the Secret out-of-band (SOPS-encrypted in the environment repo):
-
-```bash
-kubectl create secret generic jellyswarrm \
-  --from-literal=admin-password="$(openssl rand -base64 24)"
-```
-
 Then: Jellyfin-compatible API at `https://swarm.example.com/`, management UI at
-`https://swarm.example.com/ui` (log in with `admin` / the Secret value).
+`https://swarm.example.com/ui` (log in with `admin` / `password`).
 
 ## Configuration reference
 
@@ -122,7 +109,7 @@ Then: Jellyfin-compatible API at `https://swarm.example.com/`, management UI at
 | `publicAddress` | — required | Scheme + host clients use to reach the proxy |
 | `serverName` | `Jellyswarrm Proxy` | Display name clients see |
 | `username` | `admin` | Management-UI admin user |
-| `password` | secret `jellyswarrm`/`admin-password` | Injected via env, never in the ConfigMap |
+| `password` | — required | string, injected via env, never in the ConfigMap |
 | `servers` | `{}` | Declarative backends, keyed by display name (see above) |
 | `includeServerNameInMedia` | `true` | Append origin server name to media titles |
 | `mergeLibraries` | `true` | Merge same-named libraries into virtual libraries |

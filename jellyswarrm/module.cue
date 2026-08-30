@@ -112,17 +112,10 @@ metadata: {
 	// into the TOML); the password is injected via the JELLYSWARRM_PASSWORD
 	// env var — one of the few that actually works — so it never lands in
 	// the ConfigMap. Env overrides the TOML, so the app's built-in default
-	// password is unreachable as long as the Secret exists.
-	// The v2 #Secret is a disjunction: the instance either supplies `value`
-	// (a literal — the transformer creates the Kubernetes Secret) or
-	// `secretName` + `remoteKey` (a reference to a pre-existing Secret; OPM
-	// emits no resource and only wires the secretKeyRef).
+	// password is unreachable as long as a value is set.
+	// 0013: becomes c.#Secret when core ships it; plain string until then.
 	username: string | *"admin"
-	password: res.#Secret & {
-		$secretName:  string | *"jellyswarrm"
-		$dataKey:     string | *"admin-password"
-		$description: "Jellyswarrm management UI admin password"
-	}
+	password: string
 
 	// Upstream Jellyfin servers, keyed by display name. May be empty —
 	// servers can also be added at runtime via the management UI (those
@@ -205,14 +198,7 @@ debugValues: {
 	publicAddress: "https://swarm.example.com"
 	serverName:    "Jellyswarrm Proxy"
 	username:      "admin"
-	// The k8s-ref branch of the #Secret disjunction: references a
-	// pre-existing Secret, the shape the SOPS-managed environments use.
-	password: {
-		$secretName: "jellyswarrm"
-		$dataKey:    "admin-password"
-		secretName:  "jellyswarrm"
-		remoteKey:   "admin-password"
-	}
+	password:      "debug-admin-password"
 	servers: {
 		"Living Room": {
 			url:      "http://jellyfin.media.svc.cluster.local:8096"
