@@ -103,17 +103,9 @@ metadata: {
 
 	// Default targets for /notify calls that carry no URLs and no {KEY}.
 	// Only meaningful when mode is "stateless"; the value is a set of
-	// credential-bearing Apprise URLs, hence a Secret.
-	//
-	// The v2 #Secret is a disjunction: the instance either supplies `value`
-	// (a literal — the transformer creates the Kubernetes Secret) or
-	// `secretName` + `remoteKey` (a reference to a pre-existing Secret; OPM
-	// emits no resource and only wires the secretKeyRef).
-	statelessUrls?: res.#Secret & {
-		$secretName:  string | *"apprise"
-		$dataKey:     string | *"stateless-urls"
-		$description: "Apprise default target URLs for stateless /notify calls"
-	}
+	// credential-bearing Apprise URLs.
+	// 0013: becomes c.#Secret when core ships it; plain string until then.
+	statelessUrls?: string
 
 	// Admin mode removes the user/admin distinction and allows listing
 	// stored configuration keys. Off by default: the API has no
@@ -215,22 +207,15 @@ debugValues: {
 	configFormat:    "yaml"
 	configLock:      true
 	defaultConfigId: "apprise"
-	// The k8s-ref branch of the #Secret disjunction: references a
-	// pre-existing Secret, the shape SOPS-managed environments use.
-	statelessUrls: {
-		$secretName: "apprise"
-		$dataKey:    "stateless-urls"
-		secretName:  "apprise"
-		remoteKey:   "stateless-urls"
-	}
-	admin:         false
-	apiOnly:       false
-	strictMode:    true
-	baseUrl:       "/apprise"
-	denyServices:  "windows, dbus, gnome, macosx, syslog"
-	allowServices: "ntfy, discord, mailto"
-	recursionMax:  1
-	webhookUrl:    "https://hooks.example.com/apprise-results"
+	statelessUrls:   "mailto://user:pass@example.com"
+	admin:           false
+	apiOnly:         false
+	strictMode:      true
+	baseUrl:         "/apprise"
+	denyServices:    "windows, dbus, gnome, macosx, syslog"
+	allowServices:   "ntfy, discord, mailto"
+	recursionMax:    1
+	webhookUrl:      "https://hooks.example.com/apprise-results"
 	attachments: {
 		enabled:   true
 		maxSizeMb: 200

@@ -90,12 +90,11 @@ import (
 			}
 		}
 
-		// Credential-bearing, so it arrives from a Secret rather than the
-		// manifest.
 		if #config.mode == "stateless" if #config.statelessUrls != _|_ {
 			spec: statelessWorkload: container: env: APPRISE_STATELESS_URLS: {
 				name: "APPRISE_STATELESS_URLS"
-				from: #config.statelessUrls
+				// 0013: back to `from:` when the catalog regains an env secret path.
+				value: #config.statelessUrls
 			}
 		}
 		if #config.resources != _|_ {

@@ -142,7 +142,7 @@ curl -X POST -d 'tag=critical' -d 'title=nas1' -d 'body=Disk at 91%' \
 | `configFormat` | enum | `yaml` | `yaml` → `.yml`, `text` → `.cfg` |
 | `configLock` | bool | `true` | keep it on; see above |
 | `defaultConfigId` | string | `apprise` | the key the web UI defaults to |
-| `statelessUrls` | `#Secret` | optional | default targets in `stateless` mode |
+| `statelessUrls` | string | optional | default targets in `stateless` mode; `// 0013:` plain string until `core` ships `#Secret` |
 | `admin` | bool | `false` | allows listing stored keys |
 | `apiOnly` | bool | `false` | `true` disables the web UI |
 | `strictMode` | bool | `true` | nginx rejects unsupported requests |
