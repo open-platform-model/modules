@@ -75,8 +75,8 @@ jobs:
         run: |
           set -euo pipefail
           base="https://github.com/open-platform-model/cli/releases/download/${OPM_CLI_VERSION}"
-          curl -fsSLO "${base}/opm-linux-amd64.tar.gz"
-          curl -fsSLO "${base}/checksums.txt"
+          curl -fsSLO --retry 5 --retry-all-errors --retry-delay 2 "${base}/opm-linux-amd64.tar.gz"
+          curl -fsSLO --retry 5 --retry-all-errors --retry-delay 2 "${base}/checksums.txt"
           grep ' opm-linux-amd64.tar.gz$' checksums.txt | sha256sum -c -
           tar -xzf opm-linux-amd64.tar.gz opm
           sudo install -m 0755 opm /usr/local/bin/opm
@@ -142,8 +142,8 @@ jobs:
         run: |
           set -euo pipefail
           base="https://github.com/open-platform-model/cli/releases/download/${OPM_CLI_VERSION}"
-          curl -fsSLO "${base}/opm-linux-amd64.tar.gz"
-          curl -fsSLO "${base}/checksums.txt"
+          curl -fsSLO --retry 5 --retry-all-errors --retry-delay 2 "${base}/opm-linux-amd64.tar.gz"
+          curl -fsSLO --retry 5 --retry-all-errors --retry-delay 2 "${base}/checksums.txt"
           grep ' opm-linux-amd64.tar.gz$' checksums.txt | sha256sum -c -
           tar -xzf opm-linux-amd64.tar.gz opm
           sudo install -m 0755 opm /usr/local/bin/opm
