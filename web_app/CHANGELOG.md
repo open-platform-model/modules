@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/open-platform-model/modules/compare/modules/web_app/v1.0.2...modules/web_app/v1.0.3) (2026-08-31)
+
+
+### Bug Fixes
+
+* **deps:** cross fleet to catalogs/opm v4.0.0 ([34509ec](https://github.com/open-platform-model/modules/commit/34509eccf8218781bcfae85707b6937e6e8c6159))
+
 ## [1.0.2](https://github.com/open-platform-model/modules/compare/modules/web_app/v1.0.1...modules/web_app/v1.0.2) (2026-08-28)
 
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/open-platform-model/modules/compare/modules/gotify/v2.1.1...modules/gotify/v3.0.0) (2026-08-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **gotify:** drop legacy #Secret for admin password and db connection
+
+### Features
+
+* **gotify:** drop legacy #Secret for admin password and db connection ([3ade1bc](https://github.com/open-platform-model/modules/commit/3ade1bca3c1eea08eb698861b1aaba6347dce341))
+
+
+### Bug Fixes
+
+* **deps:** cross fleet to catalogs/opm v4.0.0 ([34509ec](https://github.com/open-platform-model/modules/commit/34509eccf8218781bcfae85707b6937e6e8c6159))
+
 ## [2.1.1](https://github.com/open-platform-model/modules/compare/modules/gotify/v2.1.0...modules/gotify/v2.1.1) (2026-08-28)
 
 

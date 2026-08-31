@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/fileflows@v2"
+module: "opmodel.dev/modules/fileflows@v3"
 language: {
 	version: "v0.17.0"
 }

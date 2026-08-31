@@ -75,7 +75,7 @@ can reach that backend's URL directly.
 
 ```cue
 jellyswarrm: {
-	module: "opmodel.dev/modules/jellyswarrm@v2"
+	module: "opmodel.dev/modules/jellyswarrm@v3"
 	values: {
 		serverId:      "d290f1ee6c544b0190e6d701748f0851" // openssl rand -hex 16
 		publicAddress: "https://swarm.example.com"

@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/open-platform-model/modules/compare/modules/apprise/v2.1.1...modules/apprise/v3.0.0) (2026-08-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **apprise:** drop legacy #Secret for stateless URLs
+
+### Features
+
+* **apprise:** drop legacy #Secret for stateless URLs ([6eb54cc](https://github.com/open-platform-model/modules/commit/6eb54ccba6999b6e0c3f200ebe1d7e491184708c))
+
+
+### Bug Fixes
+
+* **deps:** cross fleet to catalogs/opm v4.0.0 ([34509ec](https://github.com/open-platform-model/modules/commit/34509eccf8218781bcfae85707b6937e6e8c6159))
+
 ## [2.1.1](https://github.com/open-platform-model/modules/compare/modules/apprise/v2.1.0...modules/apprise/v2.1.1) (2026-08-28)
 
 

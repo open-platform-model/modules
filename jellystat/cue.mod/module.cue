@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/jellystat@v2"
+module: "opmodel.dev/modules/jellystat@v3"
 language: {
 	version: "v0.17.0"
 }

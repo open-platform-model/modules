@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/gotify@v2"
+module: "opmodel.dev/modules/gotify@v3"
 language: {
 	version: "v0.17.0"
 }

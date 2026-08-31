@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/k8up@v3"
+module: "opmodel.dev/modules/k8up@v4"
 language: {
 	version: "v0.17.0"
 }

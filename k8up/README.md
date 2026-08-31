@@ -1,7 +1,7 @@
 # k8up
 
 K8up restic-based backup operator for Kubernetes, on the OPM v2 catalog line
-(`opmodel.dev/catalogs/opm@v2`), published as `opmodel.dev/modules/k8up@v3` — the v1 train
+(`opmodel.dev/catalogs/opm@v2`), published as `opmodel.dev/modules/k8up@v4` — the v1 train
 publishes this path at major v2 (cross-train major separation). Replaces the `v0_legacy`
 module published as `opmodel.dev/modules/k8up@v1`.
 

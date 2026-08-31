@@ -9,10 +9,10 @@ package identity
 // — byte-identical to cue.mod's `module:` field. Major v2: the v1 train
 // already publishes opmodel.dev/modules/gotify at major v1 (cross-train
 // major separation).
-ModulePath: "opmodel.dev/modules/gotify@v2"
+ModulePath: "opmodel.dev/modules/gotify@v3"
 
 // Version is the module's bare SemVer; its major must agree with ModulePath's.
 // A concrete literal, never a defaulted disjunction: the kernel's loader gate
 // requires a value, and core's #IdentityPackage (which publish unifies this
 // package against) supplies the SemVer constraint.
-Version: "2.1.1"
+Version: "3.0.0"
