@@ -129,14 +129,10 @@ metadata: {
 	// Additional environment variables for the operator container, merged over
 	// the ones this module derives. The upstream `k8up.envVars` escape hatch —
 	// its documented use is global S3 credentials
-	// (BACKUP_GLOBALACCESSKEYID / BACKUP_GLOBALSECRETACCESSKEY), which is why
-	// the value shape allows a Secret reference and not just a literal.
+	// (BACKUP_GLOBALACCESSKEYID / BACKUP_GLOBALSECRETACCESSKEY).
 	//
-	// For credentials that already exist in the cluster use the `#SecretK8sRef`
-	// form (`secretName` + `remoteKey`): it wires a secretKeyRef to that exact
-	// object and emits nothing. The `#SecretLiteral` form (`value`) instead
-	// makes OPM CREATE the Secret, under the instance-prefixed name
-	// `{instance}-{$secretName}` — so it cannot address a pre-existing one.
+	// 0013: literal-only until core's #Secret ships; secretKeyRef wiring returns with it.
+	// On catalogs/opm@v4 #EnvVarSchema has no `from`; values are name/value pairs.
 	extraEnv?: [Name=string]: res.#EnvVarSchema & {name: Name}
 
 	// Optional scheduling constraints — nodeSelector / tolerations /
@@ -195,16 +191,10 @@ debugValues: {
 		port:        8080
 		serviceType: "ClusterIP"
 	}
-	// The realistic shape: a Secret provisioned outside this module, addressed
-	// by its exact name.
+	// 0013: back to a secretKeyRef when the catalog regains an env secret path.
 	extraEnv: BACKUP_GLOBALACCESSKEYID: {
-		name: "BACKUP_GLOBALACCESSKEYID"
-		from: {
-			$secretName: "global-s3-credentials"
-			$dataKey:    "access-key-id"
-			secretName:  "global-s3-credentials"
-			remoteKey:   "access-key-id"
-		}
+		name:  "BACKUP_GLOBALACCESSKEYID"
+		value: "debug-access-key-id"
 	}
 	podScheduling: {
 		nodeSelector: "kubernetes.io/os": "linux"

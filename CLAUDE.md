@@ -84,6 +84,7 @@ This directory contains workspace-level OPM module definitions. Unlike the submo
 - Follow the CUE style from `catalog_opm/` (see `catalog_opm/CLAUDE.md`; the retired `catalog` repo applies only to `v0_legacy`): `#` definitions, `_` hidden fields, `*` defaults, `?` optional fields.
 - Do not put build artifacts, binaries, or generated Kubernetes YAML here — those belong in the cluster or CI.
 - To update CUE deps for all workspace modules at once, run `task deps:update` from the workspace root. Do not manually edit version pins in `cue.mod/module.cue` — use the task instead.
+- `task deps:update` only moves pins within a dep's already-declared major. A major-crossing bump (e.g. `catalogs/opm` v2 → v4) is `cue mod get <path>@vN.0.0` + `cue mod tidy` per module — the same pin writer the task wraps, not a hand edit. If tidy leaves the stale old-major entry (major-less imports are ambiguous with two majors present), remove that dep block and rerun `cue mod tidy`; verify exactly one entry for the path remains. After the crossing, `task deps:update` owns in-major bumps again.
 - Validate with `cue vet -c ./modules/<name>/...` before committing.
 
 ## Entrypoint

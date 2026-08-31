@@ -6,8 +6,8 @@ source: {
 	kind: "self"
 }
 deps: {
-	"opmodel.dev/catalogs/opm@v2": {
-		v: "v2.0.0-alpha.7"
+	"opmodel.dev/catalogs/opm@v4": {
+		v: "v4.0.0"
 	}
 	"opmodel.dev/core@v2": {
 		v: "v2.0.0-alpha.6"
