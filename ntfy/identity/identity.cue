@@ -15,4 +15,4 @@ ModulePath: "opmodel.dev/modules/ntfy@v2"
 // A concrete literal, never a defaulted disjunction: the kernel's loader gate
 // requires a value, and core's #IdentityPackage (which publish unifies this
 // package against) supplies the SemVer constraint.
-Version: "2.1.1"
+Version: "3.0.0"
