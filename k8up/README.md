@@ -123,22 +123,17 @@ normal deployment path is unaffected. Only ad-hoc `kubectl apply` needs `--serve
 | `extraEnv` | *(unset)* | Upstream's `k8up.envVars` escape hatch |
 | `podScheduling` / `podMetadata` | *(unset)* | nodeSelector/tolerations/priorityClass; pod labels+annotations |
 
-### Referencing a pre-existing Secret from `extraEnv`
+### Global S3 credentials via `extraEnv`
 
-Use the `#SecretK8sRef` form (`secretName` + `remoteKey`) to point at a Secret provisioned
-outside the module — it wires a `secretKeyRef` to that exact name and emits nothing. The
-`#SecretLiteral` form (`value`) instead makes OPM create the Secret under the instance-prefixed
-name `{instance}-{$secretName}`, which cannot address a pre-existing object.
+`extraEnv` takes literal name/value pairs only — on `catalogs/opm` v4 the env schema has no
+secret-reference form. Wiring `BACKUP_GLOBALACCESSKEYID` / `BACKUP_GLOBALSECRETACCESSKEY` from a
+pre-existing Secret (`secretKeyRef`) is unsupported until enhancement 0013's core-owned `#Secret`
+ships; until then, pass the value directly:
 
 ```cue
 extraEnv: BACKUP_GLOBALACCESSKEYID: {
-    name: "BACKUP_GLOBALACCESSKEYID"
-    from: {
-        $secretName: "global-s3-credentials"
-        $dataKey:    "access-key-id"
-        secretName:  "global-s3-credentials"
-        remoteKey:   "access-key-id"
-    }
+    name:  "BACKUP_GLOBALACCESSKEYID"
+    value: "AKIA..."
 }
 ```
 
