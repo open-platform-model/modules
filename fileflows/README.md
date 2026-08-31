@@ -2,7 +2,7 @@
 
 **Complexity:** Intermediate
 **Workload Types:** `stateful` (StatefulSet) + `stateless` (Deployment, one per processing node)
-**Module path:** `opmodel.dev/modules/fileflows@v2`
+**Module path:** `opmodel.dev/modules/fileflows@v3`
 
 FileFlows is a .NET file-processing automation server. Libraries are scanned, matched
 files are pushed through user-authored *flows*, and the heavy step is almost always an
@@ -178,7 +178,7 @@ metadata:
   namespace: fileflows
 spec:
   module:
-    path: opmodel.dev/modules/fileflows@v2
+    path: opmodel.dev/modules/fileflows@v3
     version: v2.0.0
   values:
     puid: 3005

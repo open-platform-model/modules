@@ -6,7 +6,7 @@ Playback statistics and monitoring dashboard for Jellyfin (and Emby). Jellystat 
 - **Version:** 1.1.11 (latest upstream release, 2026-06-23)
 - **Port:** 3000
 - **Upstream:** https://github.com/CyferShepard/Jellystat
-- **Module path:** `opmodel.dev/modules/jellystat@v2`
+- **Module path:** `opmodel.dev/modules/jellystat@v3`
 
 > **Jellystat is not self-contained.** Unlike `jellyfin`, `seerr` and the `*arr`
 > modules, it has no SQLite mode — PostgreSQL is mandatory. This module renders
@@ -73,7 +73,7 @@ metadata:
   namespace: jellystat
 spec:
   module:
-    path: opmodel.dev/modules/jellystat@v2
+    path: opmodel.dev/modules/jellystat@v3
     version: v2.0.0
   # No serviceAccountName: the operator applies rendered resources as its own
   # identity. Set one only if that identity is deliberately scoped down.

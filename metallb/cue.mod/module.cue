@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/metallb@v2"
+module: "opmodel.dev/modules/metallb@v3"
 language: {
 	version: "v0.17.0"
 }

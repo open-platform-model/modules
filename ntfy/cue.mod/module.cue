@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/ntfy@v2"
+module: "opmodel.dev/modules/ntfy@v3"
 language: {
 	version: "v0.17.0"
 }

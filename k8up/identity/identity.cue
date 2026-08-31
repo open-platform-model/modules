@@ -9,7 +9,7 @@ package identity
 // — byte-identical to cue.mod's `module:` field. Major v3: the v1 train
 // already publishes opmodel.dev/modules/k8up at major v2 (cross-train
 // major separation).
-ModulePath: "opmodel.dev/modules/k8up@v3"
+ModulePath: "opmodel.dev/modules/k8up@v4"
 
 // Version is the module's bare SemVer; its major must agree with ModulePath's.
 // A concrete literal, never a defaulted disjunction: the kernel's loader gate
