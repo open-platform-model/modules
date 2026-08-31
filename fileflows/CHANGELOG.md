@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/open-platform-model/modules/compare/modules/fileflows/v2.0.2...modules/fileflows/v3.0.0) (2026-08-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **fileflows:** drop legacy #Secret and opm-secrets component
+
+### Features
+
+* **fileflows:** drop legacy #Secret and opm-secrets component ([f5d429b](https://github.com/open-platform-model/modules/commit/f5d429ba560725e4438603c2d69119af28d3d7d9))
+
+
+### Bug Fixes
+
+* **deps:** cross fleet to catalogs/opm v4.0.0 ([34509ec](https://github.com/open-platform-model/modules/commit/34509eccf8218781bcfae85707b6937e6e8c6159))
+
 ## [2.0.2](https://github.com/open-platform-model/modules/compare/modules/fileflows/v2.0.1...modules/fileflows/v2.0.2) (2026-08-28)
 
 

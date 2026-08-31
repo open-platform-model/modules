@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/open-platform-model/modules/compare/modules/jellystat/v2.0.2...modules/jellystat/v3.0.0) (2026-08-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **jellystat:** drop legacy #Secret and opm-secrets component
+
+### Features
+
+* **jellystat:** drop legacy #Secret and opm-secrets component ([cc395b4](https://github.com/open-platform-model/modules/commit/cc395b4310da5253e090a8f4ea1a50f076759203))
+
+
+### Bug Fixes
+
+* **deps:** cross fleet to catalogs/opm v4.0.0 ([34509ec](https://github.com/open-platform-model/modules/commit/34509eccf8218781bcfae85707b6937e6e8c6159))
+
 ## [2.0.2](https://github.com/open-platform-model/modules/compare/modules/jellystat/v2.0.1...modules/jellystat/v2.0.2) (2026-08-28)
 
 

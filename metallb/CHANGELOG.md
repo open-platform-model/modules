@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/open-platform-model/modules/compare/modules/metallb/v2.0.2...modules/metallb/v3.0.0) (2026-08-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **metallb:** drop legacy #Secret for memberlist key
+
+### Features
+
+* **metallb:** drop legacy #Secret for memberlist key ([f248a95](https://github.com/open-platform-model/modules/commit/f248a95862b7c1743497ad683b204049f7cd5fe1))
+
+
+### Bug Fixes
+
+* **deps:** cross fleet to catalogs/opm v4.0.0 ([34509ec](https://github.com/open-platform-model/modules/commit/34509eccf8218781bcfae85707b6937e6e8c6159))
+
 ## [2.0.2](https://github.com/open-platform-model/modules/compare/modules/metallb/v2.0.1...modules/metallb/v2.0.2) (2026-08-28)
 
 

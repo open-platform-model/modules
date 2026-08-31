@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/open-platform-model/modules/compare/modules/jellyswarrm/v2.0.2...modules/jellyswarrm/v3.0.0) (2026-08-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **jellyswarrm:** drop legacy #Secret for admin password
+
+### Features
+
+* **jellyswarrm:** drop legacy #Secret for admin password ([a07c948](https://github.com/open-platform-model/modules/commit/a07c948e87a16ff6975e2558efd58a70831cdba3))
+
+
+### Bug Fixes
+
+* **deps:** cross fleet to catalogs/opm v4.0.0 ([34509ec](https://github.com/open-platform-model/modules/commit/34509eccf8218781bcfae85707b6937e6e8c6159))
+
 ## [2.0.2](https://github.com/open-platform-model/modules/compare/modules/jellyswarrm/v2.0.1...modules/jellyswarrm/v2.0.2) (2026-08-28)
 
 

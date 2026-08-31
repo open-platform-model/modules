@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.0.0](https://github.com/open-platform-model/modules/compare/modules/k8up/v3.0.2...modules/k8up/v4.0.0) (2026-08-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **k8up:** drop legacy secret env form, cross to catalogs/opm v4
+
+### Features
+
+* **k8up:** drop legacy secret env form, cross to catalogs/opm v4 ([8846650](https://github.com/open-platform-model/modules/commit/88466502dabf81ce81ec60222ebc26a504ca0ce6))
+
 ## [3.0.2](https://github.com/open-platform-model/modules/compare/modules/k8up/v3.0.1...modules/k8up/v3.0.2) (2026-08-28)
 
 
