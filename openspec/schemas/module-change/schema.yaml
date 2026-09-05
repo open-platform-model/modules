@@ -7,7 +7,7 @@ description: Module change workflow - proposal -> design -> tasks (no specs arti
 # would be a copy no gate keeps honest. This schema therefore has NO specs
 # artifact. `openspec validate` still asks for spec deltas regardless of schema,
 # so every change's .openspec.yaml sets `skip_specs: true`; the
-# openspec-new-change and openspec-ff-change skills write that marker at
+# openspec-new-change and openspec-propose skills write that marker at
 # creation time, and enhancement.yaml beside it when an enhancement is implemented.
 artifacts:
   - id: proposal
