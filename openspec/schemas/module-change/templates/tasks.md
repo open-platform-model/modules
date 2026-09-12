@@ -2,12 +2,9 @@
 
 - [ ] 1.1 <!-- Task description -->
 - [ ] 1.2 <!-- Task description -->
+- [ ] 1.3 `task check` and `opm module publish ./<module> --dry-run` green, then commit `<!-- feat(<module>): ... -->`
 
-## 2. Durable decisions
+## 2. Durable decisions <!-- delete this section when design.md says "None." -->
 
-- [ ] 2.1 <!-- Land each promoted decision from design.md in DESIGN_PATTERNS.md, DEPLOYMENT_NOTES.md or CLAUDE.md, or "None." -->
-
-## 3. Verification
-
-- [ ] 3.1 `task check`
-- [ ] 3.2 `opm module publish ./<module> --dry-run` (per touched module)
+- [ ] 2.1 <!-- Land each promoted decision from design.md in DESIGN_PATTERNS.md, DEPLOYMENT_NOTES.md or CLAUDE.md -->
+- [ ] 2.2 `task check` green, then commit `<!-- docs(<module>): ... -->`
