@@ -79,6 +79,8 @@ Why the split: the old catalog schemas use CUE features removed in v0.17 (e.g. `
 
 This directory contains workspace-level OPM module definitions. Unlike the submodule repos (`cli/`, `catalog/`, etc.), files here live directly in the workspace root git repository.
 
+**`opmodel.dev/modules/*` is business and enterprise only.** Personal modules do not land here. The media and GPU fleet (Jellyfin, Jellystat, Jellyswarrm, Seerr, Radarr, Sonarr, SABnzbd, FileFlows, and the NVIDIA and Intel GPU device plugins and exporters) moved in 2026-09 to `github.com/emil-jacero/opm-modules` (workspace sibling `opm-modules/`), where it publishes as `jacero.se/modules/<name>@v1`. Their `v1`-train versions stay on the `v1` branch here.
+
 ## Repository Rules
 
 - Follow the CUE style from `catalog_opm/` (see `catalog_opm/CLAUDE.md`; the retired `catalog` repo applies only to `v0_legacy`): `#` definitions, `_` hidden fields, `*` defaults, `?` optional fields.
@@ -117,9 +119,11 @@ modules/
 
 The fleet is the source of truth; this list is generated from it rather than maintained by hand.
 
-**20 CUE modules** — `apprise/`, `cert_manager/`, `fileflows/`, `gotify/`, `intel_gpu_device_plugin/`, `intel_gpu_exporter/`, `istio_ambient/`, `jellyfin/`, `jellystat/`, `jellyswarrm/`, `k8up/`, `metallb/`, `ntfy/`, `nvidia_device_plugin/`, `nvidia_gpu_exporter/`, `radarr/`, `sabnzbd/`, `seerr/`, `sonarr/`, `web_app/`.
+**8 CUE modules** — `apprise/`, `cert_manager/`, `gotify/`, `istio_ambient/`, `k8up/`, `metallb/`, `ntfy/`, `web_app/`.
 
 **Design-only (no CUE yet)** — `cdi/`, `snapshot_controller/`.
+
+**Moved out (2026-09)** — the media and GPU fleet (`jellyfin`, `jellystat`, `jellyswarrm`, `seerr`, `radarr`, `sonarr`, `sabnzbd`, `fileflows`, `nvidia_device_plugin`, `intel_gpu_device_plugin`, `nvidia_gpu_exporter`, `intel_gpu_exporter`) lives at `github.com/emil-jacero/opm-modules` under `jacero.se/modules/<name>`; see § Purpose.
 
 Each module's own `README.md` describes what it deploys. The v0.16 fleet lives on the `v0_legacy` branch, the live v1 fleet on `v1`.
 
@@ -130,6 +134,7 @@ Follow the Registry Policy in the root `CLAUDE.md`. In this repo that means:
 - `fmt` / `vet` / `tidy` / `check` read deps (`opmodel.dev/core`, `opmodel.dev/catalogs/*`) from GHCR — no local registry needed.
 - **There is no publish task.** Releases are CI's: release-please decides each module's version from conventional commits, the release workflow writes it with `opm module version set`, and `opm module publish` pushes the committed tree to GHCR. On `main` the publish job is dispatch-only until the v2 fleet republish enables it.
 - A local publish is a gated exception (Registry Policy rule 2): point `OPM_REGISTRY` at `localhost:5000` deliberately and run `opm module publish` yourself. Never agent-initiated.
+- **A GHCR package is per registry path and holds every train's tags.** `ghcr.io/open-platform-model/opmodel.dev/modules/<name>` carries the `v0_legacy` versions, the `v1` branch's versions and `main`'s side by side, and `v1` keeps publishing into it on push. Cleaning up a retired line therefore means deleting **versions** (by id, tag by tag), never the package: deleting the package removes every branch's tags at once. `hack/ghcr-delete-versions.sh` is the tool (dry-run by default, `--apply` to delete, only the tags in its table); `hack/ghcr-deletions.md` records every run.
 
 ## Build And Dev Commands
 

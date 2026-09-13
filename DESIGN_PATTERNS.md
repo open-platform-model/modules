@@ -2,7 +2,7 @@
 
 This document collects reusable CUE patterns found across the modules in this directory. Read it before writing a new module — most of what you need is already solved here.
 
-Patterns are extracted from `modules/jellyfin/` and `modules/wolf/`. Every code example is taken from those sources verbatim.
+Patterns are extracted from `modules/jellyfin/` and `modules/wolf/`. Every code example is taken from those sources verbatim. Neither module is on `main` any more (jellyfin moved to `github.com/emil-jacero/opm-modules` in 2026-09, wolf stayed on the v0 line); the examples stand because the patterns do.
 
 ---
 
@@ -680,6 +680,8 @@ metadata: {
 **No local `#VersionType`.** The SemVer constraint is `core.#IdentityPackage`'s `Version!: #VersionType`, applied at publish, and `core.#Module` types `metadata.version` at load; a malformed literal is refused by both. A duplicate regex in `identity.cue` that nothing references is surface without a consumer.
 
 **`identity/identity.cue` is written only by `opm module version set`** (the release workflow runs it over every module on the release PR; it is idempotent and rewrites the literal in place). Never hand-edit the version and never put a literal version in `module.cue`. The one-off move from the defaulted form to the literal (change `fleet-identity-version-literal`, 2026-08-28) was a shape edit, not a version edit.
+
+**Moving a module to another path** (another repo, another domain, another major) is three tool steps, not a hand edit. First fix the self-import in `module.cue` (`import id "<new-path-without-major>/identity"`; `grep -rl '<old-path>' --include=*.cue` must list only that file, since nothing else imports the identity package). Then run `opm mod init <new-path>@vN --dir ./<name> --yes`: against an existing tree this is repair mode, which realigns only the `module:` line of `cue.mod/module.cue` (the deps block is untouched) and `ModulePath` in `identity/identity.cue`, and refuses while any `.cue` file still imports the old path. Then `opm module version set <version> ./<name>` for the version the new line starts at, and `cue mod tidy` to prove the pins survived. The comments that explained the old major are the one hand edit; the values are never touched by hand. The 2026-09 move of the media and GPU fleet to `jacero.se/modules/<name>@v1` (change `move-media-gpu-modules-to-jacero`) used exactly this sequence.
 
 ---
 
