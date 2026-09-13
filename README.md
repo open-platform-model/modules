@@ -2,6 +2,8 @@
 
 Workspace-level OPM module definitions (CUE), published to `opmodel.dev/modules/*`.
 
+`opmodel.dev/modules/*` carries business and enterprise modules only. The personal media and GPU fleet (Jellyfin, the arr stack, FileFlows, the GPU device plugins and exporters) moved in 2026-09 to [emil-jacero/opm-modules](https://github.com/emil-jacero/opm-modules) and publishes as `jacero.se/modules/<name>@v1`; its v1-train versions remain on this repo's `v1` branch.
+
 ## Branch model: one branch per OPM generation
 
 This repo is split by OPM generation because the lines cannot share one CUE toolchain or catalog:
