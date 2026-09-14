@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.1](https://github.com/open-platform-model/modules/compare/modules/ntfy/v3.0.0...modules/ntfy/v3.0.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **deps:** bump core to v2.0.0-alpha.9 and catalogs/opm to v4.1.0 ([3c9bd2c](https://github.com/open-platform-model/modules/commit/3c9bd2c70e482e0d297de4124eb5dde7258a712f))
+* **deps:** bump core to v2.0.0-alpha.9 and catalogs/opm to v4.1.0 ([6cd0c4e](https://github.com/open-platform-model/modules/commit/6cd0c4edaa66cd6ea4c54c0665f8494d1c25cae9))
+
 ## [3.0.0](https://github.com/open-platform-model/modules/compare/modules/ntfy/v2.1.1...modules/ntfy/v3.0.0) (2026-08-31)
 
 
