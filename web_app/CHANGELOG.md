@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.5](https://github.com/open-platform-model/modules/compare/modules/web_app/v1.0.4...modules/web_app/v1.0.5) (2026-09-15)
+
+
+### Bug Fixes
+
+* **deps:** bump catalog pin to opm 4.3.1 ([0e03fa9](https://github.com/open-platform-model/modules/commit/0e03fa9685f2b060a5ddf7afc1bf324a352bf486))
+
 ## [1.0.4](https://github.com/open-platform-model/modules/compare/modules/web_app/v1.0.3...modules/web_app/v1.0.4) (2026-09-14)
 
 
