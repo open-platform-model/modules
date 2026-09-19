@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.2](https://github.com/open-platform-model/modules/compare/modules/ntfy/v3.0.1...modules/ntfy/v3.0.2) (2026-09-19)
+
+
+### Bug Fixes
+
+* **deps:** bump catalog pin to opm 4.3.1 ([0e03fa9](https://github.com/open-platform-model/modules/commit/0e03fa9685f2b060a5ddf7afc1bf324a352bf486))
+
 ## [3.0.1](https://github.com/open-platform-model/modules/compare/modules/ntfy/v3.0.0...modules/ntfy/v3.0.1) (2026-09-14)
 
 
