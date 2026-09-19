@@ -69,6 +69,12 @@ context: |
     invariants, or needs more than about five, the Agent MUST warn, block, and propose a split
     into sequential changes (Execution Gate).
 
+  ### VII. No Enhancement References In Comments
+  A module here is read by people with no access to the OPM enhancements repo, so a
+  comment citing `0010:D8` or "enhancement 0011" names nothing they can look up. State
+  the rule itself, not the id that records it. Scaffolded headers inherit from the CLI
+  templates, which carry no reference; if a fresh tree arrives with one, strip it.
+
   ## Execution Gate (Agent Directive)
   Before beginning ANY implementation, the Agent MUST evaluate the request against the
   "Mergeable Sections" principle. Block only when the request cannot be cut into sections that

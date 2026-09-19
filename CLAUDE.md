@@ -190,6 +190,12 @@ Follow the CUE style used across the workspace catalog. See `catalog_opm/CLAUDE.
 - `!` for required, `?` for optional fields, `*` for explicit defaults.
 - Pin `language: version: "v0.17.0"` in `cue.mod/module.cue` (this branch is the OPM v2 / CUE v0.17 line; `v0_legacy` pins `v0.16.0`).
 
+### No enhancement references in module comments
+
+A module in this repo is authored, published and read by people who have no access to the OPM `enhancements/` repo, so a comment citing `0010:D8` or "enhancement 0011" tells them nothing they can look up. State the rule itself instead: "name is the path's leaf", not "name is the path's leaf (0010:D8)".
+
+This is a hard rule here, unlike `core`, `cli`, `library` and `opm-operator`, where a reference is allowed in a `// WHY` block or a Go doc comment because the reader can open the entry. Scaffolded modules inherit their headers from the CLI templates, which carry no reference either: if a fresh `opm module init` tree ever arrives with one, strip it rather than copying it forward.
+
 ## Working Style for Agents
 
 - **Non-trivial module work goes through OpenSpec** (`openspec/`, added 2026-08-28). Scaffold with the `openspec-new-change` or `openspec-propose` skill; `openspec/config.yaml` carries the normative rules each artifact must satisfy. Check the branch first: changes here target the v2 line on `main`; a fix for the live v1 fleet is a `v1` branch change and never comes through `main`.
