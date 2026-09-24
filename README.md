@@ -32,7 +32,7 @@ New modules land here on `main` against the v2 line. A registry path may exist o
 
 ## Working here
 
-- `CLAUDE.md` — repo working rules and agent guidance (read first; includes the branch rules above in normative form).
+- `AGENTS.md` — repo working rules and agent guidance (read first; includes the branch rules above in normative form).
 - `DESIGN_PATTERNS.md` — reusable CUE patterns across modules.
 - `Taskfile.yml` — `task fmt` / `task vet` / `task tidy` / `task check`. There is no publish task: publishing is CI's, through `opm module publish`.
 - `release-please-config.json` / `.release-please-manifest.json` — per-module version decisions. release-please writes the manifest and the changelogs; `opm module version set` is the only writer of a module's `identity/identity.cue`.

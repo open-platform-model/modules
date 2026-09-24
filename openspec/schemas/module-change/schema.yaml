@@ -24,7 +24,7 @@ artifacts:
         removals. Mark breaking changes with **BREAKING**: a removed or renamed `#config`
         field, a changed default an operator relies on, or a rendered object that changes
         kind or name. A breaking change that crosses the module's path major names the new
-        major explicitly (cross-train major separation rule, `CLAUDE.md`).
+        major explicitly (cross-train major separation rule, `AGENTS.md`).
       - **Before / After**: The CUE shape of every `#config` field and component the change
         touches, as CUE, not prose. For a new module, "Before" is "none" and "After" is the
         `#config` schema plus the component list. Where the change alters what a component
@@ -73,7 +73,7 @@ artifacts:
         Format: [Risk] -> Mitigation.
       - **Durable decisions**: Every decision a FUTURE module author or operator needs, with
         where it lands at archive time: `DESIGN_PATTERNS.md` (a reusable CUE pattern), the
-        module's `DEPLOYMENT_NOTES.md` (a pitfall specific to that module), a `CLAUDE.md`
+        module's `DEPLOYMENT_NOTES.md` (a pitfall specific to that module), a `AGENTS.md`
         rule, or "stays with the change". An archived change must never be the only home
         of an authoring rule. If nothing is durable, write "None." rather than omitting
         the section.
@@ -114,7 +114,7 @@ artifacts:
       - A new module includes `opm mod init`, `README.md`, and registration in
         `release-please-config.json` plus `.release-please-manifest.json`
       - Include a task that lands each durable decision from design.md in
-        `DESIGN_PATTERNS.md`, `DEPLOYMENT_NOTES.md` or `CLAUDE.md`
+        `DESIGN_PATTERNS.md`, `DEPLOYMENT_NOTES.md` or `AGENTS.md`
       - Each section's last task runs the gates (`task check`, then
         `opm module publish ./<name> --dry-run` per touched module) and makes the commit;
         there is no trailing Verification section

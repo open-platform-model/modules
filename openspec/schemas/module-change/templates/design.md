@@ -36,5 +36,5 @@
 ## Durable decisions
 
 <!-- Every decision a future module author or operator needs, and where it lands at archive
-     time: DESIGN_PATTERNS.md, <module>/DEPLOYMENT_NOTES.md, a CLAUDE.md rule, or "stays with
+     time: DESIGN_PATTERNS.md, <module>/DEPLOYMENT_NOTES.md, a AGENTS.md rule, or "stays with
      the change". Write "None." if empty. -->

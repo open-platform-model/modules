@@ -3,7 +3,7 @@ version: "3"
 silent: true
 
 vars:
-  # Canonical mapping (Registry Policy, root CLAUDE.md): reads resolve
+  # Canonical mapping (Registry Policy, root AGENTS.md): reads resolve
   # opmodel.dev/* from GHCR; testing.opmodel.dev/* from the local registry.
   CANONICAL_REGISTRY: "opmodel.dev=ghcr.io/open-platform-model,testing.opmodel.dev=localhost:5000+insecure,registry.cue.works"
   CUE_CACHE_DIR: "{{.TASKFILE_DIR}}/../.cue-cache"

@@ -28,7 +28,7 @@ context: |
   never a `specs/` directory inside a change, and every `.openspec.yaml` carries
   `skip_specs: true`. The proposal's **Before / After** CUE block is the review surface.
   A decision a FUTURE author or operator needs lands in `DESIGN_PATTERNS.md`, the module's
-  `DEPLOYMENT_NOTES.md` or `CLAUDE.md` before the change is archived; `design.md` § Durable
+  `DEPLOYMENT_NOTES.md` or `AGENTS.md` before the change is archived; `design.md` § Durable
   decisions declares it. An archived change is never the only home of a rule.
 
   ### III. Catalog First
@@ -59,7 +59,7 @@ context: |
   chosen for every module directory it touches.
   - **Every merge leaves `main` releasable.** A section MUST end green under the validation
     gates and MUST close with a commit task naming the Conventional Commit it lands as
-    (CLAUDE.md; the scope is the module directory). Nothing that would break `main` is carried across a section boundary.
+    (AGENTS.md; the scope is the module directory). Nothing that would break `main` is carried across a section boundary.
   - **Work survives a session boundary.** The commit task is the pause point: a session that
     stops there leaves checked boxes and a clean tree, and the next session resumes by running
     apply again.
@@ -84,9 +84,9 @@ context: |
   suggest we split it into the following changes: [list 2-3 changes, each a few sections that
   leave main releasable]. Should we start with the first?"
 
-  ## Everything Else Lives in CLAUDE.md
+  ## Everything Else Lives in AGENTS.md
   Commands, registry variables, CUE style, commit conventions, and the attribution and `@name`
-  rules are in `CLAUDE.md`, loaded in every session and not repeated here. Artifact-level
+  rules are in `AGENTS.md`, loaded in every session and not repeated here. Artifact-level
   requirements are in the `rules` below and the schema's per-artifact `instruction`.
 
 rules:
@@ -96,7 +96,7 @@ rules:
     - Group What Changes by module directory and state the release class (`feat:` / `fix:` /
       `feat!:`) per module; a commit touching several module directories bumps each of them.
     - State whether any module's path major moves and, if so, that it obeys the cross-train
-      major separation rule in `CLAUDE.md`.
+      major separation rule in `AGENTS.md`.
     - Breaking changes MUST be called out explicitly with the operator's migration cost — a
       changed default, a renamed `#config` field or a rendered object that changes kind or
       name counts as breaking even when nothing is removed.
@@ -147,7 +147,7 @@ rules:
       change to a rendered object's kind, name or selector — these break running instances in
       ways an added optional field does not.
     - MUST include a "Durable decisions" section naming where each promoted decision lands
-      (`DESIGN_PATTERNS.md`, `<module>/DEPLOYMENT_NOTES.md`, `CLAUDE.md`), or "None."
+      (`DESIGN_PATTERNS.md`, `<module>/DEPLOYMENT_NOTES.md`, `AGENTS.md`), or "None."
 
   tasks:
     - "Focus: STEPS to take for implementation"
@@ -155,7 +155,7 @@ rules:
     - "CRITICAL: Every `## N.` section MUST end green under the validation gates and MUST close
       with a commit task: an ordinary `- [ ] N.M` checkbox whose text names the Conventional
       Commit to make, e.g. `- [ ] 1.4 task check green, then commit feat(ntfy): expose the metrics port`
-      (types per CLAUDE.md, scope is the module directory). The commit task is the pause point; nothing uncommitted is carried across
+      (types per AGENTS.md, scope is the module directory). The commit task is the pause point; nothing uncommitted is carried across
       a section boundary."
     - "CRITICAL: Cut the change into at most about seven sections, each a coherent unit that
       leaves main releasable by itself. If it needs more, or a section cannot end green on its
@@ -168,7 +168,7 @@ rules:
     - A new module includes `opm mod init`, `README.md`, and registration in
       `release-please-config.json` plus `.release-please-manifest.json`.
     - Include one task per durable decision in design.md that lands it in `DESIGN_PATTERNS.md`,
-      `DEPLOYMENT_NOTES.md` or `CLAUDE.md`.
+      `DEPLOYMENT_NOTES.md` or `AGENTS.md`.
     - Include the validation gates (`task check`, then `opm module publish ./<name> --dry-run` per touched module) in every section's commit task, not as a
       trailing section; cross-cutting checks (fleet-wide renders) go into the last real section before
       its commit.
@@ -188,7 +188,7 @@ operations:
     guidance:
       - "Work section by section: every `## N.` block of tasks.md ends with a commit task. Before
         checking that box, run the section's gates (`task check`, then `opm module publish ./<name> --dry-run` per touched module) on the whole tree and make
-        exactly the named Conventional Commit (types per CLAUDE.md, scope is the module directory; optional plain Co-Authored-By: Claude
+        exactly the named Conventional Commit (types per AGENTS.md, scope is the module directory; optional plain Co-Authored-By: Claude
         <noreply@anthropic.com> trailer only, never a session link, never a bare @name, and
         no body line starting with word( because release-please parses every commit body). Do not start the next section with uncommitted work in the tree."
       - "The commit task is the only delivery operation apply performs: no push, no PR, no tag,
@@ -207,5 +207,5 @@ operations:
   archive:
     guidance:
       - "Archive with `--skip-specs`: this workspace has no specs and the change declares skip_specs. Never let archive create an openspec/specs/ directory."
-      - "Before archiving, read design.md's Durable decisions section. Every entry marked for promotion MUST already be landed in DESIGN_PATTERNS.md, the module's DEPLOYMENT_NOTES.md or CLAUDE.md; if one is not, stop and land it first. An archived change must not be the only home of an authoring rule."
+      - "Before archiving, read design.md's Durable decisions section. Every entry marked for promotion MUST already be landed in DESIGN_PATTERNS.md, the module's DEPLOYMENT_NOTES.md or AGENTS.md; if one is not, stop and land it first. An archived change must not be the only home of an authoring rule."
       - "If this change directory contains enhancement.yaml, finish the archive by logging the landing: from the workspace root run `task enhancements:delivery:log FROM=modules/openspec/changes/archive/<archived-change> SUMMARY=\"<one line: what landed>\"`. It appends a CUE-validated entry to each declared enhancement's delivery.yaml; confirm it printed 'logged' for every declared enhancement. `task enhancements:delivery:reconcile` reports any archived change that declared an entry and was never logged."
