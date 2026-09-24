@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.5](https://github.com/open-platform-model/modules/compare/modules/cert_manager/v2.0.4...modules/cert_manager/v2.0.5) (2026-09-24)
+
+
+### Bug Fixes
+
+* **deps:** bump catalog pin to opm 4.3.1 ([0e03fa9](https://github.com/open-platform-model/modules/commit/0e03fa9685f2b060a5ddf7afc1bf324a352bf486))
+* **deps:** bump core to 2.0.0-alpha.10 and catalogs/opm to 4.4.0 ([7bbc831](https://github.com/open-platform-model/modules/commit/7bbc83139671defa8cc7c815e5f34ac61b3ec0bf))
+
 ## [2.0.4](https://github.com/open-platform-model/modules/compare/modules/cert_manager/v2.0.3...modules/cert_manager/v2.0.4) (2026-09-14)
 
 
