@@ -1,5 +1,15 @@
 ## Gates (supervisor ticks; the worker never ticks these)
 
+Hard-coded targets in this file (core `v2.0.0-beta.1`, catalogs/opm `4.4.4`, catalogs/k8s
+`1.0.0-beta.1`): if a gate lands on a different version (burned tag), the recorded gate version
+replaces it everywhere (G3, 1.2, 1.4, 4.1, 4.2, 4.3); the module versions in 4.3 and 4.4 do
+not change.
+
+Freeze (supervisor): no releasable core merge, and from G3 no releasable `opm/` merge in
+catalog_opm, until the post-G3 `task deps:update` patches are saved. A core or catalogs/opm
+release in that window would make the SUPERVISOR PATCH pin versions other than the gate
+versions, and 1.2 then stops.
+
 - [ ] G3 `opmodel.dev/catalogs/opm@v4` `v4.4.4` (tag `opm-v4.4.4`) and `catalogs/k8s`
       `k8s-v1.0.0-beta.1` are on GHCR; implies G1 (`opmodel.dev/core@v2` `v2.0.0-beta.1` on
       GHCR). Unblocks section 1.
@@ -13,7 +23,7 @@
       `task deps:pins:opm-cli VERSION=<G6 tag>`, `modules/` diff only, as PR
       `ci: pin opm cli <G6 tag>` (squash type `ci`, carrier: no, no footer, merge gate G6, no
       release PR). Unblocks 3.1.
-- [ ] Release PR #50 is still open and unmerged, and carries the supervisor's hold comment
+- [x] Release PR #50 is still open and unmerged, and carries the supervisor's hold comment
       (design.md D-5); it merges only after this change's PR (4.3). If #50 has been merged,
       stop: the expected versions in 4.3 each move up one patch and must be recomputed.
 
