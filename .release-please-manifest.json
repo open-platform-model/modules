@@ -1,10 +1,10 @@
 {
-  "apprise": "3.0.1",
-  "cert_manager": "2.0.4",
-  "gotify": "3.0.1",
-  "istio_ambient": "2.0.4",
-  "k8up": "4.0.1",
-  "metallb": "3.0.1",
-  "ntfy": "3.0.1",
-  "web_app": "1.0.4"
+  "apprise": "3.0.2",
+  "cert_manager": "2.0.5",
+  "gotify": "3.0.2",
+  "istio_ambient": "2.0.5",
+  "k8up": "4.0.2",
+  "metallb": "3.0.2",
+  "ntfy": "3.0.2",
+  "web_app": "1.0.5"
 }
