@@ -1,0 +1,89 @@
+## Gates (supervisor ticks; the worker never ticks these)
+
+- [ ] G3 `opmodel.dev/catalogs/opm@v4` `v4.4.4` (tag `opm-v4.4.4`) and `catalogs/k8s`
+      `k8s-v1.0.0-beta.1` are on GHCR; implies G1 (`opmodel.dev/core@v2` `v2.0.0-beta.1` on
+      GHCR). Unblocks section 1.
+- [ ] G6 The first cli release whose embedded operator is `v1.0.0-beta.1` is published with
+      `opm-linux-amd64.tar.gz` and `checksums.txt` (expected `v1.0.0-beta.2`; the supervisor
+      records the real tag here: `<G6 tag>`). Unblocks section 3.
+- [ ] SUPERVISOR PATCH (after G3): root `task deps:update` run on the main checkouts; the
+      `modules/` diff saved as a patch file and handed to the worker (path recorded here:
+      `<patch path>`); `modules/` main checkout restored. Unblocks 1.1.
+- [ ] SUPERVISOR PR (after G6, merged before this change's PR): root
+      `task deps:pins:opm-cli VERSION=<G6 tag>`, `modules/` diff only, as PR
+      `ci: pin opm cli <G6 tag>` (squash type `ci`, carrier: no, no footer, merge gate G6, no
+      release PR). Unblocks 3.1.
+- [ ] Release PR #50 is still open and unmerged (it merges only after this change's PR, 5.3).
+
+## 1. Fleet re-pin: all 8 `cue.mod/module.cue` files (supervisor patch)
+
+- [ ] 1.1 Apply the supervisor patch in the worktree: `git apply --check <patch>`, then
+      `git apply <patch>`. Never regenerate or hand-edit the pins.
+- [ ] 1.2 Verify the diff per design.md D-1: exactly the 8 files `apprise`, `cert_manager`,
+      `gotify`, `istio_ambient`, `k8up`, `metallb`, `ntfy`, `web_app` `/cue.mod/module.cue`,
+      each changing only core `v2.0.0-alpha.13` -> `v2.0.0-beta.1` and catalogs/opm `v4.4.3`
+      -> `v4.4.4`; `grep -rn "alpha" */cue.mod/module.cue` returns nothing. Any other shape:
+      stop and report to the supervisor.
+- [ ] 1.3 `task tidy` leaves the tree unchanged (`git diff --stat` identical before and after).
+- [ ] 1.4 `task check` and `task vet CONCRETE=true` green (registry env exported on two lines,
+      GHCR mapping), then commit
+      `fix(deps): bump core to v2.0.0-beta.1 and catalogs/opm to 4.4.4`.
+
+## 2. Durable decisions: repo docs
+
+- [ ] 2.1 `AGENTS.md` Branch model: the `main` row and the "You are on `main`" paragraph state
+      that `main` publishes on push after the release PR merges, name `catalogs/opm@v4`, and
+      carry the fleet versioning stance on the beta core (design.md D-4); the major separation
+      rule names `release.yml`, not `publish.yml`.
+- [ ] 2.2 `AGENTS.md` Registry: replace "On `main` the publish job is dispatch-only until the
+      v2 fleet republish enables it" with the running pipeline (sweep on every push to `main`,
+      publishes versions GHCR lacks).
+- [ ] 2.3 `README.md` branch table, `main` row: `opmodel.dev/catalogs/opm@v4`, and the publish
+      text matches 2.1 (no "publish-on-push is disabled").
+- [ ] 2.4 `DESIGN_PATTERNS.md` § Exact object names: the `catalogs/opm >= 2.0.0-alpha.7,
+      enhancement 0019 D15` floor note becomes "every `catalogs/opm@v4` release".
+- [ ] 2.5 `grep -n "dispatch-only\|still disabled\|publish-on-push is disabled" AGENTS.md
+      README.md` returns nothing; `task check` green, then commit
+      `docs: describe publish on main and the fleet's beta-core stance`.
+
+## 3. Verification (repo gates under the G6 cli)
+
+- [ ] 3.1 After the SUPERVISOR PR has merged: `git fetch origin && git merge origin/main`
+      (never rebase); `.github/workflows/ci.yml` and `release.yml` now show
+      `OPM_CLI_VERSION: '<G6 tag>'`.
+- [ ] 3.2 Install the G6 cli into the scratchpad the way CI does (download
+      `opm-linux-amd64.tar.gz` and `checksums.txt` from the cli release, `sha256sum -c`),
+      and confirm `opm version` reports `<G6 tag>`.
+- [ ] 3.3 `task check` and `task vet CONCRETE=true` green on the merged tree.
+- [ ] 3.4 `opm module publish ./<module> --dry-run` with the G6 cli for all 8 modules; each
+      passes, or its only refusal is "already holds" (design.md D-3). Record any other
+      refusal and stop.
+- [ ] 3.5 `openspec validate fleet-repin-beta --strict` passes.
+- [ ] 3.6 Verify the implementation against the artifacts (`openspec-verify-change` skill /
+      `opsx:verify` pointed at this worktree); no CRITICAL finding remains.
+
+## 4. Archive the change
+
+- [ ] 4.1 Confirm both durable decisions in design.md are landed (section 2), then
+      `openspec archive fleet-repin-beta --skip-specs --yes`; no `openspec/specs/` directory
+      is created; no `enhancement.yaml`, so no delivery logging.
+- [ ] 4.2 Commit `chore(openspec): archive fleet-repin-beta`.
+
+## 5. Open the PR (worker opens; supervisor merges)
+
+- [ ] 5.1 `git push -u origin beta/fleet-repin-beta`; open one PR titled
+      `fix(deps): bump core to v2.0.0-beta.1 and catalogs/opm to 4.4.4`. Body at most 250
+      words of prose, no commit list, no scope section, no test-plan list, every `@` inside
+      backticks; it names the reviewer action: merge only after the SUPERVISOR PR, then merge
+      #50.
+- [ ] 5.2 SUPERVISOR MERGE: squash type `fix(deps)`, carrier: NO, footer: none (abort if the
+      squash body matches `release-as` in any case; no body line starts with `word(`; no bare
+      `@`). Squash subject
+      `fix(deps): bump core to v2.0.0-beta.1 and catalogs/opm to 4.4.4 (#N)`. Merge gate: G3,
+      G6, SUPERVISOR PR merged, branch up to date with `main`, `Validate modules` and
+      `mention-guard` green.
+- [ ] 5.3 SUPERVISOR: expected release PR is #50 `chore: release main` (title unchanged), now
+      listing the new `bump core to v2.0.0-beta.1 and catalogs/opm to 4.4.4` line for all 8
+      modules: apprise 3.0.2, cert_manager 2.0.5, gotify 3.0.2, istio_ambient 2.0.5, k8up
+      4.0.2, metallb 3.0.2, ntfy 3.0.2, web_app 1.0.5. Merge #50 once it lists the change;
+      the Release workflow's publish sweep then pushes the 8 versions to GHCR.
