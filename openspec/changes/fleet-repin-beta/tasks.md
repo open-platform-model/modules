@@ -15,17 +15,18 @@ versions, and 1.2 then stops.
       GHCR). Unblocks section 1. Recorded: G1 core `v2.0.0-beta.1`, G3 catalogs/opm `v4.4.4`
       (tag `opm-v4.4.4`) and catalogs/k8s `v1.0.0-beta.1` (tag `k8s-v1.0.0-beta.1`); no burned
       tag, the hard-coded targets stand.
-- [ ] G6 The first cli release whose embedded operator is `v1.0.0-beta.1` is published with
+- [x] G6 The first cli release whose embedded operator is `v1.0.0-beta.1` is published with
       `opm-linux-amd64.tar.gz` and `checksums.txt` (expected `v1.0.0-beta.2`; the supervisor
-      records the real tag here: `<G6 tag>`). Unblocks 3.1.
+      records the real tag here: `v1.0.0-beta.2`). Unblocks 3.1. Recorded: cli
+      `v1.0.0-beta.2`, embedding opm-operator `v1.0.0-beta.1`.
 - [x] SUPERVISOR PATCH (after G3): root `task deps:update` run on the main checkouts; the
       `modules/` diff saved as a patch file and handed to the worker (path recorded here:
       supervisor scratchpad `patches/run2-modules.patch`, root task run 2); `modules/` main
       checkout restored. Unblocks 1.1.
-- [ ] SUPERVISOR PR (after G6, merged before this change's PR): root
+- [x] SUPERVISOR PR (after G6, merged before this change's PR): root
       `task deps:pins:opm-cli VERSION=<G6 tag>`, `modules/` diff only, as PR
       `ci: pin opm cli <G6 tag>` (squash type `ci`, carrier: no, no footer, merge gate G6, no
-      release PR). Unblocks 3.1.
+      release PR). Unblocks 3.1. Recorded: merged as #52 `ci: pin opm cli v1.0.0-beta.2`.
 - [x] Release PR #50 is still open and unmerged, and carries the supervisor's hold comment
       (design.md D-5); it merges only after this change's PR (4.3). If #50 has been merged,
       stop: the expected versions in 4.3 each move up one patch and must be recomputed.
