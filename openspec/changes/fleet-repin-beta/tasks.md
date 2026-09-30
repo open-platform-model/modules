@@ -10,15 +10,18 @@ catalog_opm, until the post-G3 `task deps:update` patches are saved. A core or c
 release in that window would make the SUPERVISOR PATCH pin versions other than the gate
 versions, and 1.2 then stops.
 
-- [ ] G3 `opmodel.dev/catalogs/opm@v4` `v4.4.4` (tag `opm-v4.4.4`) and `catalogs/k8s`
+- [x] G3 `opmodel.dev/catalogs/opm@v4` `v4.4.4` (tag `opm-v4.4.4`) and `catalogs/k8s`
       `k8s-v1.0.0-beta.1` are on GHCR; implies G1 (`opmodel.dev/core@v2` `v2.0.0-beta.1` on
-      GHCR). Unblocks section 1.
+      GHCR). Unblocks section 1. Recorded: G1 core `v2.0.0-beta.1`, G3 catalogs/opm `v4.4.4`
+      (tag `opm-v4.4.4`) and catalogs/k8s `v1.0.0-beta.1` (tag `k8s-v1.0.0-beta.1`); no burned
+      tag, the hard-coded targets stand.
 - [ ] G6 The first cli release whose embedded operator is `v1.0.0-beta.1` is published with
       `opm-linux-amd64.tar.gz` and `checksums.txt` (expected `v1.0.0-beta.2`; the supervisor
       records the real tag here: `<G6 tag>`). Unblocks 3.1.
-- [ ] SUPERVISOR PATCH (after G3): root `task deps:update` run on the main checkouts; the
+- [x] SUPERVISOR PATCH (after G3): root `task deps:update` run on the main checkouts; the
       `modules/` diff saved as a patch file and handed to the worker (path recorded here:
-      `<patch path>`); `modules/` main checkout restored. Unblocks 1.1.
+      supervisor scratchpad `patches/run2-modules.patch`, root task run 2); `modules/` main
+      checkout restored. Unblocks 1.1.
 - [ ] SUPERVISOR PR (after G6, merged before this change's PR): root
       `task deps:pins:opm-cli VERSION=<G6 tag>`, `modules/` diff only, as PR
       `ci: pin opm cli <G6 tag>` (squash type `ci`, carrier: no, no footer, merge gate G6, no
@@ -29,15 +32,15 @@ versions, and 1.2 then stops.
 
 ## 1. Fleet re-pin: all 8 `cue.mod/module.cue` files (supervisor patch)
 
-- [ ] 1.1 Apply the supervisor patch in the worktree: `git apply --check <patch>`, then
+- [x] 1.1 Apply the supervisor patch in the worktree: `git apply --check <patch>`, then
       `git apply <patch>`. Never regenerate or hand-edit the pins.
-- [ ] 1.2 Verify the diff per design.md D-1: exactly the 8 files `apprise`, `cert_manager`,
+- [x] 1.2 Verify the diff per design.md D-1: exactly the 8 files `apprise`, `cert_manager`,
       `gotify`, `istio_ambient`, `k8up`, `metallb`, `ntfy`, `web_app` `/cue.mod/module.cue`,
       each changing only core `v2.0.0-alpha.13` -> `v2.0.0-beta.1` and catalogs/opm `v4.4.3`
       -> `v4.4.4`; `grep -rn "alpha" */cue.mod/module.cue` returns nothing. Any other shape:
       stop and report to the supervisor.
-- [ ] 1.3 `task tidy` leaves the tree unchanged (`git diff --stat` identical before and after).
-- [ ] 1.4 With the registry env exported on two lines (GHCR mapping): `task check` and
+- [x] 1.3 `task tidy` leaves the tree unchanged (`git diff --stat` identical before and after).
+- [x] 1.4 With the registry env exported on two lines (GHCR mapping): `task check` and
       `task vet CONCRETE=true` green, and `opm module publish ./<m> --dry-run` for all 8
       modules with the cli currently pinned in `.github/workflows/ci.yml` (installed and
       checksum-verified as CI does), each passing or refusing only with "already holds"
