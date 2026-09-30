@@ -73,32 +73,36 @@ versions, and 1.2 then stops.
 
 ## 3. Gates under the G6 cli, then archive
 
-- [ ] 3.1 After the SUPERVISOR PR has merged: `git fetch origin && git merge origin/main`
+- [x] 3.1 After the SUPERVISOR PR has merged: `git fetch origin && git merge origin/main`
       (never rebase); `.github/workflows/ci.yml` and `release.yml` now show
-      `OPM_CLI_VERSION: '<G6 tag>'`.
-- [ ] 3.2 Install the G6 cli into the scratchpad the way CI does (download
+      `OPM_CLI_VERSION: '<G6 tag>'`. Done: both show `v1.0.0-beta.2`.
+- [x] 3.2 Install the G6 cli into the scratchpad the way CI does (download
       `opm-linux-amd64.tar.gz` and `checksums.txt` from the cli release, `sha256sum -c`),
-      and confirm `opm version` reports `<G6 tag>`.
-- [ ] 3.3 `task check` and `task vet CONCRETE=true` green on the merged tree.
-- [ ] 3.4 `opm module publish ./<m> --dry-run` with the G6 cli for all 8 modules; each passes,
+      and confirm `opm version` reports `<G6 tag>`. Done: checksum OK, `opm version`
+      reports `1.0.0-beta.2`.
+- [x] 3.3 `task check` and `task vet CONCRETE=true` green on the merged tree.
+- [x] 3.4 `opm module publish ./<m> --dry-run` with the G6 cli for all 8 modules; each passes,
       or its only refusal is "already holds" (design.md D-3). Any other refusal is a stop:
       report it; a fix is a new module section with its own release class, never an
-      amendment of the `fix(deps)` commit.
-- [ ] 3.5 `openspec validate fleet-repin-beta --strict` passes.
-- [ ] 3.6 Verify the implementation against the artifacts (`openspec-verify-change` skill /
-      `opsx:verify` pointed at this worktree); no CRITICAL finding remains.
-- [ ] 3.7 Confirm both durable decisions in design.md are landed (section 2), then
+      amendment of the `fix(deps)` commit. Done: kernel loader accepted all 8; each refused
+      only with "already holds" (the versions on `main`: 3.0.1, 2.0.4, 3.0.1, 2.0.4, 4.0.1,
+      3.0.1, 3.0.1, 1.0.4).
+- [x] 3.5 `openspec validate fleet-repin-beta --strict` passes.
+- [x] 3.6 Verify the implementation against the artifacts (`openspec-verify-change` skill /
+      `opsx:verify` pointed at this worktree); no CRITICAL finding remains. Done: the only
+      open tasks are 4.2 to 4.4, supervisor steps that run after this PR merges by design.
+- [x] 3.7 Confirm both durable decisions in design.md are landed (section 2), then
       `openspec archive fleet-repin-beta --skip-specs --yes`; no `openspec/specs/` directory
       is created; no `enhancement.yaml`, so no delivery logging.
-- [ ] 3.8 Commit `chore(openspec): archive fleet-repin-beta`.
+- [x] 3.8 Commit `chore(openspec): archive fleet-repin-beta`.
 
 ## 4. Release delivery (worker opens the PR; supervisor merges)
 
-- [ ] 4.1 `git push -u origin beta/fleet-repin-beta`; open one PR titled
+- [x] 4.1 `git push -u origin beta/fleet-repin-beta`; open one PR titled
       `fix(deps): bump core to v2.0.0-beta.1 and catalogs/opm to 4.4.4`. Body at most 250
       words of prose, no commit list, no scope section, no test-plan list, every `@` inside
       backticks; it names the reviewer action: merge only after the SUPERVISOR PR, then merge
-      #50 per design.md D-5.
+      #50 per design.md D-5. Done: opened as #51.
 - [ ] 4.2 SUPERVISOR MERGE: squash type `fix(deps)`, carrier: NO, footer: none (abort if the
       squash body matches `release-as` in any case; no body line starts with `word(`; no bare
       `@`; the default `COMMIT_MESSAGES` body is replaced, design.md D-2). Squash subject
