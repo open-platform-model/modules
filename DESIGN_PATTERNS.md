@@ -104,8 +104,8 @@ JWT_SECRET: {
 }
 ```
 
-The value lands in the rendered manifest in clear. Accepted for the v2 staging line
-(publish disabled on `main`); each module's `README.md` states it. Every changed field
+The value lands in the rendered manifest in clear. Accepted until enhancement 0013
+lands a published `#Secret`; each module's `README.md` states it. Every changed field
 and env site carries the `// 0013:` marker so reintroduction of the real `#Secret` is a
 grep.
 
