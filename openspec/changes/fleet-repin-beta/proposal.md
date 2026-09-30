@@ -4,7 +4,7 @@ OPM cuts its first beta: `opmodel.dev/core@v2` releases `v2.0.0-beta.1` (gate G1
 `opmodel.dev/catalogs/opm@v4` releases `4.4.4` on that core (gate G3). The fleet on `main` still
 pins core `v2.0.0-alpha.13` and catalogs/opm `4.4.3`. Until it re-pins, every module published
 from `main` is built on the retired alpha line, and the beta has no downstream proof that a
-consumer module vets, passes every publish gate and renders on it.
+consumer module vets and passes every publish gate on it.
 
 The stated deliverable of this change is a fleet release on the beta core: eight patch
 releases, published by CI after the supervisor merges release PR #50. It therefore uses the
@@ -35,6 +35,12 @@ One pattern across all 8 CUE modules, plus repo docs:
   rule becomes `release.yml`.
 - **`DESIGN_PATTERNS.md`** (no release): the `catalogs/opm >= 2.0.0-alpha.7` floor in § Exact
   object names becomes "every `catalogs/opm@v4` release".
+
+The stale sweep covers the repo-root docs only. Module-directory prose with the same alpha floor
+or the old catalog v2 naming (`istio_ambient/DEPLOYMENT_NOTES.md`, `istio_ambient/README.md`,
+`istio_ambient/components_control_plane.cue`, the module `README.md` headers,
+`web_app/module.cue`) goes to a separate docs change: it predates the beta, and editing module
+directories here would fold unrelated text into the per-module `fix(deps)` changelog lines.
 
 The CLI pin (`OPM_CLI_VERSION` in `.github/workflows/ci.yml` and `release.yml`) is not part of
 this change: the supervisor moves it to the G6 cli tag in a separate `ci:` PR that lands on
@@ -81,9 +87,12 @@ deps: {
 }
 ```
 
-Rendered objects: expected unchanged for all 8 modules. Core `v2.0.0-beta.1` carries the
-`v2.0.0-alpha.13` schema content, and catalogs/opm `4.4.4` is a `fix(deps)` re-pin of `4.4.3`
-onto it. The fleet-wide `task vet CONCRETE=true` and per-module publish dry-runs prove it.
+Rendered objects: expected unchanged for all 8 modules, because core `v2.0.0-beta.1` carries
+the `v2.0.0-alpha.13` schema content and catalogs/opm `4.4.4` is a `fix(deps)` re-pin of `4.4.3`
+onto it. This is an expectation, not a measured result: `task vet CONCRETE=true` and the publish
+gates (load, identity, derivation) pass, but neither runs a transformer, and this repo has no
+render step. istio_ambient's exact-name contracts (`DESIGN_PATTERNS.md` § Exact object names)
+rest on catalogs/opm `4.4.4` shipping no member change.
 
 ## Catalog contract
 

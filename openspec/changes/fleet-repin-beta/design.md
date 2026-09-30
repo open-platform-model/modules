@@ -76,7 +76,15 @@ release nothing. This PR is not a carrier: the fleet stays on stable SemVer and 
 aborts the merge if the squash body contains `release-as` in any case.
 
 The squash body MUST have no line that starts with an identifier followed by `(` (release-please
-drops such a commit) and no bare `@` token (write `opmodel.dev/core@v2`, glued).
+drops such a commit) and no bare `@` token (write `opmodel.dev/core@v2`, glued). The supervisor
+writes the body; the repo's default squash body (`COMMIT_MESSAGES`, every inner commit) is
+never accepted.
+
+For this PR the canon's supervisor-written squash overrides `openspec/config.yaml` Principle VI
+("PRs land as merge commits"). An apply agent does not act on that config text here. The
+release outcome is identical: the `docs:` and `chore(openspec):` commits touch only the repo
+root and `openspec/`, which belong to no package, so a merge commit would add no changelog line
+that the squash loses.
 
 ### D-3: The G6 cli pin lands first; this PR's CI proves the gates
 
@@ -90,7 +98,19 @@ directory, checksum-verified as CI does).
 
 A dry-run on this branch may refuse with "already holds": the module's `identity.Version` on
 `main` (e.g. apprise 3.0.1) is already on GHCR, and the new versions exist only on #50's
-branch. That is the one acceptable refusal, as in CI. Every other refusal is a stop.
+branch. That is the one acceptable refusal, as in CI. Every other refusal is a stop. The cli
+gate order makes this meaningful: `internal/publish/gates.go` runs the kernel-load gate before
+the already-published gate and collects every refusal, so a lone "already holds" means every
+other gate passed.
+
+The re-pin commit (task 1.4) is also dry-run gated, with the cli pinned on `main` at that time
+(an older cli can gate a tree pinned to a newer core). A refusal under the G6 cli in section 3
+comes after that commit exists; it is a stop, and any fix is a new module section with its own
+release class, never an amendment of the `fix(deps)` commit.
+
+The only CI run that proves the gates with no "already holds" escape is `Validate modules` on
+#50's advanced head, where each `identity.Version` is the unpublished new version. The #50 merge
+(D-5) requires it green.
 
 ### D-4: Docs state the running pipeline and the fleet's beta stance
 
@@ -101,8 +121,18 @@ adapted to each file):
 > each module whose `identity.Version` GHCR does not hold yet, so a module ships when the
 > release-please PR that advances its version merges. The fleet depends on the prerelease
 > `opmodel.dev/core@v2` line (beta) and stable `opmodel.dev/catalogs/opm@v4`; module versions
-> stay stable SemVer, and a break in a module is still a new path major under the cross-train
-> major separation rule.
+> stay stable SemVer. A module break (Principle I: a removed or renamed `#config` field, a
+> changed default an operator relies on, a rendered object that changes kind or name) is
+> `feat!` and a new version major; because `identity.Version`'s major must agree with
+> `ModulePath`'s, it is also a new path major. The cross-train major separation rule adds one
+> constraint: that new major must not collide with a major the `v1` train publishes.
+>
+> While `opmodel.dev/core@v2` is on beta, core may break on the same path as a `feat!` that
+> advances `-beta.N`, and `cue mod get` takes the highest prerelease. So a `task deps:update`
+> that crosses a core release whose CHANGELOG carries a `BREAKING CHANGE:` note is not a
+> routine `fix(deps)`: read that note, re-render the affected modules, and classify each module
+> per Principle I before choosing the commit type. Patch versions are immutable on GHCR; a break
+> shipped as `fix(deps)` cannot be withdrawn.
 
 The `DESIGN_PATTERNS.md` floor note reads "(every `catalogs/opm@v4` release)" in place of
 "(`catalogs/opm` >= 2.0.0-alpha.7, enhancement 0019 D15)".
@@ -136,7 +166,29 @@ fleet, so the PR's gates should be its gates.
 **Decision**: Leave #50 open; the supervisor merges it after this PR, so the fleet publishes
 once, pinned to beta.
 **Rationale**: GHCR tags are immutable; merging first would publish 8 alpha-pinned versions that
-the next release immediately supersedes.
+the next release immediately supersedes. Merge timing is D-5.
+
+### D-5: #50 merges only on the advanced head, then the publish is verified
+
+After this PR's squash lands, `release.yml` runs release-please, which force-updates
+`release-please--branches--main` with the new changelog lines; only afterwards does the
+"Advance identity.Version" step push `chore: advance identity.Version to the released versions`.
+In between, #50 lists the change while every `*/identity/identity.cue` still holds the old
+version, and CI is green there (a lone "already holds" passes). Merging at that moment tags
+`modules/<m>/v<new>` for all 8 modules, the publish sweep reads the old identity, finds it on
+GHCR and skips, and the advance step then finds no release branch: 8 tags with no artifact.
+
+So the supervisor merges #50 only when (a) its head commit is the advance commit pushed after
+this PR's merge, (b) on that head each `identity.Version` equals the expected version (apprise
+3.0.2, cert_manager 2.0.5, gotify 3.0.2, istio_ambient 2.0.5, k8up 4.0.2, metallb 3.0.2, ntfy
+3.0.2, web_app 1.0.5), and (c) `Validate modules` is green on that SHA. The merge uses
+`gh pr merge 50 --squash --match-head-commit <advance sha>`. Afterwards the supervisor watches
+the Release workflow's publish job and confirms GHCR holds all 8 tags; an "already published"
+skip line for any of them is a failure.
+
+#50 must stay open from G3 until then. The supervisor posts a hold comment on #50 and lists it
+among the PRs no worker merges; the standing permission to merge release-please PRs does not
+apply to #50 during the cutover.
 
 ## Risks / Trade-offs
 
@@ -146,7 +198,12 @@ the next release immediately supersedes.
   worker reports the diagnostic. A real schema break is a core or catalog defect, not a module
   workaround (Principle III).
 - [#50 is merged before this PR by mistake] -> 8 alpha-pinned versions publish, and this PR
-  yields a second patch release per module. Only the supervisor merges; the gate list says so.
+  yields a second patch release per module. Hold comment on #50 (D-5); the tasks.md gate stops
+  the worker and the expected versions are recomputed (each one patch higher).
+- [#50 is merged after this PR but before the identity advance] -> 8 tags with no GHCR artifact
+  and the beta fleet unpublished. D-5 head check and `--match-head-commit`.
+- [A later `deps:update` pulls a breaking core beta] -> the D-4 rule in `AGENTS.md` routes it
+  through a Principle I classification instead of a routine `fix(deps)`.
 - [Squash body picks up an inner commit's text with a `word(` line or a bare `@`] -> the
   supervisor writes the squash message (D-2) and scans it before merging.
 - [Platform pins still on core alpha when instances render these modules] -> skew warning only
@@ -158,5 +215,8 @@ the next release immediately supersedes.
   ships each module whose declared version GHCR lacks. Lands in `AGENTS.md` (Branch model,
   Registry) and `README.md` (branch table).
 - **Fleet versioning on the beta core**: modules keep stable SemVer while depending on the
-  prerelease `core@v2` line; a module break is still a new path major. Lands in `AGENTS.md`
+  prerelease `opmodel.dev/core@v2` line; a module break (Principle I) is `feat!` and, by
+  identity major agreement, a new path major that must not collide with the `v1` train. A
+  `task deps:update` crossing a core beta with a `BREAKING CHANGE:` note is classified per
+  module under Principle I, never shipped as a routine `fix(deps)`. Lands in `AGENTS.md`
   (Branch model).
