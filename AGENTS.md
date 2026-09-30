@@ -95,17 +95,33 @@ This repo is split by OPM generation because the lines cannot share one CUE tool
 
 | Branch | Line | Purpose |
 | --- | --- | --- |
-| `main` | OPM v2 | The OPM v2 line (enhancements 0010/0011 — identity reshape, `opmodel.dev/core@v2` + the v2 catalogs). The fleet is authored against core v2 + catalog v2. **Publish-on-push is still disabled here** — enabling it is a deliberate follow-up step. |
+| `main` | OPM v2 | The OPM v2 line (enhancements 0010/0011: identity reshape, `opmodel.dev/core@v2` + `opmodel.dev/catalogs/opm@v4`). **Publishes on push**: the release workflow's publish sweep runs on every push to `main` and ships each module whose `identity.Version` GHCR does not hold yet, so a module publishes when the release-please PR that advances its version merges. Module versions stay stable SemVer while the fleet depends on the prerelease core line (see below). |
 | `v1` | OPM v1 | **Protected live maintenance line.** Modules pin CUE `language: version: "v0.17.0"` and depend on stable `opmodel.dev/core@v1` + `opmodel.dev/catalogs/opm@v1`. Publishes on push (checksum-driven per-module patch bumps via `versions.yml`). Fixes and new v1 modules go here. |
 | `v0_legacy` | OPM v0 | Frozen legacy line. Modules pin CUE `v0.16.0` and depend on the deprecated `opmodel.dev/core/v1alpha1` + `opmodel.dev/opm/v1alpha1` catalog (old `catalog/` repo). Maintenance only — never add new modules there. |
 
-**You are on `main`.** Nothing publishes from here on push yet. The v2 re-authoring has
-landed — v2-line module work happens here; fixes for the published v1 fleet belong on
-`v1`. **Never merge `main` into `v1`.**
+**You are on `main`.** `main` publishes: the release workflow's publish sweep runs on every
+push to `main` and pushes each module whose `identity.Version` GHCR does not hold yet, so a
+module ships when the release-please PR that advances its version merges. v2-line module work
+happens here; fixes for the published v1 fleet belong on `v1`. **Never merge `main` into `v1`.**
+
+**Fleet versioning on the beta core.** The fleet depends on the prerelease
+`opmodel.dev/core@v2` line (beta) and the stable `opmodel.dev/catalogs/opm@v4`; module versions
+stay stable SemVer. A module break (Principle I: a removed or renamed `#config` field, a changed
+default an operator relies on, a rendered object that changes kind or name) is `feat!` and a new
+version major; because `identity.Version`'s major must agree with `ModulePath`'s, it is also a
+new path major. The major separation rule below adds one constraint: that new major must not
+collide with a major the `v1` train publishes.
+
+While `opmodel.dev/core@v2` is on beta, core may break on the same path as a `feat!` that
+advances `-beta.N`, and `cue mod get` takes the highest prerelease. So a `task deps:update` that
+crosses a core release whose CHANGELOG carries a `BREAKING CHANGE:` note is not a routine
+`fix(deps)`: read that note, re-render the affected modules, and classify each module per
+Principle I before choosing the commit type. Patch versions are immutable on GHCR; a break
+shipped as `fix(deps)` cannot be withdrawn.
 
 Why the split: the old catalog schemas use CUE features removed in v0.17 (e.g. `div`), the v1 catalog requires v0.17+, and the v2 line re-keys module identity (0010). Keeping generations on one branch forced every tool (`task vet`, `task publish`, CI) to special-case per-module CUE binaries and made "publish all changed" ambiguous. The split gives each line a single toolchain and a clean `versions.yml`.
 
-**Major separation rule:** a registry path may exist on several trains (directory names differ — legacy `jellyfin_v016/` publishes `opmodel.dev/modules/jellyfin@v1`, the v1 train's `jellyfin/` publishes `@v2`), but two trains must never share a major for the same path. When promoting a module from an older train, bump its path major past that train's line. CI enforces this (`Cross-train major separation guard` in `publish.yml`).
+**Major separation rule:** a registry path may exist on several trains (directory names differ: legacy `jellyfin_v016/` publishes `opmodel.dev/modules/jellyfin@v1`, the v1 train's `jellyfin/` publishes `@v2`), but two trains must never share a major for the same path. When promoting a module from an older train, bump its path major past that train's line. CI enforces this (`Cross-train major separation guard` in `release.yml`).
 
 ## Purpose
 
@@ -164,7 +180,7 @@ Each module's own `README.md` describes what it deploys. The v0.16 fleet lives o
 Follow the Registry Policy in the root `AGENTS.md`. In this repo that means:
 
 - `fmt` / `vet` / `tidy` / `check` read deps (`opmodel.dev/core`, `opmodel.dev/catalogs/*`) from GHCR — no local registry needed.
-- **There is no publish task.** Releases are CI's: release-please decides each module's version from conventional commits, the release workflow writes it with `opm module version set`, and `opm module publish` pushes the committed tree to GHCR. On `main` the publish job is dispatch-only until the v2 fleet republish enables it.
+- **There is no publish task.** Releases are CI's: release-please decides each module's version from conventional commits, the release workflow writes it with `opm module version set`, and `opm module publish` pushes the committed tree to GHCR. On `main` the publish sweep runs on every push and publishes each module whose `identity.Version` GHCR does not hold yet; in practice that is the merge of the release-please PR that advanced it.
 - A local publish is a gated exception (Registry Policy rule 2): point `OPM_REGISTRY` at `localhost:5000` deliberately and run `opm module publish` yourself. Never agent-initiated.
 - **A GHCR package is per registry path and holds every train's tags.** `ghcr.io/open-platform-model/opmodel.dev/modules/<name>` carries the `v0_legacy` versions, the `v1` branch's versions and `main`'s side by side, and `v1` keeps publishing into it on push. Cleaning up a retired line therefore means deleting **versions** (by id, tag by tag), never the package: deleting the package removes every branch's tags at once. `hack/ghcr-delete-versions.sh` is the tool (dry-run by default, `--apply` to delete, only the tags in its table); `hack/ghcr-deletions.md` records every run.
 

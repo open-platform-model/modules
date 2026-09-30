@@ -104,8 +104,8 @@ JWT_SECRET: {
 }
 ```
 
-The value lands in the rendered manifest in clear. Accepted for the v2 staging line
-(publish disabled on `main`); each module's `README.md` states it. Every changed field
+The value lands in the rendered manifest in clear. Accepted until enhancement 0013
+lands a published `#Secret`; each module's `README.md` states it. Every changed field
 and env site carries the `// 0013:` marker so reintroduction of the real `#Secret` is a
 grep.
 
@@ -623,8 +623,8 @@ These blueprints compose the necessary traits internally — do not add `traits_
 
 When a workload's rendered name is an external contract (a CNI failsafe matches on it, a mesh
 discovery address embeds it), set it with `metadata: resourceName:` at component level and assert
-it on `#names.resourceName`, the projection every transformer reads (`catalogs/opm` >= 2.0.0-alpha.7,
-enhancement 0019 D15):
+it on `#names.resourceName`, the projection every transformer reads (every `catalogs/opm@v4`
+release):
 
 ```cue
 // istio_ambient/components_dataplane.cue
