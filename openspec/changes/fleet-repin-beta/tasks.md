@@ -49,7 +49,7 @@ versions, and 1.2 then stops.
 
 ## 2. Durable decisions: repo docs
 
-- [ ] 2.1 `AGENTS.md` Branch model: the `main` row and the "You are on `main`" paragraph state
+- [x] 2.1 `AGENTS.md` Branch model: the `main` row and the "You are on `main`" paragraph state
       that `main` publishes on push after the release PR merges, name `catalogs/opm@v4`, and
       carry the fleet versioning stance on the beta core in full (design.md D-4): a module
       break is `feat!` per Principle I and a new path major by identity major agreement, the
@@ -57,15 +57,15 @@ versions, and 1.2 then stops.
       `task deps:update` crossing a core beta whose CHANGELOG has a `BREAKING CHANGE:` note is
       classified per module under Principle I, never a routine `fix(deps)`. The major
       separation rule names `release.yml`, not `publish.yml`.
-- [ ] 2.2 `AGENTS.md` Registry: replace "On `main` the publish job is dispatch-only until the
+- [x] 2.2 `AGENTS.md` Registry: replace "On `main` the publish job is dispatch-only until the
       v2 fleet republish enables it" with the running pipeline (sweep on every push to `main`,
       publishes versions GHCR lacks).
-- [ ] 2.3 `README.md` branch table, `main` row: `opmodel.dev/catalogs/opm@v4`, and the publish
+- [x] 2.3 `README.md` branch table, `main` row: `opmodel.dev/catalogs/opm@v4`, and the publish
       text matches 2.1 (no "publish-on-push is disabled").
-- [ ] 2.4 `DESIGN_PATTERNS.md` § Exact object names: the `catalogs/opm >= 2.0.0-alpha.7,
+- [x] 2.4 `DESIGN_PATTERNS.md` § Exact object names: the `catalogs/opm >= 2.0.0-alpha.7,
       enhancement 0019 D15` floor note becomes "every `catalogs/opm@v4` release". Module
       directories are not edited (proposal: separate docs change).
-- [ ] 2.5 `grep -n "dispatch-only\|still disabled\|publish-on-push is disabled\|Nothing publishes from here" AGENTS.md README.md`
+- [x] 2.5 `grep -n "dispatch-only\|still disabled\|publish-on-push is disabled\|Nothing publishes from here" AGENTS.md README.md`
       returns nothing; `task check` green and `opm module publish ./<m> --dry-run` for all 8
       modules as in 1.4, then commit
       `docs: describe publish on main and the fleet's beta-core stance`.

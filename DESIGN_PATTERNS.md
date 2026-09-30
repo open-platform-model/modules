@@ -623,8 +623,8 @@ These blueprints compose the necessary traits internally — do not add `traits_
 
 When a workload's rendered name is an external contract (a CNI failsafe matches on it, a mesh
 discovery address embeds it), set it with `metadata: resourceName:` at component level and assert
-it on `#names.resourceName`, the projection every transformer reads (`catalogs/opm` >= 2.0.0-alpha.7,
-enhancement 0019 D15):
+it on `#names.resourceName`, the projection every transformer reads (every `catalogs/opm@v4`
+release):
 
 ```cue
 // istio_ambient/components_dataplane.cue

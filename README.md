@@ -10,7 +10,7 @@ This repo is split by OPM generation because the lines cannot share one CUE tool
 
 | Branch | OPM line | CUE language | Catalog dependencies | Status |
 | --- | --- | --- | --- | --- |
-| `main` (this one) | v2 | `v0.17.0` | `opmodel.dev/core@v2`, `opmodel.dev/catalogs/opm@v2` | Active development. Versions are decided per module by release-please from conventional commits and published with `opm module publish`; **publish-on-push is disabled** until the v2 fleet publishes (a deliberate enablement step — the publish job is dispatch-only until then). |
+| `main` (this one) | v2 | `v0.17.0` | `opmodel.dev/core@v2` (beta), `opmodel.dev/catalogs/opm@v4` | Active development. Versions are decided per module by release-please from conventional commits and stay stable SemVer on the beta core. **Publishes on push**: the release workflow's publish sweep runs on every push to `main` and ships each module whose `identity.Version` GHCR does not hold yet, so a module publishes when the release-please PR that advances its version merges. |
 | `v1` | v1 | `v0.17.0` | `opmodel.dev/core@v1`, `opmodel.dev/catalogs/opm@v1` | **Protected live maintenance line** — publishes on push (checksum-driven patch bumps via `versions.yml`). Fixes for the published v1 fleet go here. |
 | `v0_legacy` | v0 | `v0.16.0` | `opmodel.dev/core/v1alpha1`, `opmodel.dev/opm/v1alpha1` | Frozen legacy line, maintenance only. |
 
