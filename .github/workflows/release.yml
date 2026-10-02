@@ -95,7 +95,7 @@ jobs:
           grep ' opm-linux-amd64.tar.gz$' checksums.txt | sha256sum -c -
           tar -xzf opm-linux-amd64.tar.gz opm
           sudo install -m 0755 opm /usr/local/bin/opm
-          rm -f opm opm-linux-amd64.tar.gz checksums.txt LICENSE
+          rm -f opm opm-linux-amd64.tar.gz checksums.txt
 
       # release-please decides the version; opm writes it. The manifest on the
       # release branch is the source, so this converges even when release-please
@@ -162,7 +162,7 @@ jobs:
           grep ' opm-linux-amd64.tar.gz$' checksums.txt | sha256sum -c -
           tar -xzf opm-linux-amd64.tar.gz opm
           sudo install -m 0755 opm /usr/local/bin/opm
-          rm -f opm opm-linux-amd64.tar.gz checksums.txt LICENSE
+          rm -f opm opm-linux-amd64.tar.gz checksums.txt
 
       - name: Discover modules
         id: discover
