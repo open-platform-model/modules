@@ -61,7 +61,7 @@ jobs:
           grep ' opm-linux-amd64.tar.gz$' checksums.txt | sha256sum -c -
           tar -xzf opm-linux-amd64.tar.gz opm
           sudo install -m 0755 opm /usr/local/bin/opm
-          rm -f opm opm-linux-amd64.tar.gz checksums.txt LICENSE
+          rm -f opm opm-linux-amd64.tar.gz checksums.txt
 
       # Every gate, no push. A dry run whose ONLY refusal is already-published
       # still passes: on a PR the committed version may legitimately be live.
