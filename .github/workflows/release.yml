@@ -26,6 +26,9 @@ on:
         type: boolean
         default: false
 
+# Each job declares what it uses; nothing inherits a workflow-level grant.
+permissions: {}
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -57,9 +60,13 @@ jobs:
     name: Release Please
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
+    # The only job that reads RELEASE_APP_PRIVATE_KEY. The release environment
+    # admits main only, so a workflow run on any other branch cannot read the
+    # key once it lives there.
+    environment: release
+    # release-please, the checkout and the identity-advance push all act
+    # through the App token; GITHUB_TOKEN is unused.
+    permissions: {}
     steps:
       # A PR opened or pushed with GITHUB_TOKEN holds its CI runs for manual
       # approval. Acting as the release App lets the release PR's CI start on
@@ -70,6 +77,12 @@ jobs:
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          # The token is this job's only credential: scope it to what
+          # release-please and the identity-advance push use (commits, release
+          # PRs, labels), never the installation's full grant.
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
 
       - name: Run release-please
         id: release
@@ -146,6 +159,8 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          # The job token stays out of .git/config while build tooling runs.
+          persist-credentials: false
 
       - name: Install CUE
         run: |
