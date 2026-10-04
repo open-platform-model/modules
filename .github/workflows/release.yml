@@ -26,6 +26,9 @@ on:
         type: boolean
         default: false
 
+# Each job declares what it uses; nothing inherits a workflow-level grant.
+permissions: {}
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -57,9 +60,13 @@ jobs:
     name: Release Please
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
+    # The only job that reads RELEASE_APP_PRIVATE_KEY. The release environment
+    # admits main only, so a workflow run on any other branch cannot read the
+    # key once it lives there.
+    environment: release
+    # release-please, the checkout and the identity-advance push all act
+    # through the App token; GITHUB_TOKEN is unused.
+    permissions: {}
     steps:
       # A PR opened or pushed with GITHUB_TOKEN holds its CI runs for manual
       # approval. Acting as the release App lets the release PR's CI start on
