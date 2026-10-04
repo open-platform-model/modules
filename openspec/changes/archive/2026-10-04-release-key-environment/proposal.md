@@ -6,9 +6,9 @@
 
 No module directory changes. Repository CI and config only:
 
-- **`.github/workflows/release.yml`**: workflow-level `permissions: {}`. The `release-please` job, the only reader of the key, runs in `environment: release` and declares `permissions: {}`: release-please, the checkout and the identity-advance push all use the App token. The `publish` job keeps `contents: read` and `packages: write`.
-- **`.github/CODEOWNERS`**: the owners review `.github/`, `Taskfile.yml`, `release-please-config.json` and `.release-please-manifest.json`.
-- **`.github/dependabot.yml`**: weekly GitHub Actions updates with the `ci` prefix.
+- **`.github/workflows/release.yml`**: workflow-level `permissions: {}`. The `release-please` job, the only reader of the key, runs in `environment: release` and declares `permissions: {}`: release-please, the checkout and the identity-advance push all use the App token, minted with only `contents`, `pull-requests` and `issues` write. The `publish` job keeps `contents: read` and `packages: write`, and its checkout sets `persist-credentials: false`.
+- **`.github/CODEOWNERS`**: the owners review `.github/`, `Taskfile.yml`, `release-please-config.json` and `.release-please-manifest.json`. Review is required only once the main ruleset turns on code-owner review; the file's header says so.
+- **`.github/dependabot.yml`**: weekly GitHub Actions updates with the `ci` prefix; `open-platform-model/.github*` is ignored, since it moves by the pin procedure only.
 - `ci.yml` already declares `contents: read` and `packages: read`. No workflow restores an Actions cache (the publish job installs CUE with `go install` and no `setup-go`), so nothing changes there.
 
 ## Before / After
