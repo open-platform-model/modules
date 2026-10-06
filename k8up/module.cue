@@ -58,7 +58,7 @@ metadata: {
 		// NOTE: crds_data.cue is vendored from the matching chart release —
 		// re-vendor when bumping this tag.
 		tag:    string | *"v2.16.0"
-		digest: string | *""
+		digest: string | *"sha256:29458113b8b676b5b48ebf25b21be5194ee9dccc887b92b8fa27f7d3dfca6f50"
 	}
 
 	// Image for the executor Jobs (backup/check/prune/restore) the operator
@@ -151,13 +151,13 @@ debugValues: {
 	image: {
 		repository: "ghcr.io/k8up-io/k8up"
 		tag:        "v2.16.0"
-		digest:     ""
+		digest:     "sha256:29458113b8b676b5b48ebf25b21be5194ee9dccc887b92b8fa27f7d3dfca6f50"
 		pullPolicy: "IfNotPresent"
 	}
 	backupImage: {
 		repository: "ghcr.io/k8up-io/k8up"
 		tag:        "v2.16.0"
-		digest:     ""
+		digest:     "sha256:29458113b8b676b5b48ebf25b21be5194ee9dccc887b92b8fa27f7d3dfca6f50"
 		pullPolicy: "IfNotPresent"
 	}
 	replicas:              1
