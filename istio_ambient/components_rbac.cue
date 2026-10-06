@@ -9,7 +9,7 @@ import (
 ////
 //// Six ClusterRoles and one namespaced Role, each with the binding #Role
 //// emits automatically. Rules are transcribed from `helm template` of the
-//// ambient chart at 1.30.3 — one component per upstream role, so a rule
+//// ambient chart at 1.30.5 — one component per upstream role, so a rule
 //// change upstream lands in exactly one place here.
 ////
 //// Names embed the namespace (istiod-clusterrole-<ns>) exactly as upstream

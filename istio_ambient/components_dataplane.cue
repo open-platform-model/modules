@@ -216,7 +216,7 @@ _nodeAgentScheduling: {
 					"prometheus.io/port":   "15014"
 					"prometheus.io/path":   "/metrics"
 					// AppArmor blocks some of the privileged operations the
-					// agent needs. Still the annotation form at 1.30.3 — the
+					// agent needs. Still the annotation form at 1.30.5 — the
 					// chart has not moved to securityContext.appArmorProfile.
 					"container.apparmor.security.beta.kubernetes.io/install-cni": "unconfined"
 				}

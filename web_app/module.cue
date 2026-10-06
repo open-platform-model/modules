@@ -32,7 +32,7 @@ metadata: {
 	// Container image
 	image: res.#Image & {
 		repository: string | *"nginx"
-		tag:        string | *"1.27"
+		tag:        string | *"1.30"
 		digest:     string | *""
 	}
 
@@ -49,7 +49,7 @@ metadata: {
 debugValues: {
 	image: {
 		repository: "nginx"
-		tag:        "1.27"
+		tag:        "1.30"
 		digest:     ""
 	}
 	replicas:    1

@@ -1,4 +1,4 @@
-// cert-manager CustomResourceDefinition data, vendored from upstream v1.21.0
+// cert-manager CustomResourceDefinition data, vendored from upstream v1.21.2
 // (cert-manager.yaml release manifest). Generated via cue import from
 // crds/*.yaml — do not edit by hand; re-vendor on version bumps.
 package cert_manager
@@ -15,7 +15,7 @@ package cert_manager
 			"app.kubernetes.io/name":      "cert-manager"
 			"app.kubernetes.io/instance":  "cert-manager"
 			"app.kubernetes.io/component": "crds"
-			"app.kubernetes.io/version":   "v1.21.0"
+			"app.kubernetes.io/version":   "v1.21.2"
 		}
 	}
 	spec: {
@@ -412,7 +412,7 @@ package cert_manager
 			"app.kubernetes.io/name":      "cert-manager"
 			"app.kubernetes.io/instance":  "cert-manager"
 			"app.kubernetes.io/component": "crds"
-			"app.kubernetes.io/version":   "v1.21.0"
+			"app.kubernetes.io/version":   "v1.21.2"
 		}
 	}
 	spec: {
@@ -1516,7 +1516,7 @@ package cert_manager
 			"app.kubernetes.io/name":      "cert-manager"
 			"app.kubernetes.io/instance":  "cert-manager"
 			"app.kubernetes.io/component": "crds"
-			"app.kubernetes.io/version":   "v1.21.0"
+			"app.kubernetes.io/version":   "v1.21.2"
 		}
 	}
 	spec: {
@@ -5658,7 +5658,7 @@ package cert_manager
 			"app.kubernetes.io/name":      "cert-manager"
 			"app.kubernetes.io/instance":  "cert-manager"
 			"app.kubernetes.io/component": "crds"
-			"app.kubernetes.io/version":   "v1.21.0"
+			"app.kubernetes.io/version":   "v1.21.2"
 		}
 	}
 	spec: {
@@ -10588,7 +10588,7 @@ package cert_manager
 			"app.kubernetes.io/name":      "cert-manager"
 			"app.kubernetes.io/instance":  "cert-manager"
 			"app.kubernetes.io/component": "crds"
-			"app.kubernetes.io/version":   "v1.21.0"
+			"app.kubernetes.io/version":   "v1.21.2"
 		}
 	}
 	spec: {
@@ -15517,7 +15517,7 @@ package cert_manager
 			"app.kubernetes.io/name":      "cert-manager"
 			"app.kubernetes.io/instance":  "cert-manager"
 			"app.kubernetes.io/component": "crds"
-			"app.kubernetes.io/version":   "v1.21.0"
+			"app.kubernetes.io/version":   "v1.21.2"
 		}
 	}
 	spec: {

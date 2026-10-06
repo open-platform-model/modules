@@ -99,7 +99,7 @@ _injectorConfig: """
 	      - name: istio-init
 	      {{ end -}}
 	      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image) }}
-	        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image }}"
+	        image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image | quote }}
 	      {{- else }}
 	        image: "{{ .ProxyImage }}"
 	      {{- end }}
@@ -144,7 +144,7 @@ _injectorConfig: """
 	        - "-c"
 	        - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces` }}"
 	        {{ end -}}
-	        - "--log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}"
+	        - {{ printf "--log_output_level=%s" (annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level) | quote }}
 	        {{ if .Values.global.logAsJson -}}
 	        - "--log_as_json"
 	        {{ end -}}
@@ -200,7 +200,7 @@ _injectorConfig: """
 	      {{ end }}
 	      - name: istio-proxy
 	      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-	        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+	        image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
 	      {{- else }}
 	        image: "{{ .ProxyImage }}"
 	      {{- end }}
@@ -214,9 +214,9 @@ _injectorConfig: """
 	        - sidecar
 	        - --domain
 	        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-	        - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
-	        - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
-	        - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
+	        - {{ printf "--proxyLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel) | quote }}
+	        - {{ printf "--proxyComponentLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel) | quote }}
+	        - {{ printf "--log_output_level=%s" (annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level) | quote }}
 	      {{- if .Values.global.sts.servicePort }}
 	        - --stsPort={{ .Values.global.sts.servicePort }}
 	      {{- end }}
@@ -499,7 +499,7 @@ _injectorConfig: """
 	      {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
 	      - name: custom-bootstrap-volume
 	        configMap:
-	          name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
+	          name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" | quote }}
 	      {{- end }}
 	      # SDS channel between istioagent and Envoy
 	      - emptyDir:
@@ -598,7 +598,7 @@ _injectorConfig: """
 	      containers:
 	      - name: istio-proxy
 	      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-	        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+	        image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
 	      {{- else }}
 	        image: "{{ .ProxyImage }}"
 	      {{- end }}
@@ -611,9 +611,9 @@ _injectorConfig: """
 	        - router
 	        - --domain
 	        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-	        - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
-	        - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
-	        - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
+	        - {{ printf "--proxyLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel) | quote }}
+	        - {{ printf "--proxyComponentLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel) | quote }}
+	        - {{ printf "--log_output_level=%s" (annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level) | quote }}
 	      {{- if .Values.global.sts.servicePort }}
 	        - --stsPort={{ .Values.global.sts.servicePort }}
 	      {{- end }}
@@ -793,7 +793,7 @@ _injectorConfig: """
 	      {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
 	      - name: custom-bootstrap-volume
 	        configMap:
-	          name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
+	          name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" | quote }}
 	      {{- end }}
 	      # SDS channel between istioagent and Envoy
 	      - emptyDir:
@@ -963,7 +963,7 @@ _injectorConfig: """
 	      containers:
 	      - name: istio-proxy
 	      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-	        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+	        image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
 	      {{- else }}
 	        image: "{{ .ProxyImage }}"
 	      {{- end }}
@@ -976,9 +976,9 @@ _injectorConfig: """
 	        - sidecar
 	        - --domain
 	        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-	        - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
-	        - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
-	        - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
+	        - {{ printf "--proxyLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel) | quote }}
+	        - {{ printf "--proxyComponentLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel) | quote }}
+	        - {{ printf "--log_output_level=%s" (annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level) | quote }}
 	      {{- if .Values.global.sts.servicePort }}
 	        - --stsPort={{ .Values.global.sts.servicePort }}
 	      {{- end }}
@@ -1172,7 +1172,7 @@ _injectorConfig: """
 	      {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
 	      - name: custom-bootstrap-volume
 	        configMap:
-	          name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
+	          name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" | quote }}
 	      {{- end }}
 	      # SDS channel between istioagent and Envoy
 	      - emptyDir:
@@ -1336,7 +1336,7 @@ _injectorConfig: """
 	              protocol: TCP
 	              name: http-envoy-prom
 	            {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-	            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+	            image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
 	            {{- else }}
 	            image: "{{ .ProxyImage }}"
 	            {{- end }}
@@ -1729,7 +1729,7 @@ _injectorConfig: """
 	          containers:
 	          - name: istio-proxy
 	          {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-	            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+	            image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
 	          {{- else }}
 	            image: "{{ .ProxyImage }}"
 	          {{- end }}

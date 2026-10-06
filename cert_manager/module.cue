@@ -9,7 +9,7 @@
 // - crds_data.cue:  vendored upstream CRDs (generated from crds/*.yaml)
 //
 // https://cert-manager.io | https://github.com/cert-manager/cert-manager
-// Pinned upstream release: v1.21.0. All object bodies (deployments, RBAC,
+// Pinned upstream release: v1.21.2. All object bodies (deployments, RBAC,
 // webhook configurations) are transcribed from that release's static
 // manifest (cert-manager.yaml), NOT from the legacy v0 module — the legacy
 // webhook bodies had drifted from the chart.
@@ -49,7 +49,7 @@ metadata: {
 		// cert-manager release tag. See https://github.com/cert-manager/cert-manager/releases.
 		// NOTE: crds_data.cue and the webhook configuration bodies are generated
 		// from this release's manifest — re-vendor when bumping this tag.
-		tag:    string | *"v1.21.0"
+		tag:    string | *"v1.21.2"
 		digest: string | *""
 	}
 
@@ -129,7 +129,7 @@ metadata: {
 debugValues: {
 	image: {
 		repository: "quay.io/jetstack"
-		tag:        "v1.21.0"
+		tag:        "v1.21.2"
 		digest:     ""
 		pullPolicy: "IfNotPresent"
 	}

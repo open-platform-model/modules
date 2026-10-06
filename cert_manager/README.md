@@ -12,7 +12,7 @@ cert-manager-config module).
 
 - **Upstream**: https://cert-manager.io
 - **GitHub**: https://github.com/cert-manager/cert-manager
-- **Default version**: `v1.21.0`
+- **Default version**: `v1.21.2`
 
 ---
 
@@ -32,7 +32,7 @@ cert-manager-config module).
 ## Fixes vs the legacy v0 module
 
 The legacy module was transcribed by hand and had drifted from the chart; this port
-re-vendors every body from the upstream v1.21.0 static manifest:
+re-vendors every body from the upstream v1.21.2 static manifest:
 
 - Webhook configs: correct `timeoutSeconds: 30`, MWC rules narrowed to
   `certificaterequests`/CREATE, dropped the bogus `name NotIn [cert-manager]` selector term,
@@ -55,7 +55,7 @@ ServiceAccounts, the webhook Service, the webhook configurations, and all 13 RBA
 do keep their exact upstream names, because those *are* referenced.
 
 Verified by rendering the module and diffing every object against
-`helm template cert-manager --version v1.21.0`: RBAC and CRDs are identical, and the only
+`helm template cert-manager --version v1.21.2`: RBAC and CRDs are identical, and the only
 remaining deltas are the ones listed above.
 
 ## ⚠ Instance naming

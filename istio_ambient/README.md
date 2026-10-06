@@ -11,7 +11,7 @@ ConfigMaps.
 
 - **Upstream**: https://istio.io
 - **Chart**: https://artifacthub.io/packages/helm/istio-official/ambient
-- **Default version**: `1.30.3` (Gateway API CRDs vendored at `v1.5.1`)
+- **Default version**: `1.30.5` (Gateway API CRDs vendored at `v1.5.1`)
 
 ---
 
