@@ -4,7 +4,7 @@ OPM module for [Apprise API](https://github.com/caronc/apprise-api) — a notifi
 **router**. One HTTP call in, fan-out to 130+ services out: ntfy, Discord, email, Slack,
 Telegram, and so on.
 
-Image pinned to `v1.5.1` by digest.
+Image pinned to `v1.5.4` by digest.
 
 > This is the OPM **v2-line** authoring of the module (`opmodel.dev/modules/apprise` at
 > path major v2, core v2 + catalog v2). It renders the same workload as the v1-train
@@ -134,7 +134,7 @@ curl -X POST -d 'tag=critical' -d 'title=nas1' -d 'body=Disk at 91%' \
 
 | Field | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `image` | `#Image` | `caronc/apprise:v1.5.1` | pinned by digest |
+| `image` | `#Image` | `caronc/apprise:v1.5.4` | pinned by digest |
 | `port` | int | `8000` | Service port |
 | `listenPort` | int | `8000` | `HTTP_PORT` |
 | `mode` | enum | `stateful` | `stateful` / `stateless` |

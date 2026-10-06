@@ -53,11 +53,11 @@ metadata: {
 
 // Schema only - constraints for users.
 #config: {
-	// Container image. Docker Hub tags are unprefixed semver ("3.0.0").
+	// Container image. Docker Hub tags are unprefixed semver ("3.1.1").
 	image: res.#Image & {
 		repository: string | *"gotify/server"
-		tag:        string | *"3.0.0"
-		digest:     string | *"sha256:d75e89e0e28389c00c2556afe01282a37ee9756b0285799aa25214243aebd5e5"
+		tag:        string | *"3.1.1"
+		digest:     string | *"sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86"
 	}
 
 	// Kubernetes Service port.
@@ -152,8 +152,8 @@ metadata: {
 debugValues: {
 	image: {
 		repository: "gotify/server"
-		tag:        "3.0.0"
-		digest:     "sha256:d75e89e0e28389c00c2556afe01282a37ee9756b0285799aa25214243aebd5e5"
+		tag:        "3.1.1"
+		digest:     "sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86"
 	}
 	port:       80
 	listenPort: 80

@@ -55,11 +55,11 @@ metadata: {
 
 // Schema only - constraints for users.
 #config: {
-	// Container image. Docker Hub tags carry the leading "v" ("v1.5.1").
+	// Container image. Docker Hub tags carry the leading "v" ("v1.5.4").
 	image: res.#Image & {
 		repository: string | *"caronc/apprise"
-		tag:        string | *"v1.5.1"
-		digest:     string | *"sha256:1871ed736799f6320d5061b72a60507f62c8747026e830175dc4b9f8adbf78dd"
+		tag:        string | *"v1.5.4"
+		digest:     string | *"sha256:c5ea17408c10fd84c8fdb05a421114a1a677b16343c274bf9b1a55701b530829"
 	}
 
 	// Kubernetes Service port.
@@ -194,8 +194,8 @@ metadata: {
 debugValues: {
 	image: {
 		repository: "caronc/apprise"
-		tag:        "v1.5.1"
-		digest:     "sha256:1871ed736799f6320d5061b72a60507f62c8747026e830175dc4b9f8adbf78dd"
+		tag:        "v1.5.4"
+		digest:     "sha256:c5ea17408c10fd84c8fdb05a421114a1a677b16343c274bf9b1a55701b530829"
 	}
 	port:       8000
 	listenPort: 8000

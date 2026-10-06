@@ -32,8 +32,8 @@ metadata: {
 	// Container image
 	image: res.#Image & {
 		repository: string | *"nginx"
-		tag:        string | *"1.27"
-		digest:     string | *""
+		tag:        string | *"1.30.5"
+		digest:     string | *"sha256:0623fd2455fb2bb0bc2ba7038817adcf7805d0790f78af91de33389d50774385"
 	}
 
 	// Replica count
@@ -49,8 +49,8 @@ metadata: {
 debugValues: {
 	image: {
 		repository: "nginx"
-		tag:        "1.27"
-		digest:     ""
+		tag:        "1.30.5"
+		digest:     "sha256:0623fd2455fb2bb0bc2ba7038817adcf7805d0790f78af91de33389d50774385"
 	}
 	replicas:    1
 	port:        80

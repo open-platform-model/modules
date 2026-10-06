@@ -5,7 +5,7 @@ notification server. Senders POST a message to the REST API with an application 
 subscribed clients receive it in real time over a WebSocket. Ships with a web UI, an
 Android app (Play and F-Droid), and a CLI.
 
-Image pinned to `3.0.0` by digest.
+Image pinned to `3.1.1` by digest.
 
 > This is the OPM **v2-line** authoring of the module (`opmodel.dev/modules/gotify` at
 > path major v2, core v2 + catalog v2). It renders the same workload as the v1-train
@@ -85,7 +85,7 @@ curl -X POST "https://gotify.example.com/message?token=<app-token>" \
 
 | Field | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `image` | `#Image` | `gotify/server:3.0.0` | pinned by digest |
+| `image` | `#Image` | `gotify/server:3.1.1` | pinned by digest |
 | `port` | int | `80` | Service port |
 | `listenPort` | int | `80` | `GOTIFY_SERVER_PORT` |
 | `timezone` | string | `Europe/Stockholm` | `TZ` |

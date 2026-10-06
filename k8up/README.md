@@ -108,7 +108,7 @@ normal deployment path is unaffected. Only ad-hoc `kubectl apply` needs `--serve
 
 | Key | Default | Notes |
 |---|---|---|
-| `image` | `ghcr.io/k8up-io/k8up:v2.16.0` | Operator image; `crds_data.cue` is vendored to match |
+| `image` | `ghcr.io/k8up-io/k8up:v2.16.0` | Operator image, pinned by digest; `crds_data.cue` is vendored to match |
 | `backupImage` | same as `image` | Passed as `BACKUP_IMAGE` to executor Jobs |
 | `replicas` | `1` | Followers are hot standby; leader election picks one active |
 | `timezone` | `""` | Interprets Schedule cron expressions; empty uses the node's zone |

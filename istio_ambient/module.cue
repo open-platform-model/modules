@@ -14,7 +14,7 @@
 // - crds_*_data.cue:             vendored upstream CRDs (generated — do not hand-edit)
 // - injector_*_data.cue:         vendored sidecar-injector templates and values
 //
-// Transcribed from the official `ambient` umbrella chart at 1.30.3
+// Transcribed from the official `ambient` umbrella chart at 1.30.5
 // (https://artifacthub.io/packages/helm/istio-official/ambient). That chart is
 // `istio/istio` → manifests/sample-charts/ambient/, two files with no
 // templates; its output is provably identical to rendering base + cni + istiod +
@@ -66,7 +66,7 @@ metadata: {
 		// dump are all vendored from this release's charts — re-vendor when
 		// bumping it, or istiod will serve injection templates from a different
 		// version than it runs.
-		tag: string | *"1.30.3"
+		tag: string | *"1.30.5"
 
 		// Locked. The ambient profile sets global.variant=distroless and the
 		// chart applies it to all three images; exposed only for visibility.
@@ -191,7 +191,7 @@ metadata: {
 debugValues: {
 	image: {
 		hub:        "registry.istio.io/release"
-		tag:        "1.30.3"
+		tag:        "1.30.5"
 		variant:    "distroless"
 		pullPolicy: "IfNotPresent"
 	}

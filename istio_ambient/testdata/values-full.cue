@@ -7,7 +7,7 @@ package values
 
 image: {
 	hub:        "registry.istio.io/release"
-	tag:        "1.30.3"
+	tag:        "1.30.5"
 	variant:    "distroless"
 	pullPolicy: "IfNotPresent"
 }

@@ -6,7 +6,7 @@ https://ntfy.example.com/nas1-alerts` and every subscribed phone or browser buzz
 Native apps exist for Android and iOS, and it can act as a
 [UnifiedPush](https://unifiedpush.org/) distributor.
 
-Image pinned to `v2.27.0` by digest.
+Image pinned to `v2.28.0` by digest.
 
 > This is the OPM **v2-line** authoring of the module (`opmodel.dev/modules/ntfy` at path
 > major v2, core v2 + catalog v2). It renders the same workload as the v1-train module —
@@ -114,7 +114,7 @@ curl -u alerts:<password> -d "Disk at 91%" https://ntfy.example.com/nas1-alerts
 
 | Field | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `image` | `#Image` | `binwiederhier/ntfy:v2.27.0` | pinned by digest |
+| `image` | `#Image` | `binwiederhier/ntfy:v2.28.0` | pinned by digest |
 | `port` | int | `80` | Service port |
 | `listenPort` | int | `80` | container listen port (`listen-http`) |
 | `baseUrl` | string | — | **required**, scheme included |

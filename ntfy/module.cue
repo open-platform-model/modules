@@ -69,11 +69,11 @@ metadata: {
 
 // Schema only - constraints for users.
 #config: {
-	// Container image. Docker Hub tags carry the leading "v" ("v2.27.0").
+	// Container image. Docker Hub tags carry the leading "v" ("v2.28.0").
 	image: res.#Image & {
 		repository: string | *"binwiederhier/ntfy"
-		tag:        string | *"v2.27.0"
-		digest:     string | *"sha256:f2419f405127afa868f10985c1a41449e673477cee1eb19994339a5ae8b592e7"
+		tag:        string | *"v2.28.0"
+		digest:     string | *"sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da"
 	}
 
 	// Kubernetes Service port.
@@ -198,8 +198,8 @@ metadata: {
 debugValues: {
 	image: {
 		repository: "binwiederhier/ntfy"
-		tag:        "v2.27.0"
-		digest:     "sha256:f2419f405127afa868f10985c1a41449e673477cee1eb19994339a5ae8b592e7"
+		tag:        "v2.28.0"
+		digest:     "sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da"
 	}
 	port:        80
 	listenPort:  80

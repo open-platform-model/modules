@@ -11,7 +11,7 @@
 //   10 × *-rbac                 — bound ClusterRoles + ClusterRoleBindings
 //   3 × *-role                  — namespace Roles + RoleBindings (leader election ×2, dynamic-serving)
 //
-// All bodies are transcribed from the upstream v1.21.0 static manifest.
+// All bodies are transcribed from the upstream v1.21.2 static manifest.
 // Deliberate deviations from upstream:
 //   - controller/cainjector metrics Services are not emitted (nothing scrapes
 //     them on the target clusters); the webhook Service IS emitted (the
@@ -45,7 +45,7 @@ _webhookConfigLabels: {
 // cainjector populates the webhook configs' caBundle from the webhook's
 // self-managed serving-cert CA. The legacy module's inject-apiserver-ca
 // annotation was wrong (pre-v0.12 aggregated-apiserver era) — the modern
-// chart uses inject-ca-from-secret, verified against v1.21.0.
+// chart uses inject-ca-from-secret, verified against v1.21.2.
 _webhookConfigAnnotations: {
 	"cert-manager.io/inject-ca-from-secret": "cert-manager/cert-manager-webhook-ca"
 }
@@ -72,7 +72,7 @@ _webhookConfigAnnotations: {
 	////
 	//// Deploys all 6 cert-manager CRDs (certificates, certificaterequests,
 	//// issuers, clusterissuers + acme orders, challenges). The
-	//// openAPIV3Schema is sourced from the upstream v1.21.0 manifest via
+	//// openAPIV3Schema is sourced from the upstream v1.21.2 manifest via
 	//// crds_data.cue.
 	/////////////////////////////////////////////////////////////////
 
@@ -471,7 +471,7 @@ _webhookConfigAnnotations: {
 	/////////////////////////////////////////////////////////////////
 	//// Webhook configurations — exact names, no caBundle
 	////
-	//// Bodies re-vendored from the v1.21.0 manifest (the legacy module's
+	//// Bodies re-vendored from the v1.21.2 manifest (the legacy module's
 	//// transcription had drifted: wrong timeoutSeconds, an extra
 	//// namespaceSelector term, over-broad MWC rules, and the obsolete
 	//// inject-apiserver-ca annotation). cainjector patches caBundle into
@@ -542,7 +542,7 @@ _webhookConfigAnnotations: {
 	/////////////////////////////////////////////////////////////////
 	//// RBAC — 10 bound ClusterRoles + 3 namespace Roles
 	////
-	//// Transcribed from the v1.21.0 manifest with exact upstream names,
+	//// Transcribed from the v1.21.2 manifest with exact upstream names,
 	//// including the resourceNames-scoped rules (signer approval, CSR
 	//// signing, leader-election Leases, the dynamic-serving CA Secret).
 	//// The leader-election Roles are emitted into the module instance's

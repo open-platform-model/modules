@@ -49,7 +49,7 @@ import (
 }
 
 #components: {
-	// The 15 Istio CRDs from the base chart at 1.30.3. 1.30 adds
+	// The 15 Istio CRDs from the base chart at 1.30.5. 1.30 adds
 	// trafficextensions.extensions.istio.io over the 1.28 line.
 	crds: {
 		res.#CRDs

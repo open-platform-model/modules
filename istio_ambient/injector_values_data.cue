@@ -75,7 +75,7 @@ _injectorValuesBase: {
 		resourceScope:      "all"
 		sds: token: aud: "istio-ca"
 		sts: servicePort: 0
-		tag:     "1.30.3"
+		tag:     "1.30.5"
 		variant: "distroless"
 		waypoint: {
 			affinity: {}
