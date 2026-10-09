@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.3](https://github.com/open-platform-model/modules/compare/modules/k8up/v4.0.2...modules/k8up/v4.0.3) (2026-10-09)
+
+
+### Bug Fixes
+
+* **deps:** bump core, catalogs/opm, app images and workflow actions ([#61](https://github.com/open-platform-model/modules/issues/61)) ([cc2a4d4](https://github.com/open-platform-model/modules/commit/cc2a4d4e606cd1f21e85a1b5b7f93512eb813fb4))
+
 ## [4.0.2](https://github.com/open-platform-model/modules/compare/modules/k8up/v4.0.1...modules/k8up/v4.0.2) (2026-09-30)
 
 

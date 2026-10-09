@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.6](https://github.com/open-platform-model/modules/compare/modules/web_app/v1.0.5...modules/web_app/v1.0.6) (2026-10-09)
+
+
+### Bug Fixes
+
+* **deps:** bump core, catalogs/opm, app images and workflow actions ([#61](https://github.com/open-platform-model/modules/issues/61)) ([cc2a4d4](https://github.com/open-platform-model/modules/commit/cc2a4d4e606cd1f21e85a1b5b7f93512eb813fb4))
+
 ## [1.0.5](https://github.com/open-platform-model/modules/compare/modules/web_app/v1.0.4...modules/web_app/v1.0.5) (2026-09-30)
 
 
