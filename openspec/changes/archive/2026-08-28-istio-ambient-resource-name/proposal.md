@@ -1,6 +1,6 @@
 ## Why
 
-`catalogs/opm` 2.0.0-alpha.7 (enhancement 0019 ("Transformers read `#component.#names` for the primary object; they never derive its name"), `catalog-names-readonly-workloads`) deprecates `#ResourceNameTrait`: transformers now read a workload's name from `#component.#names.resourceName`, which core derives from `metadata.resourceName`; the trait survives one release behind a seam and is deleted in the next catalog change. `istio_ambient` is the only module in the fleet attaching the trait, at three components whose names are external contracts: `istiod` (mesh discovery identity), `istio-cni-node` (the CNI plugin's failsafe matches on this name) and `ztunnel`. This is sweep 2 of the staged retirement: migrate the fleet before the catalog deletes the trait.
+`catalogs/opm` 2.0.0-alpha.7 (enhancement 0019, where transformers read the name from `#component.#names`; change `catalog-names-readonly-workloads`) deprecates `#ResourceNameTrait`: transformers now read a workload's name from `#component.#names.resourceName`, which core derives from `metadata.resourceName`; the trait survives one release behind a seam and is deleted in the next catalog change. `istio_ambient` is the only module in the fleet attaching the trait, at three components whose names are external contracts: `istiod` (mesh discovery identity), `istio-cni-node` (the CNI plugin's failsafe matches on this name) and `ztunnel`. This is sweep 2 of the staged retirement: migrate the fleet before the catalog deletes the trait.
 
 ## What Changes
 
@@ -45,7 +45,7 @@ Same shape for `istio-cni` (`"istio-cni-node"`) and `ztunnel` (`"ztunnel"`). Ren
 
 ## Catalog contract
 
-- `catalogs/opm@v2` >= 2.0.0-alpha.7 (D15 seam: `#WorkloadName` reads the trait if set, else `#names.resourceName`; `metadata.resourceName` honoured). `core@v2` alpha.6 already carries `metadata.resourceName` and `#names` (D16/D20).
+- `catalogs/opm@v2` >= 2.0.0-alpha.7 (enhancement 0019 seam: `#WorkloadName` reads the trait if set, else `#names.resourceName`; `metadata.resourceName` honoured). `core@v2` alpha.6 already carries `metadata.resourceName` and `#names` (enhancement 0019).
 - `task deps:update` from the workspace root MUST run first. It is not scopeable and also rewrites the `catalog_opm`, `cli`, `core` and `opm-operator` pins; only the `modules` hunk belongs to this change (committed as `fix(deps)` across the fleet), the rest are those repos' own `fix(deps)` PRs.
 - No missing catalog member. A kernel render of this module is blocked by a `catalog_opm` defect (`#RoleTransformer` leaves a plain resource rule as an unresolved `#PolicyRuleSchema` disjunction, reproduced at alpha.6 and alpha.7); that fix is a separate `catalog_opm` change and gates only the render diff, not this migration.
 
@@ -57,4 +57,4 @@ Same shape for `istio-cni` (`"istio-cni-node"`) and `ztunnel` (`"ztunnel"`). Ren
 
 ## Enhancement
 
-`enhancements/0019` D15, the `modules` half of the staged `#ResourceNameTrait` retirement (sweep 2 of 3). `enhancement.yaml` declares D15.
+Enhancement 0019 (transformers read `#component.#names` for the primary object and never derive its name): the `modules` half of the staged `#ResourceNameTrait` retirement (sweep 2 of 3).
