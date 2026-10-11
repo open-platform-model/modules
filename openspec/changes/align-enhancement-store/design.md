@@ -6,7 +6,7 @@ The repo is a fleet of CUE modules. Only comments, rule text, archived text and 
 
 **Goals:** every citation is an id beside a reason; the repo rules live in `config.yaml`; `enh cite-lint` and `enh cite-rewrite --dry-run` report nothing.
 
-**Non-Goals:** the `// 0013:` interim markers in module comments stay (see Decisions). No `.claude/**` edit. No lint task or CI call (a later task).
+**Non-Goals:** the `// 0013:` interim markers in module comments stay (see Decisions). No `.claude/**` edit; no edit of the active change `move-media-gpu-modules-to-jacero`. No lint task or CI call (a later task).
 
 ## Decisions
 

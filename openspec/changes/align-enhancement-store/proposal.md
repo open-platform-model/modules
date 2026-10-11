@@ -11,7 +11,7 @@ The rules that steer agents sit in patches inside OpenSpec skill files. `openspe
 - Principle VII (no enhancement reference in module comments) stays. Its text loses the decision-number example.
 - Every citation in tracked files becomes an id beside a reason in words: the comments of `.github/workflows/release.yml`, `istio_ambient/DEPLOYMENT_NOTES.md`, and four archived changes. The `enh cite-rewrite` tool did the mechanical part; the sites it only lists were rewritten by hand.
 - Three archived `enhancement.yaml` files are deleted. Their proposals already name the entry.
-- `move-media-gpu-modules-to-jacero` is an active change and is not edited.
+- Not edited, on purpose: the active change `openspec/changes/move-media-gpu-modules-to-jacero/` (another author's open work; the checks exclude it), and everything under `.claude/` (agents do not write there; the owner updates the skills). The `// 0013:` interim markers in eight module CUE files stay: each holds an id beside a reason in words and no decision number.
 
 No `#config`, component or rendered object changes. One CI log line loses the text `(D15)`; the workflow logic is the same.
 

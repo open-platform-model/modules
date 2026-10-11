@@ -39,7 +39,8 @@ artifacts:
         any module's path major moves, and what an operator of the module has to do.
       - **Enhancement**: If the change delivers a line of an enhancement's `tasks.md`, add one
         line `Delivers NNNN, task X.Y.` per task, and name the reason in words instead of
-        restating the design. Otherwise write `None.`.
+        restating the design. Cite an enhancement only as its id beside a reason in words: never an id
+        alone, never a decision number (no `NNNN:Dn`, `NNNN Dn`, `NNNN:OQn`). Otherwise write `None.`.
 
       This schema has no specs artifact. Do not add a Capabilities section and do not
       create a `specs/` directory. The change's `.openspec.yaml` carries

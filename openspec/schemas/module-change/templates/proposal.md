@@ -38,4 +38,5 @@
 ## Enhancement
 
 <!-- If this delivers a line of an enhancement's tasks.md, write one line per task:
-     "Delivers NNNN, task X.Y." Otherwise write "None." -->
+     "Delivers NNNN, task X.Y." Otherwise write "None." Cite an enhancement only as its id beside
+     a reason in words: never an id alone, never a decision number (no NNNN:Dn, NNNN Dn, NNNN:OQn). -->

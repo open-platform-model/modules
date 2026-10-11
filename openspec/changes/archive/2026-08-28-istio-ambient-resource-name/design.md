@@ -37,7 +37,7 @@ _cniResourceName:    "\(#components["istio-cni"].#names.resourceName)" & "istio-
 ```
 `#names` is the projection every transformer reads after enhancement 0019, so the guard checks the rendered name's source, not the input. It is concrete here only because the override is explicit; a default-named component's `#names` would be incomplete without an instance and the guard would pass vacuously under plain `cue vet` (measured in `catalog_opm`, `catalog-names-readonly-workloads`), so `task vet CONCRETE=true` is the gate.
 
-**D-C. Semantic note for `istiod`.** With the trait, `#names.dns.*` stayed `istio-istiod...`; with the core field they follow `istiod`. Nothing in the module reads `#ctx`/`dns.*` and `expose.name` is explicit, so no rendered value moves. Recorded in `DEPLOYMENT_NOTES.md` because a future author removing the explicit `expose.name` would now get `istiod` (correct) where before D22 they got `istio-istiod`.
+**D-C. Semantic note for `istiod`.** With the trait, `#names.dns.*` stayed `istio-istiod...`; with the core field they follow `istiod`. Nothing in the module reads `#ctx`/`dns.*` and `expose.name` is explicit, so no rendered value moves. Recorded in `DEPLOYMENT_NOTES.md` because a future author removing the explicit `expose.name` would now get `istiod` (correct) where before enhancement 0019 made the Service name default to the component's short DNS name they got `istio-istiod`.
 
 ## Research & Decisions
 

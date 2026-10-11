@@ -79,17 +79,17 @@ context: |
 
   ### VII. No Enhancement References In Comments
   A module here is read by people with no access to the OPM enhancements store, so a
-  comment that cites an enhancement id names nothing they can look up. State the rule
-  itself, not the id that records it. Where an id cannot be avoided (the interim `// 0013:`
-  marker of `DESIGN_PATTERNS.md`), it stands only beside a reason in words, never alone and
-  never with a decision number. Scaffolded headers inherit from the CLI templates, which
-  carry no reference; if a fresh tree arrives with one, strip it.
+  comment citing "enhancement 0010" or "enhancement 0011" names nothing they can look up.
+  State the rule itself, not the id that records it. Scaffolded headers inherit from the CLI
+  templates, which carry no reference; if a fresh tree arrives with one, strip it.
 
   ## Enhancements
   Enhancements live in the OpenSpec store `opm-enhancements` (see `references:`). Read an
   entry with `openspec show <id>-<slug> --store opm-enhancements`; its `tasks.md` says which
   repo still has work. A change here that delivers a line of an entry's `tasks.md` says so in
-  its proposal (`## Enhancement`, `Delivers NNNN, task X.Y.`).
+  its proposal (`## Enhancement`, `Delivers NNNN, task X.Y.`). Where any artifact or doc
+  cites an enhancement, the id stands only beside a reason in words, never alone, never with
+  a decision number (no `NNNN:Dn`, `NNNN Dn`, `NNNN:OQn`).
 
   ## Execution Gate (Agent Directive)
   Before beginning ANY implementation, the Agent MUST evaluate the request against the
@@ -131,7 +131,7 @@ rules:
       `Delivery: one PR per section (<consumer> needs <pin> after section <N>)`, and the change
       ships section by section. In that mode the change stays active on main between PRs."
     - "Never add a Capabilities section and never create a `specs/` directory; the change's `.openspec.yaml` MUST carry `skip_specs: true` (Principle II)."
-    - "If the change delivers a line of an enhancement's `tasks.md`, add `## Enhancement` with one line `Delivers NNNN, task X.Y.` per task; otherwise `None.`. Read the entry with `openspec show <id>-<slug> --store opm-enhancements` and name its reason in words rather than restating its design."
+    - "If the change delivers a line of an enhancement's `tasks.md`, add `## Enhancement` with one line `Delivers NNNN, task X.Y.` per task; otherwise `None.`. Read the entry with `openspec show <id>-<slug> --store opm-enhancements` and name its reason in words rather than restating its design. Cite an enhancement only as its id beside a reason in words: never an id alone, never a decision number (no `NNNN:Dn`, `NNNN Dn`, `NNNN:OQn`)."
 
   design:
     - "Focus: HOW we'll implement it technically"
@@ -153,6 +153,7 @@ rules:
       **Explored**: [What was investigated - link to exploration notes]
       **Decision**: [Chosen option]
       **Rationale**: [Why this option was selected]
+    - "Cite an enhancement only as its id beside a reason in words: never an id alone, never a decision number (no `NNNN:Dn`, `NNNN Dn`, `NNNN:OQn`)."
     - Show the CUE, not a description of the CUE — the component's shape is the design.
     - Name every module directory and file the change touches, and the `DESIGN_PATTERNS.md`
       patterns it uses or deviates from.
