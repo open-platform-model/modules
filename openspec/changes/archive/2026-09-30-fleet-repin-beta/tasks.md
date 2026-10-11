@@ -64,7 +64,7 @@ versions, and 1.2 then stops.
 - [x] 2.3 `README.md` branch table, `main` row: `opmodel.dev/catalogs/opm@v4`, and the publish
       text matches 2.1 (no "publish-on-push is disabled").
 - [x] 2.4 `DESIGN_PATTERNS.md` § Exact object names: the `catalogs/opm >= 2.0.0-alpha.7,
-      enhancement 0019 D15` floor note becomes "every `catalogs/opm@v4` release". Module
+      Enhancement 0019 ("Transformers read `#component.#names` for the primary object; they never derive its name")` floor note becomes "every `catalogs/opm@v4` release". Module
       directories are not edited (proposal: separate docs change).
 - [x] 2.5 `grep -n "dispatch-only\|still disabled\|publish-on-push is disabled\|Nothing publishes from here" AGENTS.md README.md`
       returns nothing; `task check` green and `opm module publish ./<m> --dry-run` for all 8

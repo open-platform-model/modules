@@ -26,7 +26,7 @@ This change adds no new pattern.
 
 - Every module resolves `opmodel.dev/catalogs/opm@v4` at `v4.0.0`; no `@v2` catalog dep remains.
 - `k8up` vets and dry-run-publishes against v4; its docs stop describing a removed mechanism.
-- Rendered-output neutrality is verified, not assumed (0019 D16 residual-rename audit).
+- Rendered-output neutrality is verified, not assumed (enhancement 0019 ("`metadata.resourceName` defaults to the instance-qualified name, and the flip lands before the sweep") residual-rename audit).
 
 **Non-Goals:**
 
@@ -89,7 +89,7 @@ changes kind, name or selector; the `debugValues` env entry renders `value:` ins
 
 ### D-3: Rename audit is a verification gate, not an edit
 
-0019 D16 names three residual-rename cases for this fleet slice. Audit findings (2026-08-31):
+Enhancement 0019 ("`metadata.resourceName` defaults to the instance-qualified name, and the flip lands before the sweep") names three residual-rename cases for this fleet slice. Audit findings (2026-08-31):
 no component uses `#ResourceNameTrait` (sole grep hit was cert_manager's
 `--cluster-resource-namespace` flag string); explicit `metadata.resourceName` exists only in
 `istio_ambient` (`istiod`, `istio-cni-node`, `ztunnel`), which is the surviving v4 mechanism;

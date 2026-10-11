@@ -114,7 +114,7 @@ depends on the old rendering.
 - **`k8up/`**: `feat!:` release. An operator who set `extraEnv.<name>.from` (the mechanism was
   broken end to end, so likely nobody) must switch to a literal `value:` until 0013's replacement
   lands.
-- 0019 D16 residual-rename audit for the fleet slice: no component used `#ResourceNameTrait`, the
+- Enhancement 0019 ("`metadata.resourceName` defaults to the instance-qualified name, and the flip lands before the sweep") residual-rename audit for the fleet slice: no component used `#ResourceNameTrait`, the
   only explicit `metadata.resourceName` authors (`istio_ambient/`: `istiod`, `istio-cni-node`,
   `ztunnel`) already use the surviving mechanism, and no authored formula deviates from the
   convention — expected result is zero renames, proven by `task vet` + per-module publish

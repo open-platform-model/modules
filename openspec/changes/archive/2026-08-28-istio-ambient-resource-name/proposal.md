@@ -1,6 +1,6 @@
 ## Why
 
-`catalogs/opm` 2.0.0-alpha.7 (enhancement 0019 D15, `catalog-names-readonly-workloads`) deprecates `#ResourceNameTrait`: transformers now read a workload's name from `#component.#names.resourceName`, which core derives from `metadata.resourceName`; the trait survives one release behind a seam and is deleted in the next catalog change. `istio_ambient` is the only module in the fleet attaching the trait, at three components whose names are external contracts: `istiod` (mesh discovery identity), `istio-cni-node` (the CNI plugin's failsafe matches on this name) and `ztunnel`. This is sweep 2 of the staged retirement: migrate the fleet before the catalog deletes the trait.
+`catalogs/opm` 2.0.0-alpha.7 (enhancement 0019 ("Transformers read `#component.#names` for the primary object; they never derive its name"), `catalog-names-readonly-workloads`) deprecates `#ResourceNameTrait`: transformers now read a workload's name from `#component.#names.resourceName`, which core derives from `metadata.resourceName`; the trait survives one release behind a seam and is deleted in the next catalog change. `istio_ambient` is the only module in the fleet attaching the trait, at three components whose names are external contracts: `istiod` (mesh discovery identity), `istio-cni-node` (the CNI plugin's failsafe matches on this name) and `ztunnel`. This is sweep 2 of the staged retirement: migrate the fleet before the catalog deletes the trait.
 
 ## What Changes
 
