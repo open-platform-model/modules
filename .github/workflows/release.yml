@@ -1,7 +1,7 @@
 name: Release
 
 # Versions are decided by release-please, per module, from conventional
-# commits (enhancement 0011 D15 permits this for modules; it does not require
+# commits (enhancement 0011 ("The authored version is the trigger; an already-published version is always a refusal; nothing predicts a version") permits this for modules; it does not require
 # it). release-please writes CHANGELOGs and .release-please-manifest.json and
 # NOTHING else — the only writer of identity/identity.cue is `opm module
 # version set`, run by the advance step below. An x-release-please-version
@@ -13,7 +13,7 @@ name: Release
 # on every push to main as well as on dispatch. The sweep is idempotent by
 # construction: it filters caller-side to modules whose declared version the
 # registry does not already hold, so running it on every commit changes
-# nothing (0011 D15).
+# nothing (enhancement 0011, "The authored version is the trigger; an already-published version is always a refusal; nothing predicts a version").
 
 on:
   push:
@@ -241,7 +241,7 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       # The sweep. Publish itself NEVER skips — an already-published tag is
-      # always a refusal (0011 D15) — so idempotency is this caller-side
+      # always a refusal (enhancement 0011, "The authored version is the trigger; an already-published version is always a refusal; nothing predicts a version") — so idempotency is this caller-side
       # filter: a registry lookup, so nothing is predicted and no ledger is
       # consulted. Running this twice, or on every commit, changes nothing.
       - name: Publish modules

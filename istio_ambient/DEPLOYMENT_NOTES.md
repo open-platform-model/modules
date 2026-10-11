@@ -16,7 +16,7 @@ overrides are explicit; `task vet CONCRETE=true` is the gate that proves they ar
 vacuously.
 
 Migrated 2026-08-28 from `traits_workload.#ResourceName` (`spec.resourceName`) to
-`metadata.resourceName` (catalog 2.0.0-alpha.7, enhancement 0019 D15, change
+`metadata.resourceName` (catalog 2.0.0-alpha.7, enhancement 0019 ("Transformers read `#component.#names` for the primary object; they never derive its name"), change
 `istio-ambient-resource-name`). Every rendered name is unchanged.
 
 ## istiod: `#names.dns.*` now follows the override

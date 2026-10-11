@@ -71,7 +71,7 @@ context: |
 
   ### VII. No Enhancement References In Comments
   A module here is read by people with no access to the OPM enhancements repo, so a
-  comment citing `0010:D8` or "enhancement 0011" names nothing they can look up. State
+  comment citing enhancement 0010 ("`metadata.name` is snake_case, and the module path's leaf equals it") or "enhancement 0011" names nothing they can look up. State
   the rule itself, not the id that records it. Scaffolded headers inherit from the CLI
   templates, which carry no reference; if a fresh tree arrives with one, strip it.
 
