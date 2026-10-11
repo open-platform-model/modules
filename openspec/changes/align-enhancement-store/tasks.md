@@ -12,5 +12,5 @@
 
 ## 3. Verify
 
-- [x] 3.1 `enh cite-lint` reports 0 findings and `enh cite-rewrite --dry-run` reports 0 edits; no `0030:` or `0031:` remains.
+- [x] 3.1 `enh cite-lint` reports 0 findings and `enh cite-rewrite --dry-run` reports 0 edits; no retired-id token remains.
 - [x] 3.2 `openspec validate align-enhancement-store --strict` passes; `task check` is green.
