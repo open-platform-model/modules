@@ -37,5 +37,5 @@
 
 ## Enhancement
 
-<!-- If this implements decisions from enhancements/NNNN, cite the entry and decision numbers
-     here and create enhancement.yaml in this change directory. Otherwise write "None." -->
+<!-- If this delivers a line of an enhancement's tasks.md, write one line per task:
+     "Delivers NNNN, task X.Y." Otherwise write "None." -->
