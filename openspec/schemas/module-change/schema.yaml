@@ -6,9 +6,8 @@ description: Module change workflow - proposal -> design -> tasks (no specs arti
 # comments), README.md and the manifests its components render. A prose spec
 # would be a copy no gate keeps honest. This schema therefore has NO specs
 # artifact. `openspec validate` still asks for spec deltas regardless of schema,
-# so every change's .openspec.yaml sets `skip_specs: true`; the
-# openspec-new-change and openspec-propose skills write that marker at
-# creation time, and enhancement.yaml beside it when an enhancement is implemented.
+# so every change's .openspec.yaml sets `skip_specs: true`; the author writes
+# that marker at creation time (rules.proposal in openspec/config.yaml).
 artifacts:
   - id: proposal
     generates: proposal.md
@@ -38,9 +37,10 @@ artifacts:
       - **Impact**: Which module directories are touched (release-please bumps each one a
         commit touches), the release class per module (`feat:` / `fix:` / `feat!:`), whether
         any module's path major moves, and what an operator of the module has to do.
-      - **Enhancement**: When the change implements decisions from an entry in the sibling
-        `enhancements/` repo, cite the entry and decision numbers instead of restating the
-        design, and create `enhancement.yaml` in this change directory now.
+      - **Enhancement**: If the change delivers a line of an enhancement's `tasks.md`, add one
+        line `Delivers NNNN, task X.Y.` per task, and name the reason in words instead of
+        restating the design. Cite an enhancement only as its id beside a reason in words: never an id
+        alone, never a decision number (no `NNNN:Dn`, `NNNN Dn`, `NNNN:OQn`). Otherwise write `None.`.
 
       This schema has no specs artifact. Do not add a Capabilities section and do not
       create a `specs/` directory. The change's `.openspec.yaml` carries

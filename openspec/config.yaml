@@ -1,5 +1,13 @@
 schema: module-change
 
+# The enhancement store: the design record of OPM. `openspec instructions` lists its specs; read
+# one entry with `openspec show <id>-<slug> --store opm-enhancements`. If OpenSpec warns that the
+# store `opm-enhancements` is not registered, report the warning and go on; the human runs
+# `task enhancements:register`.
+references:
+  - id: opm-enhancements
+    remote: https://github.com/open-platform-model/enhancements.git
+
 context: |
   # OPM Modules Development Constitution
 
@@ -70,10 +78,19 @@ context: |
     into sequential changes (Execution Gate).
 
   ### VII. No Enhancement References In Comments
-  A module here is read by people with no access to the OPM enhancements repo, so a
-  comment citing `0010:D8` or "enhancement 0011" names nothing they can look up. State
-  the rule itself, not the id that records it. Scaffolded headers inherit from the CLI
+  A module here is read by people with no access to the OPM enhancements store, so a
+  comment citing "enhancement 0010" or "enhancement 0011" names nothing they can look up.
+  State the rule itself, not the id that records it. Scaffolded headers inherit from the CLI
   templates, which carry no reference; if a fresh tree arrives with one, strip it.
+
+  ## Enhancements
+  Enhancements live in the OpenSpec store `opm-enhancements` (see `references:`). Read an
+  entry with `openspec show <id>-<slug> --store opm-enhancements`; its `tasks.md` says which
+  repo still has work. A change here that delivers a line of an entry's `tasks.md` says so in
+  its proposal (`## Enhancement`, `Delivers NNNN, task X.Y.`); otherwise the section says
+  `None.`. In any text (proposal, design, specs, docs), the id stands only beside a reason in
+  words, never alone, never with a decision number (no `NNNN:Dn`, `NNNN Dn`, `NNNN:OQn`).
+  A module comment cites no enhancement (Principle VII).
 
   ## Execution Gate (Agent Directive)
   Before beginning ANY implementation, the Agent MUST evaluate the request against the
@@ -113,12 +130,10 @@ rules:
     - "Delivery mode: one PR per change is the default and needs no statement. When a downstream
       consumer must pick up a published pin mid-change, add exactly one line to the proposal,
       `Delivery: one PR per section (<consumer> needs <pin> after section <N>)`, and the change
-      ships section by section. In that mode the change stays active on main between PRs, and
-      enhancement delivery logging wait for archive after the last PR."
+      ships section by section. In that mode the change stays active on main between PRs."
     - "Never add a Capabilities section and never create a `specs/` directory; the change's `.openspec.yaml` MUST carry `skip_specs: true` (Principle II)."
-    - When the change implements a slice of an enhancement, cite the entry and the decision
-      numbers it satisfies (e.g. `enhancements/0011` D13, D17) or, when only part of a decision lands, the requirement numbers (`0010:D4:R1/R2`) rather than restating the design.
-    - "If this change implements decisions from an enhancement in the sibling enhancements/ repo, create enhancement.yaml in this change directory declaring it (implements: [{enhancement: \"NNNN\", decisions: [D1, ...], resolves: []}]). Write it at creation time, while the enhancement is in context; it is what makes archive-time delivery logging mechanical."
+    - "If the change has no spec delta, write `skip_specs: true` in `.openspec.yaml`."
+    - "If the change delivers a line of an enhancement's `tasks.md`, add `## Enhancement` with one line `Delivers NNNN, task X.Y.` per task; otherwise `None.`. Read the entry with `openspec show <id>-<slug> --store opm-enhancements` and name its reason in words rather than restating its design. Cite an enhancement only as its id beside a reason in words: never an id alone, never a decision number (no `NNNN:Dn`, `NNNN Dn`, `NNNN:OQn`)."
 
   design:
     - "Focus: HOW we'll implement it technically"
@@ -140,6 +155,7 @@ rules:
       **Explored**: [What was investigated - link to exploration notes]
       **Decision**: [Chosen option]
       **Rationale**: [Why this option was selected]
+    - "Cite an enhancement only as its id beside a reason in words: never an id alone, never a decision number (no `NNNN:Dn`, `NNNN Dn`, `NNNN:OQn`)."
     - Show the CUE, not a description of the CUE — the component's shape is the design.
     - Name every module directory and file the change touches, and the `DESIGN_PATTERNS.md`
       patterns it uses or deviates from.
@@ -180,9 +196,8 @@ rules:
       operation; there those steps ARE the implementation."
 
 # Operation hooks: served to the agent by `openspec instructions apply|archive --change <name>
-# --json` as operationGuidance. The openspec-archive-change skill carries the same three
-# archive points as mandatory steps (3b, 3c); this block is what an unpatched or non-Claude
-# agent sees.
+# --json` as operationGuidance. The three archive points below are the repo's archive rules;
+# no skill file carries a local copy of them.
 operations:
   apply:
     guidance:
@@ -202,10 +217,9 @@ operations:
         commits ship in one PR after the last section. PRs here land as merge commits, so every
         section commit reaches release-please on its own; a commit spanning several module
         directories bumps each of them. In per-section mode the change stays active on main
-        between PRs, and enhancement delivery logging wait for archive after the last
-        PR."
+        between PRs."
   archive:
     guidance:
       - "Archive with `--skip-specs`: this workspace has no specs and the change declares skip_specs. Never let archive create an openspec/specs/ directory."
       - "Before archiving, read design.md's Durable decisions section. Every entry marked for promotion MUST already be landed in DESIGN_PATTERNS.md, the module's DEPLOYMENT_NOTES.md or AGENTS.md; if one is not, stop and land it first. An archived change must not be the only home of an authoring rule."
-      - "If this change directory contains enhancement.yaml, finish the archive by logging the landing: from the workspace root run `task enhancements:delivery:log FROM=modules/openspec/changes/archive/<archived-change> SUMMARY=\"<one line: what landed>\"`. It appends a CUE-validated entry to each declared enhancement's delivery.yaml; confirm it printed 'logged' for every declared enhancement. `task enhancements:delivery:reconcile` reports any archived change that declared an entry and was never logged."
+      - "If the change delivers a line of an enhancement's `tasks.md`, name it in the PR body; after the repo PR merges, a PR on `enhancements` ticks that line."

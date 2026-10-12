@@ -97,4 +97,4 @@ Rendered output: `jellystat` and `fileflows` stop rendering `{instance}-opm-secr
 
 ## Enhancement
 
-`enhancements/0013` D9. Record at archive: 0013 scoped "migrate `modules/metallb`"; the v2 fleet has seven, removed now and migrated to the new `#Secret` in a follow-up once `core` publishes it.
+Enhancement 0013 (the dead and duplicated secret machinery is deleted, not deprecated). Record at archive: 0013 scoped "migrate `modules/metallb`"; the v2 fleet has seven, removed now and migrated to the new `#Secret` in a follow-up once `core` publishes it.

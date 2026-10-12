@@ -114,7 +114,7 @@ depends on the old rendering.
 - **`k8up/`**: `feat!:` release. An operator who set `extraEnv.<name>.from` (the mechanism was
   broken end to end, so likely nobody) must switch to a literal `value:` until 0013's replacement
   lands.
-- 0019 D16 residual-rename audit for the fleet slice: no component used `#ResourceNameTrait`, the
+- Enhancement 0019 residual-rename audit for the fleet slice: no component used `#ResourceNameTrait`, the
   only explicit `metadata.resourceName` authors (`istio_ambient/`: `istiod`, `istio-cni-node`,
   `ztunnel`) already use the surviving mechanism, and no authored formula deviates from the
   convention — expected result is zero renames, proven by `task vet` + per-module publish
@@ -122,10 +122,8 @@ depends on the old rendering.
 
 ## Enhancement
 
-- `enhancements/0019` D15, D16 — the fleet-consumption side of the transformer naming sweep: the
-  re-pin lands the D15 sweep on the fleet, and this change is the `modules-fleet-rename` slice
-  D16 names, recording the residual-rename audit (zero renames found).
-- `enhancements/0013` D9 — the `k8up/` legacy-secret remainder the seven-module sweep missed
+- Enhancement 0019 — the fleet-consumption side of the transformer naming sweep: the re-pin
+  lands the sweep on the fleet, and this change is the `modules-fleet-rename` slice that the
+  enhancement names, recording the residual-rename audit (zero renames found).
+- Enhancement 0013 — the `k8up/` legacy-secret remainder the seven-module sweep missed
   (delete, do not deprecate).
-
-`enhancement.yaml` in this change directory declares both.

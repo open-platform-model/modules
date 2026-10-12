@@ -86,32 +86,6 @@ Archive a completed change in the experimental workflow.
 
    **If no tasks file exists:** Proceed without task-related warning.
 
-3b. **Check durable decisions are landed (REPO-LOCAL PATCH, mandatory)**
-
-   This repo's `module-change` schema has no specs artifact; `design.md`'s
-   **Durable decisions** section is where a change declares what outlives it.
-   Read that section. For every entry marked for promotion to `DESIGN_PATTERNS.md`,
-   a module's `DEPLOYMENT_NOTES.md` or `AGENTS.md`, confirm the target file already
-   contains it. If any entry is not landed, stop and land it first; an archived
-   change must never be the only home of an authoring rule. "None." is a valid
-   section and needs no action. A `design.md` without the section is a defect in
-   the change: add it before archiving.
-
-3c. **Log the landing in the enhancement (REPO-LOCAL PATCH, mandatory when declared)**
-
-   If `<changeRoot>/enhancement.yaml` exists, the archive is not finished until each
-   declared enhancement's `delivery.yaml` carries the landing. Do this AFTER the move in
-   step 5 (the log entry records the archived path), from the workspace root:
-   ```bash
-   task enhancements:delivery:log FROM=modules/openspec/changes/archive/<target-name> SUMMARY="<one line: what landed>"
-   ```
-   It appends a CUE-validated entry to every enhancement the file declares; confirm it
-   printed `logged` for each. If it fails validation, fix `enhancement.yaml` (decision
-   numbers must exist in the entry) and rerun. `task enhancements:delivery:reconcile`
-   reports any archived change that declared an entry and was never logged.
-   `operationGuidance` from `openspec instructions archive` repeats this; it is advisory
-   there, mandatory here.
-
 4. **Assess delta spec sync state**
 
    In this repo the `specs` entry is always missing (the `module-change` schema

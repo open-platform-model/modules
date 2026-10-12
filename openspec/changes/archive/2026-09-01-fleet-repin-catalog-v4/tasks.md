@@ -31,4 +31,4 @@
 
 - [x] 4.1 `task check` (fmt + vet) from `modules/`; then `task vet CONCRETE=true`.
 - [x] 4.2 `opm module publish ./<module> --dry-run` for all 20 modules; zero name-related
-      diagnostics (0019 D16 rename audit gate, design.md D-3).
+      diagnostics (enhancement 0019 rename audit gate, design.md D-3).

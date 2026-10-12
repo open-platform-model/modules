@@ -135,7 +135,7 @@ adapted to each file):
 > shipped as `fix(deps)` cannot be withdrawn.
 
 The `DESIGN_PATTERNS.md` floor note reads "(every `catalogs/opm@v4` release)" in place of
-"(`catalogs/opm` >= 2.0.0-alpha.7, enhancement 0019 D15)".
+"(`catalogs/opm` >= 2.0.0-alpha.7, enhancement 0019)".
 
 ## Research & Decisions
 
