@@ -16,7 +16,8 @@
 - No excludes. Measured: `enh cite-lint --root .` reports 45 files checked, 0 findings.
 - The tool commit `e0335b2e` is a variable `CITE_LINT_REF` in `Taskfile.yml`. It equals the `enh-ref` default of `cite-lint.yml` at `.github` `2b66da51`. A comment says to compare them at each pin move. No exclude list exists, so there is one place to keep in sync later: a new exclude goes into the task and the CI call, each with a reason.
 - The CI call is a job with only `name`, `permissions` (`contents: read`) and `uses`, pinned to the full `.github` SHA, with no secret.
-- `openspec:check` runs as a CI step in the `check` job (it needs only bash). It also runs from `task check`, so the existing `Format, vet, tidy check` step covers it too; the separate step is therefore not added.
+- `openspec:check` needs only bash. It runs from `task check`, so the existing `Format, vet, tidy check` CI step covers it; no separate step.
+- `cite-lint` stays out of `task check`: the CI `check` job has no reason to need Go, and the `Cite lint` job already runs the rule.
 
 ## Research & Decisions
 

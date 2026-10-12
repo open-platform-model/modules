@@ -1,8 +1,8 @@
 ## 1. Check files
 
-- [ ] 1.1 Add `.tasks/openspec-check.sh` and `.tasks/openspec-check-test.sh`, adapted to this repo's targets.
-- [ ] 1.2 `Taskfile.yml`: add `cite-lint` and `openspec:check`, and run both from `check`.
-- [ ] 1.3 `task check` green, then commit `ci: run the comment rule and the durable-decisions check locally`.
+- [x] 1.1 Add `.tasks/openspec-check.sh` and `.tasks/openspec-check-test.sh`, adapted to this repo's targets.
+- [x] 1.2 `Taskfile.yml`: add `cite-lint` and `openspec:check`, and run `openspec:check` from `check`.
+- [x] 1.3 `task check` green, then commit `ci: run the comment rule and the durable-decisions check locally`.
 
 ## 2. CI
 
