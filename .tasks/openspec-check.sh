@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# openspec-check.sh — check the "Durable decisions" section of every active change.
+# openspec-check.sh : check the "Durable decisions" section of every active change.
 #
 # openspec/config.yaml (operations.archive.guidance) says an archived change is never the
 # only home of an authoring rule. This script is the check behind that rule. For each

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# openspec-check-test.sh — test openspec-check.sh on sandbox trees. Each case builds one
+# openspec-check-test.sh : test openspec-check.sh on sandbox trees. Each case builds one
 # active change and states whether the check must pass (0) or fail (1).
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -11,12 +11,13 @@ trap 'rm -rf "$tmp"' EXIT
 n=0
 bad=0
 
-# run_case <name> <expected exit> <design.md text>; the tree also holds DESIGN_PATTERNS.md and real/DEPLOYMENT_NOTES.md.
+# run_case <name> <expected exit> <design.md text>; the tree also holds DESIGN_PATTERNS.md, AGENTS.md and real/DEPLOYMENT_NOTES.md.
 run_case() {
   local name="$1" want="$2" text="$3" dir="$tmp/case$n"
   n=$((n + 1))
   mkdir -p "$dir/openspec/changes/c" "$dir/real"
   : > "$dir/DESIGN_PATTERNS.md"
+  : > "$dir/AGENTS.md"
   : > "$dir/real/DEPLOYMENT_NOTES.md"
   printf '%s\n' "$text" > "$dir/openspec/changes/c/design.md"
   local got=0
@@ -36,7 +37,7 @@ run_case "existing module notes in backticks" 0 $'## Durable decisions\n\n- Land
 run_case "missing module notes in backticks" 1 $'## Durable decisions\n\n- Lands in `gone/DEPLOYMENT_NOTES.md`.'
 run_case "existing module notes without backticks" 0 $'## Durable decisions\n\n- Lands in real/DEPLOYMENT_NOTES.md.'
 run_case "missing module notes without backticks" 1 $'## Durable decisions\n\n- Lands in gone/DEPLOYMENT_NOTES.md, later.'
-run_case "AGENTS.md missing in the tree" 1 $'## Durable decisions\n\n- Lands in AGENTS.md.'
+run_case "existing AGENTS.md" 0 $'## Durable decisions\n\n- Lands in AGENTS.md.'
 run_case "no target named" 1 $'## Durable decisions\n\n- A rule that matters.'
 
 if [ "$bad" = 0 ]; then
