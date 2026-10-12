@@ -194,7 +194,9 @@ Run all commands from `modules/`.
 | `task vet` | Validate all CUE modules | Before committing; to catch schema errors |
 | `task vet CONCRETE=true` | Validate with concreteness check (`-c`) | When checking fully-resolved values |
 | `task tidy` | Tidy dependencies for all modules | After changing imports or updating deps |
-| `task check` | Run `fmt` then `vet` | Pre-commit quality gate |
+| `task cite-lint` | Fail on a decision number or a lone enhancement id in a CUE comment (needs network and Go); CI runs it as the `Cite lint` job | Before committing a comment that names an enhancement |
+| `task openspec:check` | Check that every active change's design declares its durable decisions and that each target file exists | After editing a change's `design.md`; `task check` runs it |
+| `task check` | Run `fmt`, `vet` and `openspec:check` | Pre-commit quality gate |
 | `opm module publish ./<name> --dry-run` | Run every publish gate without pushing | Before opening a PR; CI runs the same per module |
 
 ## CUE Style Guidelines
