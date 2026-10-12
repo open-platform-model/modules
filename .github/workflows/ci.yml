@@ -30,6 +30,16 @@ env:
   CUE_LANGUAGE_PREFIX: 'v0.17'
 
 jobs:
+  # The comment rule (enhancement id only beside a reason in words), by the
+  # reusable workflow of .github; task cite-lint runs the same rule locally.
+  # The call is plain: no secret, read-only token, no exclude. An exclude added
+  # here goes into task cite-lint too, with a reason.
+  cite-lint:
+    name: Cite lint
+    permissions:
+      contents: read
+    uses: open-platform-model/.github/.github/workflows/cite-lint.yml@2b66da51fede4332969c324b069012632d8edea9 # .github main
+
   check:
     name: Validate modules
     runs-on: ubuntu-latest
