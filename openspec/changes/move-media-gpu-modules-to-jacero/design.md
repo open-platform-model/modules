@@ -144,7 +144,7 @@ from a shell with no GHCR login) and each package's visibility read back from th
 
 Deleting a directory while it is still in `release-please-config.json` makes the next release
 run fail on a missing package. The directories, both release-please files, `README.md` and
-`AGENTS.md` moves in one commit, `chore` so nothing releases (a removal is
+the `AGENTS.md` purpose text move in one commit, `chore` so nothing releases (a removal is
 not a bump of anything that still exists). `bootstrap-sha` is untouched.
 
 ### D7. GHCR cleanup deletes versions by id, never packages
