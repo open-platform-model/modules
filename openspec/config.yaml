@@ -36,7 +36,7 @@ context: |
   never a `specs/` directory inside a change, and every `.openspec.yaml` carries
   `skip_specs: true`. The proposal's **Before / After** CUE block is the review surface.
   A decision a FUTURE author or operator needs lands in `DESIGN_PATTERNS.md`, the module's
-  `DEPLOYMENT_NOTES.md` or `AGENTS.md` before the change is archived; `design.md` § Durable
+  `DEPLOYMENT_NOTES.md`, `AGENTS.md` or a `references/` file before the change is archived; `design.md` § Durable
   decisions declares it. An archived change is never the only home of a rule.
 
   ### III. Catalog First
@@ -163,7 +163,7 @@ rules:
       change to a rendered object's kind, name or selector — these break running instances in
       ways an added optional field does not.
     - MUST include a "Durable decisions" section naming where each promoted decision lands
-      (`DESIGN_PATTERNS.md`, `<module>/DEPLOYMENT_NOTES.md`, `AGENTS.md`), or "None."
+      (`DESIGN_PATTERNS.md`, `<module>/DEPLOYMENT_NOTES.md`, `AGENTS.md`, `references/<file>.md`), or "None."
 
   tasks:
     - "Focus: STEPS to take for implementation"
@@ -184,7 +184,7 @@ rules:
     - A new module includes `opm mod init`, `README.md`, and registration in
       `release-please-config.json` plus `.release-please-manifest.json`.
     - Include one task per durable decision in design.md that lands it in `DESIGN_PATTERNS.md`,
-      `DEPLOYMENT_NOTES.md` or `AGENTS.md`.
+      `DEPLOYMENT_NOTES.md`, `AGENTS.md` or a `references/` file.
     - Include the validation gates (`task check`, then `opm module publish ./<name> --dry-run` per touched module) in every section's commit task, not as a
       trailing section; cross-cutting checks (fleet-wide renders) go into the last real section before
       its commit.
@@ -221,5 +221,5 @@ operations:
   archive:
     guidance:
       - "Archive with `--skip-specs`: this workspace has no specs and the change declares skip_specs. Never let archive create an openspec/specs/ directory."
-      - "Before archiving, read design.md's Durable decisions section. Every entry marked for promotion MUST already be landed in DESIGN_PATTERNS.md, the module's DEPLOYMENT_NOTES.md or AGENTS.md; if one is not, stop and land it first. An archived change must not be the only home of an authoring rule."
+      - "Before archiving, read design.md's Durable decisions section. Every entry marked for promotion MUST already be landed in DESIGN_PATTERNS.md, the module's DEPLOYMENT_NOTES.md, AGENTS.md or a references/ file; if one is not, stop and land it first. An archived change must not be the only home of an authoring rule."
       - "If the change delivers a line of an enhancement's `tasks.md`, name it in the PR body; after the repo PR merges, a PR on `enhancements` ticks that line."

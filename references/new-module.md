@@ -3,18 +3,15 @@
 Covers the steps to add a module on `main`. The module layout and the release rules are in
 `AGENTS.md`.
 
-Before you write CUE, read `DESIGN_PATTERNS.md`. It documents the patterns used across the fleet.
-Build components from members of `opmodel.dev/catalogs/opm`. The raw `k8s-*` family is a last
-resort that a proposal must justify. If the catalog cannot express what the module needs, the fix
-is a `catalog_opm` change, not a workaround in the module.
+A new module is delivered as an OpenSpec change. Before you write CUE, read `DESIGN_PATTERNS.md`.
+It documents the patterns used across the fleet.
 
 ## Steps
 
 1. Create `<name>/`. The directory name is the module's snake_case name and equals the leaf of the
    module path.
 2. Scaffold with `opm mod init opmodel.dev/modules/<name>@v2`. It writes `cue.mod/module.cue` and
-   the `identity/` package (`ModulePath` and a defaulted `Version`). Never hand-write identity:
-   `opm module version set` is its only writer.
+   the `identity/` package (`ModulePath` and a defaulted `Version`).
 3. Write `module.cue` (metadata and the `#config` schema, deriving the module path and version from
    the identity package) and `components.cue`.
 4. Add `README.md` with the architecture, a quick start and the configuration reference. Add

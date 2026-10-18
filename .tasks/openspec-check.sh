@@ -10,8 +10,8 @@ set -euo pipefail
 #   1. the "## Durable decisions" section must exist;
 #   2. HTML comments are removed first, so the unfilled template (a comment only) is empty;
 #   3. if what is left is not "None.", it must name a target: DESIGN_PATTERNS.md, AGENTS.md,
-#      a <module>/DEPLOYMENT_NOTES.md, or the words "stays with the change";
-#   4. every DESIGN_PATTERNS.md, AGENTS.md and <module>/DEPLOYMENT_NOTES.md it names, in
+#      a references/<file>.md, a <module>/DEPLOYMENT_NOTES.md, or the words "stays with the change";
+#   4. every DESIGN_PATTERNS.md, AGENTS.md, references/<file>.md and <module>/DEPLOYMENT_NOTES.md it names, in
 #      backticks or not, must exist in the tree.
 #
 # Run from the repo root, or pass the root as the first argument.
@@ -62,8 +62,8 @@ for design in "$root"/openspec/changes/*/design.md; do
         continue ;;
   esac
 
-  if ! printf '%s\n' "$section" | grep -q -E 'AGENTS\.md|DESIGN_PATTERNS\.md|DEPLOYMENT_NOTES\.md|stays with the change'; then
-    echo "openspec-check: $change: 'Durable decisions' names no target (DESIGN_PATTERNS.md, <module>/DEPLOYMENT_NOTES.md, AGENTS.md or 'stays with the change')" >&2
+  if ! printf '%s\n' "$section" | grep -q -E 'AGENTS\.md|DESIGN_PATTERNS\.md|DEPLOYMENT_NOTES\.md|references/[A-Za-z0-9_.-]+\.md|stays with the change'; then
+    echo "openspec-check: $change: 'Durable decisions' names no target (DESIGN_PATTERNS.md, <module>/DEPLOYMENT_NOTES.md, AGENTS.md, references/<file>.md or 'stays with the change')" >&2
     fail=1
   fi
 
@@ -74,7 +74,7 @@ for design in "$root"/openspec/changes/*/design.md; do
       echo "openspec-check: $change: 'Durable decisions' names $path, which does not exist" >&2
       fail=1
     fi
-  done < <(printf '%s\n' "$section" | grep -o -E '(DESIGN_PATTERNS\.md|AGENTS\.md|[A-Za-z0-9_-]+/DEPLOYMENT_NOTES\.md)' | sort -u || true)
+  done < <(printf '%s\n' "$section" | grep -o -E '(DESIGN_PATTERNS\.md|AGENTS\.md|references/[A-Za-z0-9_.-]+\.md|[A-Za-z0-9_-]+/DEPLOYMENT_NOTES\.md)' | sort -u || true)
 done
 
 exit "$fail"

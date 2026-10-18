@@ -20,10 +20,10 @@ delivers a task of a cross-repo enhancement. The constitution is `openspec/confi
 
 ## Durable decisions
 
-A decision that a future module author or operator needs is declared in the design of the change and
-landed in `DESIGN_PATTERNS.md`, the module's `DEPLOYMENT_NOTES.md` or `AGENTS.md` before the change
-is archived. `task openspec:check` checks that each active change names a target and that the target
-file exists. A test in `.tasks/` pins that check.
+The design of a change declares each decision that a future module author or operator needs, and
+where it lands: `DESIGN_PATTERNS.md`, a module's `DEPLOYMENT_NOTES.md`, `AGENTS.md` or a file in
+`references/`. `task openspec:check` checks that each active change names a target and that the
+target file exists. A test in `.tasks/` pins that check.
 
 ## Delivering an enhancement task
 
@@ -35,7 +35,7 @@ say which repo still has work, and the execution is a change here. Read an entry
   `Delivers NNNN, task X.Y.` per task. Otherwise the section says `None.`.
 - The PR body names the delivered task. After the PR merges, a PR on `enhancements` ticks the line.
 - Cite an enhancement by id only beside a reason in words, never alone and never with a decision
-  number. A module comment cites none.
+  number.
 - If OpenSpec warns that the store is not registered, report the warning and go on. The human runs
   `task enhancements:register`.
 
