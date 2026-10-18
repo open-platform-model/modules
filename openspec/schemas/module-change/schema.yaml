@@ -23,7 +23,7 @@ artifacts:
         removals. Mark breaking changes with **BREAKING**: a removed or renamed `#config`
         field, a changed default an operator relies on, or a rendered object that changes
         kind or name. A breaking change that crosses the module's path major names the new
-        major explicitly (cross-train major separation rule, `AGENTS.md`).
+        major explicitly (cross-train major separation rule, `references/branches-and-versioning.md`).
       - **Before / After**: The CUE shape of every `#config` field and component the change
         touches, as CUE, not prose. For a new module, "Before" is "none" and "After" is the
         `#config` schema plus the component list. Where the change alters what a component

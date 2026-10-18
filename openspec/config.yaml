@@ -102,8 +102,8 @@ context: |
   leave main releasable]. Should we start with the first?"
 
   ## Everything Else Lives in AGENTS.md
-  Commands, registry variables, CUE style, commit conventions, and the attribution and `@name`
-  rules are in `AGENTS.md`, loaded in every session and not repeated here. Artifact-level
+  Commands, CUE style and commit conventions are in `AGENTS.md`, loaded in every session and not
+  repeated here. The attribution and `@name` rules are in the workspace `AGENTS.md`. Artifact-level
   requirements are in the `rules` below and the schema's per-artifact `instruction`.
 
 rules:
@@ -113,7 +113,7 @@ rules:
     - Group What Changes by module directory and state the release class (`feat:` / `fix:` /
       `feat!:`) per module; a commit touching several module directories bumps each of them.
     - State whether any module's path major moves and, if so, that it obeys the cross-train
-      major separation rule in `AGENTS.md`.
+      major separation rule in `references/branches-and-versioning.md`.
     - Breaking changes MUST be called out explicitly with the operator's migration cost — a
       changed default, a renamed `#config` field or a rendered object that changes kind or
       name counts as breaking even when nothing is removed.
