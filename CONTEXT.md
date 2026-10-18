@@ -10,4 +10,4 @@ Router only. Facts and rules are in `AGENTS.md`.
 | Choose a branch, a version, a path major or a release commit type; bump a pin; fix the live v1 fleet; clean up GHCR versions | `references/branches-and-versioning.md` | `AGENTS.md` |
 | Run fmt, vet or the pre-commit gate; fix a failing check | `Taskfile.yml` | `AGENTS.md` |
 | Edit CI: a workflow, an action pin or the opm version CI installs | `.github/workflows/` | `Taskfile.yml` |
-| Publish, tag or release | `AGENTS.md` | `../references/releases.md` |
+| Publish, tag or release | `AGENTS.md` | `references/releases.md` at the workspace root |
