@@ -24,7 +24,7 @@ for the exact list. State that shapes the approach:
   opm-operator's prune skips live objects whose `module-instance.opmodel.dev/uuid` disagrees.
 
 Files touched here: the twelve directories (deleted), `release-please-config.json`,
-`.release-please-manifest.json`, `README.md`, `CLAUDE.md` § Current modules, new
+`.release-please-manifest.json`, `README.md`, `AGENTS.md`, new
 `hack/ghcr-delete-versions.sh` plus its run record. Files created in `opm-modules/`:
 `Taskfile.yml`, `.github/workflows/{ci,release}.yml`, `release-please-config.json`,
 `.release-please-manifest.json`, `CLAUDE.md`, `DESIGN_PATTERNS.md`, `README.md`,
@@ -144,7 +144,7 @@ from a shell with no GHCR login) and each package's visibility read back from th
 
 Deleting a directory while it is still in `release-please-config.json` makes the next release
 run fail on a missing package. The directories, both release-please files, `README.md` and
-`CLAUDE.md` § Current modules move in one commit, `chore` so nothing releases (a removal is
+`AGENTS.md` moves in one commit, `chore` so nothing releases (a removal is
 not a bump of anything that still exists). `bootstrap-sha` is untouched.
 
 ### D7. GHCR cleanup deletes versions by id, never packages
@@ -232,13 +232,13 @@ verified and this change cannot verify it without the operator's cluster.
 ## Durable decisions
 
 - `opmodel.dev/modules/*` is business and enterprise only; personal modules live at
-  `github.com/emil-jacero/opm-modules` under `jacero.se/modules/<name>` -> `CLAUDE.md` § Purpose
-  and § Current modules here, and `README.md`.
+  `github.com/emil-jacero/opm-modules` under `jacero.se/modules/<name>` -> `AGENTS.md`
+  here, and `README.md`.
 - `opm-modules/` is a workspace repo -> one row in the workspace root `CLAUDE.md` repo table.
 - The identity, release and registry rules travel with the modules -> `opm-modules/CLAUDE.md`
   (copied from here, branch model and cross-train rule removed).
 - GHCR cleanup deletes versions, never packages, while any branch still publishes into the
-  package -> `hack/ghcr-delete-versions.sh` header comment and `CLAUDE.md` § Registry here.
+  package -> `hack/ghcr-delete-versions.sh` header comment and `references/branches-and-versioning.md` here.
 - Repair mode (`opm mod init <path> --yes` after fixing the self-import) is the way to move a
   module between paths -> `DESIGN_PATTERNS.md` § 13 Module Identity, one paragraph.
 

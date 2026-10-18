@@ -21,8 +21,8 @@
 ## 3. modules/ (remove the originals; commit lands here)
 
 - [x] 3.1 On a working branch: delete the twelve directories; remove their entries from `release-please-config.json` `packages` and from `.release-please-manifest.json` (design D6)
-- [x] 3.2 `README.md` and `CLAUDE.md` § Purpose and § Current modules: `opmodel.dev/modules/*` is business and enterprise only; the media and GPU fleet lives at `github.com/emil-jacero/opm-modules` under `jacero.se/modules/<name>` (durable decision)
-- [x] 3.3 `CLAUDE.md` § Registry: a GHCR package holds every train's tags; cleanup deletes versions, never a package another branch still publishes into (durable decision)
+- [x] 3.2 `README.md` and `AGENTS.md`: `opmodel.dev/modules/*` is business and enterprise only; the media and GPU fleet lives at `github.com/emil-jacero/opm-modules` under `jacero.se/modules/<name>` (durable decision)
+- [x] 3.3 `references/branches-and-versioning.md`: a GHCR package holds every train's tags; cleanup deletes versions, never a package another branch still publishes into (durable decision)
 - [x] 3.4 `DESIGN_PATTERNS.md` § 13 Module Identity: one paragraph on moving a module between paths (fix the self-import, then `opm mod init <path> --yes` repair, then `version set`) (durable decision)
 - [x] 3.5 Write `hack/ghcr-delete-versions.sh` per design D7 (table from proposal.md § Impact, dry-run default, `--apply` to delete, refuses tags outside the table, needs `delete:packages`); run the dry-run: every listed tag resolves to one version id, nothing else is selected
 - [x] 3.6 `task check` green and `opm module publish ./<name> --dry-run` green for the eight staying CUE modules (apprise cert_manager gotify istio_ambient k8up metallb ntfy web_app), then commit `chore(fleet): move the media and gpu modules to jacero.se/modules`

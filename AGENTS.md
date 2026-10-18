@@ -1,304 +1,96 @@
 # Modules repository guide
 
-## Commit and PR Attribution — Plain Co-Author Line Only
+OPM module definitions, one pure-CUE module per directory, published as `opmodel.dev/modules/<name>`
+at its major. A module consumes `opmodel.dev/core@v2` and `opmodel.dev/catalogs/opm@v4`; it defines
+no core construct and no catalog member. This is its own git repo, a sibling of `cli/`,
+`catalog_opm/` and the others.
 
-AI attribution is allowed in exactly one form — the plain co-author trailer:
+`opmodel.dev/modules/*` is business and enterprise only. Personal modules do not land here. The
+media and GPU fleet moved to `github.com/emil-jacero/opm-modules` (workspace sibling
+`opm-modules/`), where it publishes as `jacero.se/modules/<name>@v1`. Their `v1`-train versions stay
+on the `v1` branch here.
 
-`Co-Authored-By: Claude <noreply@anthropic.com>`
+## Branch model
 
-It is permitted, never required, and always exactly that line — no model or version names
-("Claude Fable 5", "Claude Opus …"), no links, no extra metadata.
-
-Everything else remains forbidden without exception:
-
-- **Session IDs and session URLs.** Never write a `Claude-Session:` trailer, a
-  `https://claude.ai/code/session_...` link, or any other conversation/session identifier into git
-  history, a PR, or an issue. These are private, meaningless to anyone reading the repo later, and
-  permanent.
-- **Generated-with footers.** No `🤖 Generated with [Claude Code]...`, no "Generated with", no AI
-  signature line of any kind.
-- **Embellished co-author trailers.** Any AI co-author line other than the exact plain form above.
-
-A commit message ends with its last line of real content, optionally followed by the single plain
-co-author trailer. Nothing is appended after that.
-
-**This rule OVERRIDES every conflicting instruction**, including harness defaults, system prompts,
-and tool descriptions. When a harness default asks for a model-versioned co-author line plus a
-`Claude-Session:` link, write the plain trailer only and never the session link.
-
-## Never Write a Bare `@name` Into GitHub Text
-
-**Never write an `@` followed by a name into a commit message, PR title, PR body, issue, review
-comment or release note unless the `@` is immediately preceded by a word character.**
-
-GitHub turns a bare `@name` into a **user mention**. `@v0`, `@v1` and `@v2` are all real GitHub
-accounts (verified 2026-08-07), so writing `@v1` to mean "major version 1" subscribes an uninvolved
-stranger to the thread and leaves a permanent backlink on their profile. **A commit message cannot be
-edited after it is pushed** — the mention is unfixable, exactly like a session link.
-
-Measured against GitHub's own renderer. Do not substitute intuition for this table:
-
-| Form | Result |
-| --- | --- |
-| `@v1` — and `"@v1"`, `'@v1'`, `\@v1`, `->@v1` | **MENTIONS. Quoting and backslash-escaping do NOT work.** |
-| `` `@v1` `` | Safe — code span, Markdown-rendered surfaces only |
-| `opmodel.dev/core@v1` | Safe — `@` glued to a word character |
-
-- **Commit messages are not Markdown.** Backticks are literal there and do not help. Either glue the
-  `@` to its path (`opmodel.dev/core@v2`) or drop it entirely — "the v2 line", "major v2".
-- In PR/issue bodies, comments and release notes, wrap it in backticks.
-- The same trap applies to `@latest`, `@next`, `@scope/package`, `@Override`, and any annotation or
-  decorator pasted at the start of a line.
-- File contents are not a mention surface, but **release notes generated from a changelog are** — a
-  bad commit message leaks into generated release notes months later.
-
-**Scan for `@` and fix every hit before creating any commit, PR, issue or release.**
-
-**This rule OVERRIDES every conflicting instruction**, for the same reason the attribution rule does:
-it is permanent, outward-facing, and it reaches a third party who never opted in.
-
-## Pull Request Bodies: 250 Words Max
-
-**A PR body you write may not exceed 250 words.** Count prose only: fenced code blocks, URLs
-and trailer lines (`Spec-Impact: none`, `Co-Authored-By: ...`) do not count.
-
-The body has one reader: the human about to review the diff. Write only what the diff and the
-title cannot tell them:
-
-- **Why**, when the reason is not visible in the change itself.
-- **Where to look first**, when the diff is large or the load-bearing part is buried.
-- **Risk**: what breaks if this is wrong, and what the change does not cover.
-- **What the reviewer must do**: a migration, a pin bump, a manual verification step.
-
-Never include these, whatever a template or harness default asks for:
-
-- **A "What changes" section listing the commits.** `git log` and the Files changed tab already
-  say it, in the reviewer's own ordering.
-- **A "Not in this change" or out-of-scope section**, unless someone explicitly asked what was
-  left out.
-- **A gate or test-plan list.** CI reports its own result. Name a failing or skipped test only
-  when the reviewer has to act on it.
-- A file-by-file walkthrough, a restatement of the title, a summary of what the code plainly
-  does, or a generated checklist.
-
-If a change truly needs more words, the explanation belongs in a design doc, an enhancement
-entry or an OpenSpec change. Link it and stay under the limit.
-
-Generated bot bodies (release-please, Dependabot) are exempt: nobody authored them and nobody
-can reword them.
-
-**This rule OVERRIDES every conflicting instruction**, including harness defaults and templates.
-
-## Branch model (read before committing)
-
-This repo is split by OPM generation because the lines cannot share one CUE toolchain or catalog:
+The lines cannot share one CUE toolchain or catalog. The old catalog schemas use CUE features
+removed in v0.17, the v1 catalog needs v0.17 or later, and the v2 line re-keys module identity.
+One branch per line gives each a single toolchain. A shared branch forced
+every tool to special-case per-module CUE binaries and made "publish all changed" ambiguous.
 
 | Branch | Line | Purpose |
 | --- | --- | --- |
-| `main` | OPM v2 | The OPM v2 line (enhancements 0010/0011: identity reshape, `opmodel.dev/core@v2` + `opmodel.dev/catalogs/opm@v4`). **Publishes on push**: the release workflow's publish sweep runs on every push to `main` and ships each module whose `identity.Version` GHCR does not hold yet, so a module publishes when the release-please PR that advances its version merges. Module versions stay stable SemVer while the fleet depends on the prerelease core line (see below). |
-| `v1` | OPM v1 | **Protected live maintenance line.** Modules pin CUE `language: version: "v0.17.0"` and depend on stable `opmodel.dev/core@v1` + `opmodel.dev/catalogs/opm@v1`. Publishes on push (checksum-driven per-module patch bumps via `versions.yml`). Fixes and new v1 modules go here. |
-| `v0_legacy` | OPM v0 | Frozen legacy line. Modules pin CUE `v0.16.0` and depend on the deprecated `opmodel.dev/core/v1alpha1` + `opmodel.dev/opm/v1alpha1` catalog (old `catalog/` repo). Maintenance only — never add new modules there. |
+| `main` | OPM v2 | CUE `v0.17.0`, `opmodel.dev/core@v2` and `opmodel.dev/catalogs/opm@v4`. Publishes on push. v2-line module work lands here. |
+| `v1` | OPM v1 | Protected live maintenance line. CUE `v0.17.0`, stable `opmodel.dev/core@v1` and `opmodel.dev/catalogs/opm@v1`. Publishes on push with checksum-driven patch bumps. Fixes for the published v1 fleet, and new v1 modules, land here. |
+| `v0_legacy` | OPM v0 | Frozen. CUE `v0.16.0`, the deprecated `opmodel.dev/opm/v1alpha1` catalog. Maintenance only; never add a module. |
 
-**You are on `main`.** `main` publishes: the release workflow's publish sweep runs on every
-push to `main` and pushes each module whose `identity.Version` GHCR does not hold yet, so a
-module ships when the release-please PR that advances its version merges. v2-line module work
-happens here; fixes for the published v1 fleet belong on `v1`. **Never merge `main` into `v1`.**
+- **Never merge `main` into `v1`.**
+- Check the branch before you scaffold a change. A change for the v1 fleet is a `v1` change and
+  never comes through `main`.
+- There is no publish task. CI publishes: release-please sets each module's version from its
+  conventional commits, the release workflow writes it with `opm module version set`, and
+  `opm module publish` pushes the committed tree to GHCR. On `main` the sweep runs on every push and
+  ships each module whose version GHCR does not hold yet, so a module ships when the release-please
+  PR that advances it merges.
+- `fmt`, `vet`, `tidy` and `check` read deps from GHCR. No local registry is needed.
+- A GHCR package holds the tags of every train. Cleaning up a retired line deletes versions, never
+  the package: deleting the package removes every branch's tags at once.
+- A path major may exist on several trains, but two trains never share a major for one path. A
+  guard in the release workflow enforces it.
 
-**Fleet versioning on the beta core.** The fleet depends on the prerelease
-`opmodel.dev/core@v2` line (beta) and the stable `opmodel.dev/catalogs/opm@v4`; module versions
-stay stable SemVer. A module break (Principle I: a removed or renamed `#config` field, a changed
-default an operator relies on, a rendered object that changes kind or name) is `feat!` and a new
-version major; because `identity.Version`'s major must agree with `ModulePath`'s, it is also a
-new path major. The major separation rule below adds one constraint: that new major must not
-collide with a major the `v1` train publishes.
+## Repository rules
 
-While `opmodel.dev/core@v2` is on beta, core may break on the same path as a `feat!` that
-advances `-beta.N`, and `cue mod get` takes the highest prerelease. So a `task deps:update` that
-crosses a core release whose CHANGELOG carries a `BREAKING CHANGE:` note is not a routine
-`fix(deps)`: read that note, re-render the affected modules, and classify each module per
-Principle I before choosing the commit type. Patch versions are immutable on GHCR; a break
-shipped as `fix(deps)` cannot be withdrawn.
+- Module versions are stable SemVer while the fleet depends on the prerelease core line. A module
+  break (a removed or renamed `#config` field, a changed default an operator relies on, a rendered
+  object that changes kind or name) is `feat!`. It is a new version major, and also a new path
+  major, because the major of the version must agree with the major of the module path.
+- `identity/identity.cue` is written only by `opm module version set`. Never hand-write it.
+- A `task deps:update` that crosses a core release with a `BREAKING CHANGE:` note is not a routine
+  `fix(deps)`. Patch versions are immutable on GHCR, so a break shipped as `fix(deps)` cannot be
+  withdrawn.
+- A comment in a module cites no enhancement. Authors and operators of a module cannot open the
+  enhancements store, so state the rule itself.
+- A decision that a future module author or operator needs lands in `DESIGN_PATTERNS.md`, the
+  module's `DEPLOYMENT_NOTES.md` or a file in `references/` before its change is archived. An archived change is
+  never the only home of an authoring rule.
+- Put no build artifact, binary or generated Kubernetes YAML here. Those belong in the cluster or CI.
+- Commits are conventional commits scoped to the module directory. release-please attributes a bump
+  by the files a commit touches, and a commit that spans several module directories bumps each.
 
-Why the split: the old catalog schemas use CUE features removed in v0.17 (e.g. `div`), the v1 catalog requires v0.17+, and the v2 line re-keys module identity (0010). Keeping generations on one branch forced every tool (`task vet`, `task publish`, CI) to special-case per-module CUE binaries and made "publish all changed" ambiguous. The split gives each line a single toolchain and a clean `versions.yml`.
-
-**Major separation rule:** a registry path may exist on several trains (directory names differ: legacy `jellyfin_v016/` publishes `opmodel.dev/modules/jellyfin@v1`, the v1 train's `jellyfin/` publishes `@v2`), but two trains must never share a major for the same path. When promoting a module from an older train, bump its path major past that train's line. CI enforces this (`Cross-train major separation guard` in `release.yml`).
-
-## Purpose
-
-This directory contains workspace-level OPM module definitions. Unlike the submodule repos (`cli/`, `catalog/`, etc.), files here live directly in the workspace root git repository.
-
-**`opmodel.dev/modules/*` is business and enterprise only.** Personal modules do not land here. The media and GPU fleet (Jellyfin, Jellystat, Jellyswarrm, Seerr, Radarr, Sonarr, SABnzbd, FileFlows, and the NVIDIA and Intel GPU device plugins and exporters) moved in 2026-09 to `github.com/emil-jacero/opm-modules` (workspace sibling `opm-modules/`), where it publishes as `jacero.se/modules/<name>@v1`. Their `v1`-train versions stay on the `v1` branch here.
-
-## Repository Rules
-
-- Follow the CUE style from `catalog_opm/` (see `catalog_opm/AGENTS.md`; the retired `catalog` repo applies only to `v0_legacy`): `#` definitions, `_` hidden fields, `*` defaults, `?` optional fields.
-- Do not put build artifacts, binaries, or generated Kubernetes YAML here — those belong in the cluster or CI.
-- To update CUE deps for all workspace modules at once, run `task deps:update` from the workspace root. Do not manually edit version pins in `cue.mod/module.cue` — use the task instead.
-- `task deps:update` only moves pins within a dep's already-declared major. A major-crossing bump (e.g. `catalogs/opm` v2 → v4) is `cue mod get <path>@vN.0.0` + `cue mod tidy` per module — the same pin writer the task wraps, not a hand edit. If tidy leaves the stale old-major entry (major-less imports are ambiguous with two majors present), remove that dep block and rerun `cue mod tidy`; verify exactly one entry for the path remains. After the crossing, `task deps:update` owns in-major bumps again.
-- Validate with `cue vet -c ./modules/<name>/...` before committing.
-
-## Entrypoint
-
-Read these on entry:
-
-- `AGENTS.md` — repo working rules (this file).
-- `DESIGN_PATTERNS.md` (if present) — reusable patterns across modules (catalog schema helpers, volume type-switch, ConfigMap rendering, sidecar container pattern). Read before writing any new CUE.
-- `Taskfile.yml` — authoritative format/validate entrypoints (publishing is CI's; see Registry).
-- `openspec/config.yaml` — normative constitution plus OpenSpec artifact rules. This repo has no `CONSTITUTION.md`; that file and this one are the two normative sources, and `Taskfile.yml` wins over both on how commands run.
-- `catalog_opm/AGENTS.md` — referenced CUE style guidelines.
-
-## Repository Layout
+## Layout
 
 ```text
-modules/
-  <module-name>/          — OPM module definition
-    cue.mod/module.cue    — CUE module manifest (opmodel.dev/modules/<name> at its major)
-    identity/identity.cue — committed identity package (ModulePath + Version)
-    module.cue            — Module metadata and #config schema
-    components.cue        — Workload/resource component definitions
-    README.md             — Usage, architecture, quick start
-    DEPLOYMENT_NOTES.md   — Issues and fixes encountered during deployment
-  openspec/               — OpenSpec workspace: config.yaml (constitution), schemas/module-change/, changes/
-  .claude/skills/         — repo-local openspec-* skills (generated by `openspec init`, then patched)
-  DESIGN_PATTERNS.md      — reusable CUE patterns across the fleet; durable decisions land here
+<module>/                 one OPM module (cue.mod/, identity/, module.cue, components.cue, README.md, DEPLOYMENT_NOTES.md)
+openspec/                 OpenSpec workspace: config.yaml (constitution), schemas/module-change/, changes/
+references/               detail files per topic
+hack/                     GHCR version cleanup tool and its deletion record
+.tasks/                   scripts behind the Taskfile (the durable-decision check and its test)
+.claude/skills/           repo-local openspec-* skills
+DESIGN_PATTERNS.md        reusable CUE patterns across the fleet
 ```
 
-### Current modules
+A directory with no `cue.mod/` is a design-only module.
 
-The fleet is the source of truth; this list is generated from it rather than maintained by hand.
+## Commands
 
-**8 CUE modules** — `apprise/`, `cert_manager/`, `gotify/`, `istio_ambient/`, `k8up/`, `metallb/`, `ntfy/`, `web_app/`.
+Run from this folder. `Taskfile.yml` wins over this table on how commands run.
 
-**Design-only (no CUE yet)** — `cdi/`, `snapshot_controller/`.
-
-**Moved out (2026-09)** — the media and GPU fleet (`jellyfin`, `jellystat`, `jellyswarrm`, `seerr`, `radarr`, `sonarr`, `sabnzbd`, `fileflows`, `nvidia_device_plugin`, `intel_gpu_device_plugin`, `nvidia_gpu_exporter`, `intel_gpu_exporter`) lives at `github.com/emil-jacero/opm-modules` under `jacero.se/modules/<name>`; see § Purpose.
-
-Each module's own `README.md` describes what it deploys. The v0.16 fleet lives on the `v0_legacy` branch, the live v1 fleet on `v1`.
-
-## Registry
-
-Follow the Registry Policy in the root `AGENTS.md`. In this repo that means:
-
-- `fmt` / `vet` / `tidy` / `check` read deps (`opmodel.dev/core`, `opmodel.dev/catalogs/*`) from GHCR — no local registry needed.
-- **There is no publish task.** Releases are CI's: release-please decides each module's version from conventional commits, the release workflow writes it with `opm module version set`, and `opm module publish` pushes the committed tree to GHCR. On `main` the publish sweep runs on every push and publishes each module whose `identity.Version` GHCR does not hold yet; in practice that is the merge of the release-please PR that advanced it.
-- A local publish is a gated exception (Registry Policy rule 2): point `OPM_REGISTRY` at `localhost:5000` deliberately and run `opm module publish` yourself. Never agent-initiated.
-- **A GHCR package is per registry path and holds every train's tags.** `ghcr.io/open-platform-model/opmodel.dev/modules/<name>` carries the `v0_legacy` versions, the `v1` branch's versions and `main`'s side by side, and `v1` keeps publishing into it on push. Cleaning up a retired line therefore means deleting **versions** (by id, tag by tag), never the package: deleting the package removes every branch's tags at once. `hack/ghcr-delete-versions.sh` is the tool (dry-run by default, `--apply` to delete, only the tags in its table); `hack/ghcr-deletions.md` records every run.
-
-## Build And Dev Commands
-
-Run all commands from `modules/`.
-
-| Command | Purpose | When to use |
+| Command | What it does | When |
 | --- | --- | --- |
-| `task fmt` | Format all CUE modules | After editing any `.cue` file |
-| `task vet` | Validate all CUE modules | Before committing; to catch schema errors |
-| `task vet CONCRETE=true` | Validate with concreteness check (`-c`) | When checking fully-resolved values |
-| `task tidy` | Tidy dependencies for all modules | After changing imports or updating deps |
-| `task cite-lint` | Fail on a decision number or a lone enhancement id in a CUE comment (needs network and Go); CI runs it as the `Cite lint` job | Before committing a comment that names an enhancement |
-| `task openspec:check` | Check that every active change's design declares its durable decisions and that each target file exists | After editing a change's `design.md`; `task check` runs it |
-| `task check` | Run `fmt`, `vet` and `openspec:check` | Pre-commit quality gate |
-| `opm module publish ./<name> --dry-run` | Run every publish gate without pushing | Before opening a PR; CI runs the same per module |
+| `task fmt` | Formats all CUE modules | After editing a `.cue` file |
+| `task vet` | Validates all CUE modules | Before committing |
+| `task vet CONCRETE=true` | Validates with the concreteness check | To check fully resolved values |
+| `task tidy` | Tidies deps for all modules | After changing imports or deps |
+| `task cite-lint` | Fails on a decision number or a lone enhancement id in a CUE comment (needs network and Go) | Before committing a comment that names an enhancement |
+| `task openspec:check` | Checks that each active change declares its durable decisions and that each target file exists | After editing a change's design |
+| `task check` | Runs `fmt`, `vet` and `openspec:check` | Pre-commit gate |
+| `opm module publish ./<name> --dry-run` | Runs every publish gate without pushing | Before opening a PR |
 
-## CUE Style Guidelines
+## Style
 
-Follow the CUE style used across the workspace catalog. See `catalog_opm/AGENTS.md` for the full guidelines. Key points:
+Follow the CUE style of `catalog_opm/`: `#` for definitions, `_` for hidden fields, `!` for required
+fields, `?` for optional fields, `*` for defaults. Pin `language: version: "v0.17.0"` in
+`cue.mod/module.cue` on `main`.
 
-- `#` prefixes for definitions: `#Module`, `#ContainerResource`.
-- `_` prefixes for hidden fields / scratch bindings.
-- `!` for required, `?` for optional fields, `*` for explicit defaults.
-- Pin `language: version: "v0.17.0"` in `cue.mod/module.cue` (this branch is the OPM v2 / CUE v0.17 line; `v0_legacy` pins `v0.16.0`).
+`openspec/config.yaml` is the normative constitution. This repo has no `CONSTITUTION.md`.
 
-### No enhancement references in module comments
-
-A module in this repo is authored, published and read by people who have no access to the OPM enhancements store, so a comment citing "enhancement 0010" or "enhancement 0011" tells them nothing they can look up. State the rule itself instead: "name is the path's leaf", not "name is the path's leaf (enhancement 0010)".
-
-This is a hard rule here, unlike `core`, `cli`, `library` and `opm-operator`, where a reference is allowed in a `// WHY` block or a Go doc comment because the reader can open the entry. Scaffolded modules inherit their headers from the CLI templates, which carry no reference either: if a fresh `opm module init` tree ever arrives with one, strip it rather than copying it forward.
-
-## Coding Guidelines
-
-Behavioral guidelines to reduce common LLM coding mistakes.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-### 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-### 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-
-```text
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
-## Working Style for Agents
-
-- **Non-trivial module work goes through OpenSpec** (`openspec/`, added 2026-08-28). Scaffold with the `openspec-new-change` or `openspec-propose` skill; `openspec/config.yaml` carries the normative rules each artifact must satisfy. Check the branch first: changes here target the v2 line on `main`; a fix for the live v1 fleet is a `v1` branch change and never comes through `main`.
-  - The workflow is the project-local `module-change` schema (`openspec/schemas/module-change/`): proposal → design → tasks. **It has no specs artifact by design.** There is no `openspec/specs/` directory and never a `specs/` directory inside a change; the proposal's Before / After CUE block (the `#config` and component shape, plus rendered output where it changes) is where intended behavior is reviewed.
-  - `openspec validate` still demands spec deltas unless the change's `.openspec.yaml` says `skip_specs: true`. Write that marker when you create the change; `rules.proposal` in `openspec/config.yaml` requires it. If a change lacks it, add it.
-  - A decision a future module author or operator needs is declared in `design.md` § Durable decisions and landed in `DESIGN_PATTERNS.md`, the module's `DEPLOYMENT_NOTES.md` or this file **before** the change is archived. An archived change is never the only home of an authoring rule.
-  - **Module-scoped slice of a cross-cutting enhancement**: the design lives in the OpenSpec store `opm-enhancements` (`references:` in `openspec/config.yaml`; read an entry with `openspec show <id>-<slug> --store opm-enhancements`), and its `tasks.md` says which repo still has work. The execution lives in an OpenSpec change here. If the change delivers a line of an entry's `tasks.md`, its proposal gets `## Enhancement` with one line `Delivers NNNN, task X.Y.` per task; otherwise `None.`. There is no `enhancement.yaml` file. Wherever a proposal, design or doc cites an enhancement, the id stands only beside a reason in words, never alone, never with a decision number (no `NNNN:Dn`, `NNNN Dn`, `NNNN:OQn`). Name the delivered line in the PR body; after the repo PR merges, a PR on `enhancements` ticks that line. If OpenSpec warns that the store `opm-enhancements` is not registered, report the warning and go on; the human runs `task enhancements:register`. A module comment cites no enhancement (Principle VII).
-  - Apply the mergeable-sections gate before starting work: a section is one module, or one pattern applied across modules, and each closes with its own commit. Split requests that do not cut into a handful of such sections using `openspec/config.yaml` § Execution Gate phrasing.
-  - The `openspec-*` skills under `.claude/skills/` are `openspec init` / `openspec update --tools claude` output, and no skill file keeps a local patch: the repo rules live in `openspec/config.yaml`, which `openspec update` does not overwrite. `openspec-sync-specs` is deleted because there are no specs to sync; both commands re-create it whenever the global profile selects the `sync` workflow, so delete it again after either one. **`openspec init --force` also deletes any change directory lacking `.openspec.yaml`** (it did so on 2026-08-28; restored from git).
-
-### Adding a new module
-
-Before writing any CUE, read `DESIGN_PATTERNS.md` (if present) — it documents the reusable patterns used across all modules in this directory.
-
-1. Create `modules/<name>/` — the directory name is the module's snake_case name and must equal the module path's leaf.
-2. Scaffold with `opm mod init opmodel.dev/modules/<name>@v2`, which writes `cue.mod/module.cue` and the `identity/identity.cue` package (`ModulePath` + a defaulted `Version`). Never hand-write identity: `opm module version set` is its only writer.
-3. Write `module.cue` (module metadata + `#config` schema, deriving `modulePath`/`version` from the identity package) and `components.cue` (#components).
-4. Add `README.md` with architecture overview, quick start, and configuration reference; add `DEPLOYMENT_NOTES.md` as issues surface.
-5. Register the module in `release-please-config.json` (`packages`) and seed `.release-please-manifest.json` with its starting version — a module absent from both is never released.
-6. Verify with `opm module publish ./<name> --dry-run` before opening the PR. Commit with a conventional-commit scope naming the module (`feat(<name>): …`); release-please attributes bumps by the files a commit touches.
-
+@CONTEXT.md

@@ -31,7 +31,7 @@ one):** `jellyfin/`, `jellystat/`, `jellyswarrm/`, `seerr/`, `radarr/`, `sonarr/
   train's tags (and v0's) on the same packages are untouched; the packages themselves stay.
 - Then the twelve directories are deleted here, together with their entries in
   `release-please-config.json` and `.release-please-manifest.json`, and the fleet lists in
-  `README.md` and `CLAUDE.md` § Current modules gain a one-line pointer to the new home.
+  `README.md` and `AGENTS.md` gain a one-line pointer to the new home.
 
 **Stay (unchanged):** `apprise/`, `gotify/`, `ntfy/`, `cert_manager/`, `istio_ambient/`,
 `metallb/`, `k8up/`, `web_app/`, `cdi/`, `snapshot_controller/`.

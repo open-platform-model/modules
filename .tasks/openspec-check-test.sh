@@ -11,13 +11,14 @@ trap 'rm -rf "$tmp"' EXIT
 n=0
 bad=0
 
-# run_case <name> <expected exit> <design.md text>; the tree also holds DESIGN_PATTERNS.md, AGENTS.md and real/DEPLOYMENT_NOTES.md.
+# run_case <name> <expected exit> <design.md text>; the tree also holds DESIGN_PATTERNS.md, AGENTS.md, references/topic.md and real/DEPLOYMENT_NOTES.md.
 run_case() {
   local name="$1" want="$2" text="$3" dir="$tmp/case$n"
   n=$((n + 1))
   mkdir -p "$dir/openspec/changes/c" "$dir/real"
   : > "$dir/DESIGN_PATTERNS.md"
   : > "$dir/AGENTS.md"
+  mkdir -p "$dir/references"; : > "$dir/references/topic.md"
   : > "$dir/real/DEPLOYMENT_NOTES.md"
   printf '%s\n' "$text" > "$dir/openspec/changes/c/design.md"
   local got=0
@@ -39,6 +40,8 @@ run_case "existing module notes without backticks" 0 $'## Durable decisions\n\n-
 run_case "missing module notes without backticks" 1 $'## Durable decisions\n\n- Lands in gone/DEPLOYMENT_NOTES.md, later.'
 run_case "existing AGENTS.md" 0 $'## Durable decisions\n\n- Lands in AGENTS.md.'
 run_case "no target named" 1 $'## Durable decisions\n\n- A rule that matters.'
+run_case "existing references file" 0 $'## Durable decisions\n\n- Lands in `references/topic.md`.'
+run_case "missing references file" 1 $'## Durable decisions\n\n- Lands in `references/gone.md`.'
 
 if [ "$bad" = 0 ]; then
   echo "OK: openspec-check.sh passes its $n cases."
