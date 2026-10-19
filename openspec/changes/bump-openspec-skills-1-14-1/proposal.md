@@ -4,8 +4,8 @@ OpenSpec moves to 1.14.1 in every repo of the workspace. In 1.14.1 the over-500-
 
 ## What Changes
 
-- `.claude/skills/openspec-*`: regenerate the skills with `openspec update` 1.14.1. Keep the four local edits (archive-change, new-change, propose, verify-change), merged by a 3-way merge against pristine 1.12.0. In propose, keep the repo paragraph on the fixed `module-change` schema and drop the new workflow-selection text of step 3.
-- Delete `openspec-sync-specs` again, as `references/openspec-workflow.md` asks.
+- `.claude/skills/openspec-*`: regenerate the skills from the pristine 1.14.1 output of `openspec init --tools claude`. Keep the four local edits (archive-change, new-change, propose, verify-change), merged by a 3-way merge against pristine 1.12.0. In propose, keep the repo paragraph on the fixed `module-change` schema and drop the new workflow-selection text of step 3.
+- Keep `openspec-sync-specs` absent: this tree has none, and the result has none (`references/openspec-workflow.md`).
 - No pin, no gate line, no `openspec/config.yaml` change. The repo pins no OpenSpec CLI.
 
 ## Before / After
