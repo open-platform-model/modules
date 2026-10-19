@@ -30,8 +30,8 @@ one):** `jellyfin/`, `jellystat/`, `jellyswarrm/`, `seerr/`, `radarr/`, `sonarr/
   versions of these twelve registry paths are deleted from GHCR in the last section. The v1
   train's tags (and v0's) on the same packages are untouched; the packages themselves stay.
 - Then the twelve directories are deleted here, together with their entries in
-  `release-please-config.json` and `.release-please-manifest.json`, and the fleet lists in
-  `README.md` and `AGENTS.md` gain a one-line pointer to the new home.
+  `release-please-config.json` and `.release-please-manifest.json`, and the fleet list in
+  `README.md` and the purpose text in `AGENTS.md` gain a one-line pointer to the new home.
 
 **Stay (unchanged):** `apprise/`, `gotify/`, `ntfy/`, `cert_manager/`, `istio_ambient/`,
 `metallb/`, `k8up/`, `web_app/`, `cdi/`, `snapshot_controller/`.
