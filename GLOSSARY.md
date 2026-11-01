@@ -37,7 +37,7 @@ from catalog members. Its map key addresses it; its `metadata.name` names it.
 _Avoid_: service, container, deployment
 
 **`#config`**:
-The schema in `module.cue` that holds every setting an operator can choose, with its constraints
+The schema in `module.cue` that holds every setting an End-user can choose, with its constraints
 and defaults. Each field is a support obligation, so a field nothing configures stays out.
 _Avoid_: values, settings file, options, parameters
 
@@ -114,13 +114,12 @@ The series of module versions that one line publishes to a registry path. Two tr
 a path major for one path; this is the cross-train major separation rule.
 _Avoid_: channel, release line
 
-### Operators and authors
+### End-users and authors
 
-**Operator**:
-The person who deploys a module and sets its `#config`. The workspace glossary calls this role
-End-user; its Platform Operator is a different role. The operator reads the module's README and
-cannot open the enhancements store.
-_Avoid_: user, admin, consumer, customer
+**End-user**:
+The person who deploys a module and sets its `#config`. The End-user reads the module's README and
+cannot open the enhancements store. Platform Operator is a different role.
+_Avoid_: Operator, user, admin, consumer, customer
 
 **Module author**:
 The person who writes or changes a module directory. The author follows the patterns in
@@ -141,6 +140,6 @@ with a commit task, and leaves `main` releasable.
 _Avoid_: phase, milestone, step
 
 **Durable decision**:
-A decision that a future author or operator needs. It lands in `DESIGN_PATTERNS.md`, a module's
+A decision that a future author or End-user needs. It lands in `DESIGN_PATTERNS.md`, a module's
 `DEPLOYMENT_NOTES.md`, `AGENTS.md` or a `references/` file before the change is archived.
 _Avoid_: lasting note, archived decision
