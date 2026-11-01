@@ -66,6 +66,7 @@ hack/                     GHCR version cleanup tool and its deletion record
 .tasks/                   scripts behind the Taskfile (the durable-decision check and its test)
 .claude/skills/           repo-local openspec-* skills
 DESIGN_PATTERNS.md        reusable CUE patterns across the fleet
+GLOSSARY.md               domain terms of this repo, with the words to avoid
 ```
 
 A directory with no `cue.mod/` is a design-only module.

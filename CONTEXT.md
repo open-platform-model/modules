@@ -4,6 +4,7 @@ Router only. Facts and rules are in `AGENTS.md`.
 
 | Task | Read first | Then |
 | --- | --- | --- |
+| Name a concept, define a domain term, or check which word this repo uses for it | `GLOSSARY.md` | `DESIGN_PATTERNS.md` |
 | Create a new module directory from scratch | `references/new-module.md` | `DESIGN_PATTERNS.md` |
 | Move, rename, split or retire existing modules; any change that needs a proposal, design or archive; edit `openspec/` or the repo skills; deliver an enhancement task | `references/openspec-workflow.md` | `openspec/config.yaml` |
 | Edit the CUE, README or notes of an existing module (a `#config` field, a component) | `DESIGN_PATTERNS.md` | `openspec/config.yaml` |
