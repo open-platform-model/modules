@@ -30,7 +30,6 @@ No change. The core and catalog pins stay. `task deps:update` is not needed.
 
 - **Module directories touched:** none. Every commit is `docs`, which release-please hides in this repo. No path major moves.
 - **Operators of modules:** no action.
-- **Reviewer:** read `GLOSSARY.md` first and check each definition against the repo file that backs it.
 
 ## Enhancement
 

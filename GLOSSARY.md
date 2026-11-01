@@ -2,14 +2,16 @@
 
 The OPM module definitions: one pure-CUE module per directory, published as
 `opmodel.dev/modules/<name>`. A module consumes the published core and catalog contracts and
-defines no core construct and no catalog member.
+defines no core construct and no catalog member. The workspace glossary
+([OPM glossary](https://github.com/open-platform-model/opm/blob/main/docs/legacy/glossary.md))
+defines the shared OPM terms; this file fixes how this repo uses them.
 
 ## Language
 
 ### The module and its parts
 
 **Module**:
-One directory of this repo that holds one deployable application as pure CUE, published as
+One directory of this repo that holds one deployable application as pure CUE (once it has `cue.mod/`), published as
 `opmodel.dev/modules/<name>` at its major. In the schema it is a `#Module`: `module.cue` embeds
 the core `#Module` and fills its metadata and `#config`.
 _Avoid_: package, app, chart, plugin
@@ -20,8 +22,14 @@ route. Fleet consistency is a rule: a reader of one module can read all of them.
 _Avoid_: catalog, collection, registry
 
 **Design-only module**:
-A module directory with no `cue.mod/`, such as one that holds only a design document.
+A planned module: a directory with no `cue.mod/` that holds only a design document.
 _Avoid_: stub, placeholder
+
+**Module instance**:
+One deployment of a module, a `#ModuleInstance`, with its own name, namespace and `#config`
+values. The instance name prefixes the names of the rendered objects, so a module can require an
+exact instance name.
+_Avoid_: release, ModuleRelease, deployment, install
 
 **Component**:
 One entry of `#components` in `components.cue`: a unit of a module that renders workload objects
@@ -97,7 +105,7 @@ _Avoid_: bump type, severity
 ### Lines and branches
 
 **Line**:
-One generation of the fleet, carried by one branch: `main` is OPM v2, `v1` is the protected live
+The part of the fleet that one branch builds: `main` is OPM v2, `v1` is the protected live
 maintenance line, and `v0_legacy` is frozen. A line has one CUE toolchain and one catalog.
 _Avoid_: version, generation, stream
 
@@ -109,8 +117,9 @@ _Avoid_: channel, release line
 ### Operators and authors
 
 **Operator**:
-The person who deploys a module and sets its `#config`. The operator reads the module's
-README and cannot open the enhancements store.
+The person who deploys a module and sets its `#config`. The workspace glossary calls this role
+End-user; its Platform Operator is a different role. The operator reads the module's README and
+cannot open the enhancements store.
 _Avoid_: user, admin, consumer, customer
 
 **Module author**:
