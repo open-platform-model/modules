@@ -14,7 +14,7 @@ _injectorValuesBase: {
 		defaultPodDisruptionBudget: enabled: true
 		defaultResources: requests: cpu: "10m"
 		externalIstiod:  false
-		hub:             "registry.istio.io/release"
+		hub:             "docker.io/istio"
 		imagePullPolicy: ""
 		imagePullSecrets: []
 		istioNamespace: "istio-system"
@@ -75,7 +75,7 @@ _injectorValuesBase: {
 		resourceScope:      "all"
 		sds: token: aud: "istio-ca"
 		sts: servicePort: 0
-		tag:     "1.30.3"
+		tag:     "1.32.0"
 		variant: "distroless"
 		waypoint: {
 			affinity: {}
@@ -109,8 +109,9 @@ _injectorValuesBase: {
 		enableNamespacesByDefault: false
 		injectedAnnotations: {}
 		neverInjectSelector: []
-		reinvocationPolicy:  "Never"
-		rewriteAppHTTPProbe: true
+		reinvocationPolicy:      "Never"
+		revisionLabelPrecedence: "namespace"
+		rewriteAppHTTPProbe:     true
 		templates: {}
 	}
 }

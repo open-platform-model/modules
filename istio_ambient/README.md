@@ -9,7 +9,7 @@ ConfigMaps.
 
 - **Upstream**: https://istio.io
 - **Chart**: https://artifacthub.io/packages/helm/istio-official/ambient
-- **Default version**: `1.30.3` (Gateway API CRDs vendored at `v1.5.1`)
+- **Default version**: `1.32.0` (Gateway API CRDs vendored at `v1.5.1`)
 
 ---
 
@@ -48,7 +48,7 @@ At upstream defaults this renders **45 objects**; with every flag on, **60**.
 
 ## Verification
 
-Rendered and diffed against `helm template istio istio/ambient --version 1.30.3`. **All three pod
+Rendered and diffed against `helm template istio-ambient oci://ghcr.io/istio/release/charts/samples/ambient --version 1.32.0`. **All three pod
 specs — istiod, istio-cni-node and ztunnel — are byte-identical to upstream**: image, command, args,
 env names *and* values, volume mounts and paths, volume sources, securityContext, probes, ports,
 tolerations, nodeSelector and priorityClassName. RBAC rule counts, both validators, the 4-entry
@@ -68,6 +68,10 @@ Deliberate deltas, all of them additive or structural:
   unconditionally.
 - `− replicas` on the istiod Deployment while autoscaling is on. This is deliberate: emitting
   `replicas` alongside an HPA causes a permanent server-side-apply tug-of-war on every re-apply.
+- `checksum/cni-config` on the istio-cni pod template (new upstream in 1.31) carries a
+  different VALUE: Helm hashes its rendered ConfigMap template, this module hashes the
+  `istio-cni-config` data map. Same purpose — the agent reads that ConfigMap via `envFrom` only at
+  start, so a config change must roll the DaemonSet.
 
 ## ⚠ This module is NOT instance-safe
 

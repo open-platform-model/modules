@@ -953,6 +953,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	format:      "int32"
 																	type:        "integer"
 																}
+																http2KeepAlive: {
+																	description: "Configure HTTP/2 PING frames for upstream connections."
+																	properties: {
+																		interval: {
+																			description: "Send HTTP/2 PING frames at this interval."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																		timeout: {
+																			description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																	}
+																	type: "object"
+																}
 																http2MaxRequests: {
 																	description: "Maximum number of active requests to a destination."
 																	format:      "int32"
@@ -1057,13 +1079,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															required: ["simple"]
 														}, {
 															required: ["consistentHash"]
+														}, {
+															required: ["backendUtilization"]
 														}]
 													}, {
 														required: ["simple"]
 													}, {
 														required: ["consistentHash"]
+													}, {
+														required: ["backendUtilization"]
 													}]
 													properties: {
+														backendUtilization: {
+															description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+															properties: {
+																errorUtilizationPenaltyPercent: {
+																	description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+																	maximum:     4294967295
+																	minimum:     0
+																	type:        "integer"
+																}
+																metricNamesForComputingUtilization: {
+																	description: "Custom ORCA metric names used to compute utilization."
+																	items: type: "string"
+																	type: "array"
+																}
+																weightExpirationPeriod: {
+																	description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+																	type:        "string"
+																}
+																weightStabilizationPeriod: {
+																	description: "Duration after an endpoint first reports metrics before its weight is trusted."
+																	type:        "string"
+																}
+																weightUpdatePeriod: {
+																	description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+																	type:        "string"
+																}
+															}
+															type: "object"
+														}
 														consistentHash: {
 															allOf: [{
 																oneOf: [{
@@ -1098,6 +1153,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	required: ["maglev"]
 																}]
 															}]
+															description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 															properties: {
 																httpCookie: {
 																	description: "Hash based on HTTP cookie."
@@ -1175,6 +1231,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															type: "object"
 														}
 														localityLbSetting: {
+															description: "Locality load balancer settings."
 															properties: {
 																distribute: {
 																	description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -1230,7 +1287,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														}
 														simple: {
 															description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -1280,6 +1337,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																rule:    "duration(self) >= duration('1ms')"
 															}]
 														}
+														zoneAwareLbSetting: {
+															description: "Zone Aware load balancer settings."
+															properties: {
+																enabled: {
+																	description: "Enable zone aware load balancing."
+																	nullable:    true
+																	type:        "boolean"
+																}
+																failover: {
+																	description: "Optional."
+																	items: {
+																		properties: {
+																			from: {
+																				description: "Originating region."
+																				type:        "string"
+																			}
+																			to: {
+																				description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																				type:        "string"
+																			}
+																		}
+																		type: "object"
+																	}
+																	type: "array"
+																}
+																failoverPriority: {
+																	description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+																	items: type: "string"
+																	type: "array"
+																}
+																minClusterSize: {
+																	description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+																	maximum:     4294967295
+																	minimum:     1
+																	nullable:    true
+																	type:        "integer"
+																}
+															}
+															type: "object"
+														}
 													}
 													type: "object"
 												}
@@ -1318,6 +1415,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															nullable:    true
 															type:        "integer"
 														}
+														failurePercentageThreshold: {
+															description: "The failure percentage to use when determining failure percentage-based outlier detection."
+															maximum:     100
+															minimum:     0
+															nullable:    true
+															type:        "integer"
+														}
 														interval: {
 															description: "Time interval between ejection sweep analysis."
 															type:        "string"
@@ -1335,6 +1439,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 															format:      "int32"
 															type:        "integer"
+														}
+														outlierDetectionHttpErrorCodes: {
+															description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+															items: {
+																maximum: 599
+																minimum: 100
+																type:    "integer"
+															}
+															type: "array"
 														}
 														splitExternalLocalOriginErrors: {
 															description: "Determines whether to distinguish local origin failures from external errors."
@@ -1369,6 +1482,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																				description: "Maximum number of requests that will be queued while waiting for a ready connection pool connection."
 																				format:      "int32"
 																				type:        "integer"
+																			}
+																			http2KeepAlive: {
+																				description: "Configure HTTP/2 PING frames for upstream connections."
+																				properties: {
+																					interval: {
+																						description: "Send HTTP/2 PING frames at this interval."
+																						type:        "string"
+																						"x-kubernetes-validations": [{
+																							message: "must be a valid duration greater than 1ms"
+																							rule:    "duration(self) >= duration('1ms')"
+																						}]
+																					}
+																					timeout: {
+																						description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																						type:        "string"
+																						"x-kubernetes-validations": [{
+																							message: "must be a valid duration greater than 1ms"
+																							rule:    "duration(self) >= duration('1ms')"
+																						}]
+																					}
+																				}
+																				type: "object"
 																			}
 																			http2MaxRequests: {
 																				description: "Maximum number of active requests to a destination."
@@ -1474,13 +1609,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		required: ["simple"]
 																	}, {
 																		required: ["consistentHash"]
+																	}, {
+																		required: ["backendUtilization"]
 																	}]
 																}, {
 																	required: ["simple"]
 																}, {
 																	required: ["consistentHash"]
+																}, {
+																	required: ["backendUtilization"]
 																}]
 																properties: {
+																	backendUtilization: {
+																		description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+																		properties: {
+																			errorUtilizationPenaltyPercent: {
+																				description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+																				maximum:     4294967295
+																				minimum:     0
+																				type:        "integer"
+																			}
+																			metricNamesForComputingUtilization: {
+																				description: "Custom ORCA metric names used to compute utilization."
+																				items: type: "string"
+																				type: "array"
+																			}
+																			weightExpirationPeriod: {
+																				description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+																				type:        "string"
+																			}
+																			weightStabilizationPeriod: {
+																				description: "Duration after an endpoint first reports metrics before its weight is trusted."
+																				type:        "string"
+																			}
+																			weightUpdatePeriod: {
+																				description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+																				type:        "string"
+																			}
+																		}
+																		type: "object"
+																	}
 																	consistentHash: {
 																		allOf: [{
 																			oneOf: [{
@@ -1515,6 +1683,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																				required: ["maglev"]
 																			}]
 																		}]
+																		description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 																		properties: {
 																			httpCookie: {
 																				description: "Hash based on HTTP cookie."
@@ -1592,6 +1761,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		type: "object"
 																	}
 																	localityLbSetting: {
+																		description: "Locality load balancer settings."
 																		properties: {
 																			distribute: {
 																				description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -1647,7 +1817,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	}
 																	simple: {
 																		description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -1697,6 +1867,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																			rule:    "duration(self) >= duration('1ms')"
 																		}]
 																	}
+																	zoneAwareLbSetting: {
+																		description: "Zone Aware load balancer settings."
+																		properties: {
+																			enabled: {
+																				description: "Enable zone aware load balancing."
+																				nullable:    true
+																				type:        "boolean"
+																			}
+																			failover: {
+																				description: "Optional."
+																				items: {
+																					properties: {
+																						from: {
+																							description: "Originating region."
+																							type:        "string"
+																						}
+																						to: {
+																							description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																							type:        "string"
+																						}
+																					}
+																					type: "object"
+																				}
+																				type: "array"
+																			}
+																			failoverPriority: {
+																				description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+																				items: type: "string"
+																				type: "array"
+																			}
+																			minClusterSize: {
+																				description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+																				maximum:     4294967295
+																				minimum:     1
+																				nullable:    true
+																				type:        "integer"
+																			}
+																		}
+																		type: "object"
+																	}
 																}
 																type: "object"
 															}
@@ -1735,6 +1945,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		nullable:    true
 																		type:        "integer"
 																	}
+																	failurePercentageThreshold: {
+																		description: "The failure percentage to use when determining failure percentage-based outlier detection."
+																		maximum:     100
+																		minimum:     0
+																		nullable:    true
+																		type:        "integer"
+																	}
 																	interval: {
 																		description: "Time interval between ejection sweep analysis."
 																		type:        "string"
@@ -1752,6 +1969,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 																		format:      "int32"
 																		type:        "integer"
+																	}
+																	outlierDetectionHttpErrorCodes: {
+																		description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+																		items: {
+																			maximum: 599
+																			minimum: 100
+																			type:    "integer"
+																		}
+																		type: "array"
 																	}
 																	splitExternalLocalOriginErrors: {
 																		description: "Determines whether to distinguish local origin failures from external errors."
@@ -1772,6 +1998,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															tls: {
 																description: "TLS related settings for connections to the upstream service."
 																properties: {
+																	caCertCredentialName: {
+																		description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+																		type:        "string"
+																	}
 																	caCertificates: {
 																		description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 																		type:        "string"
@@ -1848,6 +2078,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												retryBudget: {
 													description: "Specifies a limit on concurrent retries in relation to the number of active requests."
 													properties: {
+														budgetInterval: {
+															description: "Specifies the duration in which requests will be considered when calculating the budget for retries."
+															type:        "string"
+														}
 														minRetryConcurrency: {
 															description: "Specifies the minimum retry concurrency allowed for the retry budget."
 															maximum:     4294967295
@@ -1868,6 +2102,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												tls: {
 													description: "TLS related settings for connections to the upstream service."
 													properties: {
+														caCertCredentialName: {
+															description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+															type:        "string"
+														}
 														caCertificates: {
 															description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 															type:        "string"
@@ -1978,6 +2216,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														format:      "int32"
 														type:        "integer"
 													}
+													http2KeepAlive: {
+														description: "Configure HTTP/2 PING frames for upstream connections."
+														properties: {
+															interval: {
+																description: "Send HTTP/2 PING frames at this interval."
+																type:        "string"
+																"x-kubernetes-validations": [{
+																	message: "must be a valid duration greater than 1ms"
+																	rule:    "duration(self) >= duration('1ms')"
+																}]
+															}
+															timeout: {
+																description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																type:        "string"
+																"x-kubernetes-validations": [{
+																	message: "must be a valid duration greater than 1ms"
+																	rule:    "duration(self) >= duration('1ms')"
+																}]
+															}
+														}
+														type: "object"
+													}
 													http2MaxRequests: {
 														description: "Maximum number of active requests to a destination."
 														format:      "int32"
@@ -2082,13 +2342,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												required: ["simple"]
 											}, {
 												required: ["consistentHash"]
+											}, {
+												required: ["backendUtilization"]
 											}]
 										}, {
 											required: ["simple"]
 										}, {
 											required: ["consistentHash"]
+										}, {
+											required: ["backendUtilization"]
 										}]
 										properties: {
+											backendUtilization: {
+												description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+												properties: {
+													errorUtilizationPenaltyPercent: {
+														description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+														maximum:     4294967295
+														minimum:     0
+														type:        "integer"
+													}
+													metricNamesForComputingUtilization: {
+														description: "Custom ORCA metric names used to compute utilization."
+														items: type: "string"
+														type: "array"
+													}
+													weightExpirationPeriod: {
+														description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+														type:        "string"
+													}
+													weightStabilizationPeriod: {
+														description: "Duration after an endpoint first reports metrics before its weight is trusted."
+														type:        "string"
+													}
+													weightUpdatePeriod: {
+														description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+														type:        "string"
+													}
+												}
+												type: "object"
+											}
 											consistentHash: {
 												allOf: [{
 													oneOf: [{
@@ -2123,6 +2416,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														required: ["maglev"]
 													}]
 												}]
+												description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 												properties: {
 													httpCookie: {
 														description: "Hash based on HTTP cookie."
@@ -2200,6 +2494,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												type: "object"
 											}
 											localityLbSetting: {
+												description: "Locality load balancer settings."
 												properties: {
 													distribute: {
 														description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -2255,7 +2550,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 											}
 											simple: {
 												description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -2305,6 +2600,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 													rule:    "duration(self) >= duration('1ms')"
 												}]
 											}
+											zoneAwareLbSetting: {
+												description: "Zone Aware load balancer settings."
+												properties: {
+													enabled: {
+														description: "Enable zone aware load balancing."
+														nullable:    true
+														type:        "boolean"
+													}
+													failover: {
+														description: "Optional."
+														items: {
+															properties: {
+																from: {
+																	description: "Originating region."
+																	type:        "string"
+																}
+																to: {
+																	description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																	type:        "string"
+																}
+															}
+															type: "object"
+														}
+														type: "array"
+													}
+													failoverPriority: {
+														description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+														items: type: "string"
+														type: "array"
+													}
+													minClusterSize: {
+														description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+														maximum:     4294967295
+														minimum:     1
+														nullable:    true
+														type:        "integer"
+													}
+												}
+												type: "object"
+											}
 										}
 										type: "object"
 									}
@@ -2343,6 +2678,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												nullable:    true
 												type:        "integer"
 											}
+											failurePercentageThreshold: {
+												description: "The failure percentage to use when determining failure percentage-based outlier detection."
+												maximum:     100
+												minimum:     0
+												nullable:    true
+												type:        "integer"
+											}
 											interval: {
 												description: "Time interval between ejection sweep analysis."
 												type:        "string"
@@ -2360,6 +2702,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 												format:      "int32"
 												type:        "integer"
+											}
+											outlierDetectionHttpErrorCodes: {
+												description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+												items: {
+													maximum: 599
+													minimum: 100
+													type:    "integer"
+												}
+												type: "array"
 											}
 											splitExternalLocalOriginErrors: {
 												description: "Determines whether to distinguish local origin failures from external errors."
@@ -2394,6 +2745,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	description: "Maximum number of requests that will be queued while waiting for a ready connection pool connection."
 																	format:      "int32"
 																	type:        "integer"
+																}
+																http2KeepAlive: {
+																	description: "Configure HTTP/2 PING frames for upstream connections."
+																	properties: {
+																		interval: {
+																			description: "Send HTTP/2 PING frames at this interval."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																		timeout: {
+																			description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																	}
+																	type: "object"
 																}
 																http2MaxRequests: {
 																	description: "Maximum number of active requests to a destination."
@@ -2499,13 +2872,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															required: ["simple"]
 														}, {
 															required: ["consistentHash"]
+														}, {
+															required: ["backendUtilization"]
 														}]
 													}, {
 														required: ["simple"]
 													}, {
 														required: ["consistentHash"]
+													}, {
+														required: ["backendUtilization"]
 													}]
 													properties: {
+														backendUtilization: {
+															description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+															properties: {
+																errorUtilizationPenaltyPercent: {
+																	description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+																	maximum:     4294967295
+																	minimum:     0
+																	type:        "integer"
+																}
+																metricNamesForComputingUtilization: {
+																	description: "Custom ORCA metric names used to compute utilization."
+																	items: type: "string"
+																	type: "array"
+																}
+																weightExpirationPeriod: {
+																	description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+																	type:        "string"
+																}
+																weightStabilizationPeriod: {
+																	description: "Duration after an endpoint first reports metrics before its weight is trusted."
+																	type:        "string"
+																}
+																weightUpdatePeriod: {
+																	description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+																	type:        "string"
+																}
+															}
+															type: "object"
+														}
 														consistentHash: {
 															allOf: [{
 																oneOf: [{
@@ -2540,6 +2946,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	required: ["maglev"]
 																}]
 															}]
+															description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 															properties: {
 																httpCookie: {
 																	description: "Hash based on HTTP cookie."
@@ -2617,6 +3024,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															type: "object"
 														}
 														localityLbSetting: {
+															description: "Locality load balancer settings."
 															properties: {
 																distribute: {
 																	description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -2672,7 +3080,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														}
 														simple: {
 															description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -2722,6 +3130,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																rule:    "duration(self) >= duration('1ms')"
 															}]
 														}
+														zoneAwareLbSetting: {
+															description: "Zone Aware load balancer settings."
+															properties: {
+																enabled: {
+																	description: "Enable zone aware load balancing."
+																	nullable:    true
+																	type:        "boolean"
+																}
+																failover: {
+																	description: "Optional."
+																	items: {
+																		properties: {
+																			from: {
+																				description: "Originating region."
+																				type:        "string"
+																			}
+																			to: {
+																				description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																				type:        "string"
+																			}
+																		}
+																		type: "object"
+																	}
+																	type: "array"
+																}
+																failoverPriority: {
+																	description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+																	items: type: "string"
+																	type: "array"
+																}
+																minClusterSize: {
+																	description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+																	maximum:     4294967295
+																	minimum:     1
+																	nullable:    true
+																	type:        "integer"
+																}
+															}
+															type: "object"
+														}
 													}
 													type: "object"
 												}
@@ -2760,6 +3208,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															nullable:    true
 															type:        "integer"
 														}
+														failurePercentageThreshold: {
+															description: "The failure percentage to use when determining failure percentage-based outlier detection."
+															maximum:     100
+															minimum:     0
+															nullable:    true
+															type:        "integer"
+														}
 														interval: {
 															description: "Time interval between ejection sweep analysis."
 															type:        "string"
@@ -2777,6 +3232,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 															format:      "int32"
 															type:        "integer"
+														}
+														outlierDetectionHttpErrorCodes: {
+															description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+															items: {
+																maximum: 599
+																minimum: 100
+																type:    "integer"
+															}
+															type: "array"
 														}
 														splitExternalLocalOriginErrors: {
 															description: "Determines whether to distinguish local origin failures from external errors."
@@ -2797,6 +3261,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												tls: {
 													description: "TLS related settings for connections to the upstream service."
 													properties: {
+														caCertCredentialName: {
+															description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+															type:        "string"
+														}
 														caCertificates: {
 															description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 															type:        "string"
@@ -2873,6 +3341,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 									retryBudget: {
 										description: "Specifies a limit on concurrent retries in relation to the number of active requests."
 										properties: {
+											budgetInterval: {
+												description: "Specifies the duration in which requests will be considered when calculating the budget for retries."
+												type:        "string"
+											}
 											minRetryConcurrency: {
 												description: "Specifies the minimum retry concurrency allowed for the retry budget."
 												maximum:     4294967295
@@ -2893,6 +3365,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 									tls: {
 										description: "TLS related settings for connections to the upstream service."
 										properties: {
+											caCertCredentialName: {
+												description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+												type:        "string"
+											}
 											caCertificates: {
 												description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 												type:        "string"
@@ -3169,6 +3645,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	format:      "int32"
 																	type:        "integer"
 																}
+																http2KeepAlive: {
+																	description: "Configure HTTP/2 PING frames for upstream connections."
+																	properties: {
+																		interval: {
+																			description: "Send HTTP/2 PING frames at this interval."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																		timeout: {
+																			description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																	}
+																	type: "object"
+																}
 																http2MaxRequests: {
 																	description: "Maximum number of active requests to a destination."
 																	format:      "int32"
@@ -3273,13 +3771,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															required: ["simple"]
 														}, {
 															required: ["consistentHash"]
+														}, {
+															required: ["backendUtilization"]
 														}]
 													}, {
 														required: ["simple"]
 													}, {
 														required: ["consistentHash"]
+													}, {
+														required: ["backendUtilization"]
 													}]
 													properties: {
+														backendUtilization: {
+															description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+															properties: {
+																errorUtilizationPenaltyPercent: {
+																	description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+																	maximum:     4294967295
+																	minimum:     0
+																	type:        "integer"
+																}
+																metricNamesForComputingUtilization: {
+																	description: "Custom ORCA metric names used to compute utilization."
+																	items: type: "string"
+																	type: "array"
+																}
+																weightExpirationPeriod: {
+																	description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+																	type:        "string"
+																}
+																weightStabilizationPeriod: {
+																	description: "Duration after an endpoint first reports metrics before its weight is trusted."
+																	type:        "string"
+																}
+																weightUpdatePeriod: {
+																	description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+																	type:        "string"
+																}
+															}
+															type: "object"
+														}
 														consistentHash: {
 															allOf: [{
 																oneOf: [{
@@ -3314,6 +3845,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	required: ["maglev"]
 																}]
 															}]
+															description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 															properties: {
 																httpCookie: {
 																	description: "Hash based on HTTP cookie."
@@ -3391,6 +3923,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															type: "object"
 														}
 														localityLbSetting: {
+															description: "Locality load balancer settings."
 															properties: {
 																distribute: {
 																	description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -3446,7 +3979,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														}
 														simple: {
 															description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -3496,6 +4029,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																rule:    "duration(self) >= duration('1ms')"
 															}]
 														}
+														zoneAwareLbSetting: {
+															description: "Zone Aware load balancer settings."
+															properties: {
+																enabled: {
+																	description: "Enable zone aware load balancing."
+																	nullable:    true
+																	type:        "boolean"
+																}
+																failover: {
+																	description: "Optional."
+																	items: {
+																		properties: {
+																			from: {
+																				description: "Originating region."
+																				type:        "string"
+																			}
+																			to: {
+																				description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																				type:        "string"
+																			}
+																		}
+																		type: "object"
+																	}
+																	type: "array"
+																}
+																failoverPriority: {
+																	description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+																	items: type: "string"
+																	type: "array"
+																}
+																minClusterSize: {
+																	description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+																	maximum:     4294967295
+																	minimum:     1
+																	nullable:    true
+																	type:        "integer"
+																}
+															}
+															type: "object"
+														}
 													}
 													type: "object"
 												}
@@ -3534,6 +4107,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															nullable:    true
 															type:        "integer"
 														}
+														failurePercentageThreshold: {
+															description: "The failure percentage to use when determining failure percentage-based outlier detection."
+															maximum:     100
+															minimum:     0
+															nullable:    true
+															type:        "integer"
+														}
 														interval: {
 															description: "Time interval between ejection sweep analysis."
 															type:        "string"
@@ -3551,6 +4131,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 															format:      "int32"
 															type:        "integer"
+														}
+														outlierDetectionHttpErrorCodes: {
+															description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+															items: {
+																maximum: 599
+																minimum: 100
+																type:    "integer"
+															}
+															type: "array"
 														}
 														splitExternalLocalOriginErrors: {
 															description: "Determines whether to distinguish local origin failures from external errors."
@@ -3585,6 +4174,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																				description: "Maximum number of requests that will be queued while waiting for a ready connection pool connection."
 																				format:      "int32"
 																				type:        "integer"
+																			}
+																			http2KeepAlive: {
+																				description: "Configure HTTP/2 PING frames for upstream connections."
+																				properties: {
+																					interval: {
+																						description: "Send HTTP/2 PING frames at this interval."
+																						type:        "string"
+																						"x-kubernetes-validations": [{
+																							message: "must be a valid duration greater than 1ms"
+																							rule:    "duration(self) >= duration('1ms')"
+																						}]
+																					}
+																					timeout: {
+																						description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																						type:        "string"
+																						"x-kubernetes-validations": [{
+																							message: "must be a valid duration greater than 1ms"
+																							rule:    "duration(self) >= duration('1ms')"
+																						}]
+																					}
+																				}
+																				type: "object"
 																			}
 																			http2MaxRequests: {
 																				description: "Maximum number of active requests to a destination."
@@ -3690,13 +4301,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		required: ["simple"]
 																	}, {
 																		required: ["consistentHash"]
+																	}, {
+																		required: ["backendUtilization"]
 																	}]
 																}, {
 																	required: ["simple"]
 																}, {
 																	required: ["consistentHash"]
+																}, {
+																	required: ["backendUtilization"]
 																}]
 																properties: {
+																	backendUtilization: {
+																		description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+																		properties: {
+																			errorUtilizationPenaltyPercent: {
+																				description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+																				maximum:     4294967295
+																				minimum:     0
+																				type:        "integer"
+																			}
+																			metricNamesForComputingUtilization: {
+																				description: "Custom ORCA metric names used to compute utilization."
+																				items: type: "string"
+																				type: "array"
+																			}
+																			weightExpirationPeriod: {
+																				description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+																				type:        "string"
+																			}
+																			weightStabilizationPeriod: {
+																				description: "Duration after an endpoint first reports metrics before its weight is trusted."
+																				type:        "string"
+																			}
+																			weightUpdatePeriod: {
+																				description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+																				type:        "string"
+																			}
+																		}
+																		type: "object"
+																	}
 																	consistentHash: {
 																		allOf: [{
 																			oneOf: [{
@@ -3731,6 +4375,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																				required: ["maglev"]
 																			}]
 																		}]
+																		description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 																		properties: {
 																			httpCookie: {
 																				description: "Hash based on HTTP cookie."
@@ -3808,6 +4453,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		type: "object"
 																	}
 																	localityLbSetting: {
+																		description: "Locality load balancer settings."
 																		properties: {
 																			distribute: {
 																				description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -3863,7 +4509,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	}
 																	simple: {
 																		description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -3913,6 +4559,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																			rule:    "duration(self) >= duration('1ms')"
 																		}]
 																	}
+																	zoneAwareLbSetting: {
+																		description: "Zone Aware load balancer settings."
+																		properties: {
+																			enabled: {
+																				description: "Enable zone aware load balancing."
+																				nullable:    true
+																				type:        "boolean"
+																			}
+																			failover: {
+																				description: "Optional."
+																				items: {
+																					properties: {
+																						from: {
+																							description: "Originating region."
+																							type:        "string"
+																						}
+																						to: {
+																							description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																							type:        "string"
+																						}
+																					}
+																					type: "object"
+																				}
+																				type: "array"
+																			}
+																			failoverPriority: {
+																				description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+																				items: type: "string"
+																				type: "array"
+																			}
+																			minClusterSize: {
+																				description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+																				maximum:     4294967295
+																				minimum:     1
+																				nullable:    true
+																				type:        "integer"
+																			}
+																		}
+																		type: "object"
+																	}
 																}
 																type: "object"
 															}
@@ -3951,6 +4637,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		nullable:    true
 																		type:        "integer"
 																	}
+																	failurePercentageThreshold: {
+																		description: "The failure percentage to use when determining failure percentage-based outlier detection."
+																		maximum:     100
+																		minimum:     0
+																		nullable:    true
+																		type:        "integer"
+																	}
 																	interval: {
 																		description: "Time interval between ejection sweep analysis."
 																		type:        "string"
@@ -3968,6 +4661,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 																		format:      "int32"
 																		type:        "integer"
+																	}
+																	outlierDetectionHttpErrorCodes: {
+																		description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+																		items: {
+																			maximum: 599
+																			minimum: 100
+																			type:    "integer"
+																		}
+																		type: "array"
 																	}
 																	splitExternalLocalOriginErrors: {
 																		description: "Determines whether to distinguish local origin failures from external errors."
@@ -3988,6 +4690,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															tls: {
 																description: "TLS related settings for connections to the upstream service."
 																properties: {
+																	caCertCredentialName: {
+																		description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+																		type:        "string"
+																	}
 																	caCertificates: {
 																		description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 																		type:        "string"
@@ -4064,6 +4770,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												retryBudget: {
 													description: "Specifies a limit on concurrent retries in relation to the number of active requests."
 													properties: {
+														budgetInterval: {
+															description: "Specifies the duration in which requests will be considered when calculating the budget for retries."
+															type:        "string"
+														}
 														minRetryConcurrency: {
 															description: "Specifies the minimum retry concurrency allowed for the retry budget."
 															maximum:     4294967295
@@ -4084,6 +4794,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												tls: {
 													description: "TLS related settings for connections to the upstream service."
 													properties: {
+														caCertCredentialName: {
+															description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+															type:        "string"
+														}
 														caCertificates: {
 															description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 															type:        "string"
@@ -4194,6 +4908,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														format:      "int32"
 														type:        "integer"
 													}
+													http2KeepAlive: {
+														description: "Configure HTTP/2 PING frames for upstream connections."
+														properties: {
+															interval: {
+																description: "Send HTTP/2 PING frames at this interval."
+																type:        "string"
+																"x-kubernetes-validations": [{
+																	message: "must be a valid duration greater than 1ms"
+																	rule:    "duration(self) >= duration('1ms')"
+																}]
+															}
+															timeout: {
+																description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																type:        "string"
+																"x-kubernetes-validations": [{
+																	message: "must be a valid duration greater than 1ms"
+																	rule:    "duration(self) >= duration('1ms')"
+																}]
+															}
+														}
+														type: "object"
+													}
 													http2MaxRequests: {
 														description: "Maximum number of active requests to a destination."
 														format:      "int32"
@@ -4298,13 +5034,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												required: ["simple"]
 											}, {
 												required: ["consistentHash"]
+											}, {
+												required: ["backendUtilization"]
 											}]
 										}, {
 											required: ["simple"]
 										}, {
 											required: ["consistentHash"]
+										}, {
+											required: ["backendUtilization"]
 										}]
 										properties: {
+											backendUtilization: {
+												description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+												properties: {
+													errorUtilizationPenaltyPercent: {
+														description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+														maximum:     4294967295
+														minimum:     0
+														type:        "integer"
+													}
+													metricNamesForComputingUtilization: {
+														description: "Custom ORCA metric names used to compute utilization."
+														items: type: "string"
+														type: "array"
+													}
+													weightExpirationPeriod: {
+														description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+														type:        "string"
+													}
+													weightStabilizationPeriod: {
+														description: "Duration after an endpoint first reports metrics before its weight is trusted."
+														type:        "string"
+													}
+													weightUpdatePeriod: {
+														description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+														type:        "string"
+													}
+												}
+												type: "object"
+											}
 											consistentHash: {
 												allOf: [{
 													oneOf: [{
@@ -4339,6 +5108,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														required: ["maglev"]
 													}]
 												}]
+												description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 												properties: {
 													httpCookie: {
 														description: "Hash based on HTTP cookie."
@@ -4416,6 +5186,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												type: "object"
 											}
 											localityLbSetting: {
+												description: "Locality load balancer settings."
 												properties: {
 													distribute: {
 														description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -4471,7 +5242,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 											}
 											simple: {
 												description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -4521,6 +5292,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 													rule:    "duration(self) >= duration('1ms')"
 												}]
 											}
+											zoneAwareLbSetting: {
+												description: "Zone Aware load balancer settings."
+												properties: {
+													enabled: {
+														description: "Enable zone aware load balancing."
+														nullable:    true
+														type:        "boolean"
+													}
+													failover: {
+														description: "Optional."
+														items: {
+															properties: {
+																from: {
+																	description: "Originating region."
+																	type:        "string"
+																}
+																to: {
+																	description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																	type:        "string"
+																}
+															}
+															type: "object"
+														}
+														type: "array"
+													}
+													failoverPriority: {
+														description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+														items: type: "string"
+														type: "array"
+													}
+													minClusterSize: {
+														description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+														maximum:     4294967295
+														minimum:     1
+														nullable:    true
+														type:        "integer"
+													}
+												}
+												type: "object"
+											}
 										}
 										type: "object"
 									}
@@ -4559,6 +5370,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												nullable:    true
 												type:        "integer"
 											}
+											failurePercentageThreshold: {
+												description: "The failure percentage to use when determining failure percentage-based outlier detection."
+												maximum:     100
+												minimum:     0
+												nullable:    true
+												type:        "integer"
+											}
 											interval: {
 												description: "Time interval between ejection sweep analysis."
 												type:        "string"
@@ -4576,6 +5394,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 												format:      "int32"
 												type:        "integer"
+											}
+											outlierDetectionHttpErrorCodes: {
+												description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+												items: {
+													maximum: 599
+													minimum: 100
+													type:    "integer"
+												}
+												type: "array"
 											}
 											splitExternalLocalOriginErrors: {
 												description: "Determines whether to distinguish local origin failures from external errors."
@@ -4610,6 +5437,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	description: "Maximum number of requests that will be queued while waiting for a ready connection pool connection."
 																	format:      "int32"
 																	type:        "integer"
+																}
+																http2KeepAlive: {
+																	description: "Configure HTTP/2 PING frames for upstream connections."
+																	properties: {
+																		interval: {
+																			description: "Send HTTP/2 PING frames at this interval."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																		timeout: {
+																			description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																	}
+																	type: "object"
 																}
 																http2MaxRequests: {
 																	description: "Maximum number of active requests to a destination."
@@ -4715,13 +5564,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															required: ["simple"]
 														}, {
 															required: ["consistentHash"]
+														}, {
+															required: ["backendUtilization"]
 														}]
 													}, {
 														required: ["simple"]
 													}, {
 														required: ["consistentHash"]
+													}, {
+														required: ["backendUtilization"]
 													}]
 													properties: {
+														backendUtilization: {
+															description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+															properties: {
+																errorUtilizationPenaltyPercent: {
+																	description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+																	maximum:     4294967295
+																	minimum:     0
+																	type:        "integer"
+																}
+																metricNamesForComputingUtilization: {
+																	description: "Custom ORCA metric names used to compute utilization."
+																	items: type: "string"
+																	type: "array"
+																}
+																weightExpirationPeriod: {
+																	description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+																	type:        "string"
+																}
+																weightStabilizationPeriod: {
+																	description: "Duration after an endpoint first reports metrics before its weight is trusted."
+																	type:        "string"
+																}
+																weightUpdatePeriod: {
+																	description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+																	type:        "string"
+																}
+															}
+															type: "object"
+														}
 														consistentHash: {
 															allOf: [{
 																oneOf: [{
@@ -4756,6 +5638,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	required: ["maglev"]
 																}]
 															}]
+															description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 															properties: {
 																httpCookie: {
 																	description: "Hash based on HTTP cookie."
@@ -4833,6 +5716,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															type: "object"
 														}
 														localityLbSetting: {
+															description: "Locality load balancer settings."
 															properties: {
 																distribute: {
 																	description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -4888,7 +5772,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														}
 														simple: {
 															description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -4938,6 +5822,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																rule:    "duration(self) >= duration('1ms')"
 															}]
 														}
+														zoneAwareLbSetting: {
+															description: "Zone Aware load balancer settings."
+															properties: {
+																enabled: {
+																	description: "Enable zone aware load balancing."
+																	nullable:    true
+																	type:        "boolean"
+																}
+																failover: {
+																	description: "Optional."
+																	items: {
+																		properties: {
+																			from: {
+																				description: "Originating region."
+																				type:        "string"
+																			}
+																			to: {
+																				description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																				type:        "string"
+																			}
+																		}
+																		type: "object"
+																	}
+																	type: "array"
+																}
+																failoverPriority: {
+																	description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+																	items: type: "string"
+																	type: "array"
+																}
+																minClusterSize: {
+																	description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+																	maximum:     4294967295
+																	minimum:     1
+																	nullable:    true
+																	type:        "integer"
+																}
+															}
+															type: "object"
+														}
 													}
 													type: "object"
 												}
@@ -4976,6 +5900,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															nullable:    true
 															type:        "integer"
 														}
+														failurePercentageThreshold: {
+															description: "The failure percentage to use when determining failure percentage-based outlier detection."
+															maximum:     100
+															minimum:     0
+															nullable:    true
+															type:        "integer"
+														}
 														interval: {
 															description: "Time interval between ejection sweep analysis."
 															type:        "string"
@@ -4993,6 +5924,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 															format:      "int32"
 															type:        "integer"
+														}
+														outlierDetectionHttpErrorCodes: {
+															description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+															items: {
+																maximum: 599
+																minimum: 100
+																type:    "integer"
+															}
+															type: "array"
 														}
 														splitExternalLocalOriginErrors: {
 															description: "Determines whether to distinguish local origin failures from external errors."
@@ -5013,6 +5953,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												tls: {
 													description: "TLS related settings for connections to the upstream service."
 													properties: {
+														caCertCredentialName: {
+															description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+															type:        "string"
+														}
 														caCertificates: {
 															description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 															type:        "string"
@@ -5089,6 +6033,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 									retryBudget: {
 										description: "Specifies a limit on concurrent retries in relation to the number of active requests."
 										properties: {
+											budgetInterval: {
+												description: "Specifies the duration in which requests will be considered when calculating the budget for retries."
+												type:        "string"
+											}
 											minRetryConcurrency: {
 												description: "Specifies the minimum retry concurrency allowed for the retry budget."
 												maximum:     4294967295
@@ -5109,6 +6057,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 									tls: {
 										description: "TLS related settings for connections to the upstream service."
 										properties: {
+											caCertCredentialName: {
+												description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+												type:        "string"
+											}
 											caCertificates: {
 												description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 												type:        "string"
@@ -5385,6 +6337,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	format:      "int32"
 																	type:        "integer"
 																}
+																http2KeepAlive: {
+																	description: "Configure HTTP/2 PING frames for upstream connections."
+																	properties: {
+																		interval: {
+																			description: "Send HTTP/2 PING frames at this interval."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																		timeout: {
+																			description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																	}
+																	type: "object"
+																}
 																http2MaxRequests: {
 																	description: "Maximum number of active requests to a destination."
 																	format:      "int32"
@@ -5489,13 +6463,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															required: ["simple"]
 														}, {
 															required: ["consistentHash"]
+														}, {
+															required: ["backendUtilization"]
 														}]
 													}, {
 														required: ["simple"]
 													}, {
 														required: ["consistentHash"]
+													}, {
+														required: ["backendUtilization"]
 													}]
 													properties: {
+														backendUtilization: {
+															description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+															properties: {
+																errorUtilizationPenaltyPercent: {
+																	description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+																	maximum:     4294967295
+																	minimum:     0
+																	type:        "integer"
+																}
+																metricNamesForComputingUtilization: {
+																	description: "Custom ORCA metric names used to compute utilization."
+																	items: type: "string"
+																	type: "array"
+																}
+																weightExpirationPeriod: {
+																	description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+																	type:        "string"
+																}
+																weightStabilizationPeriod: {
+																	description: "Duration after an endpoint first reports metrics before its weight is trusted."
+																	type:        "string"
+																}
+																weightUpdatePeriod: {
+																	description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+																	type:        "string"
+																}
+															}
+															type: "object"
+														}
 														consistentHash: {
 															allOf: [{
 																oneOf: [{
@@ -5530,6 +6537,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	required: ["maglev"]
 																}]
 															}]
+															description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 															properties: {
 																httpCookie: {
 																	description: "Hash based on HTTP cookie."
@@ -5607,6 +6615,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															type: "object"
 														}
 														localityLbSetting: {
+															description: "Locality load balancer settings."
 															properties: {
 																distribute: {
 																	description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -5662,7 +6671,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														}
 														simple: {
 															description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -5712,6 +6721,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																rule:    "duration(self) >= duration('1ms')"
 															}]
 														}
+														zoneAwareLbSetting: {
+															description: "Zone Aware load balancer settings."
+															properties: {
+																enabled: {
+																	description: "Enable zone aware load balancing."
+																	nullable:    true
+																	type:        "boolean"
+																}
+																failover: {
+																	description: "Optional."
+																	items: {
+																		properties: {
+																			from: {
+																				description: "Originating region."
+																				type:        "string"
+																			}
+																			to: {
+																				description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																				type:        "string"
+																			}
+																		}
+																		type: "object"
+																	}
+																	type: "array"
+																}
+																failoverPriority: {
+																	description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+																	items: type: "string"
+																	type: "array"
+																}
+																minClusterSize: {
+																	description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+																	maximum:     4294967295
+																	minimum:     1
+																	nullable:    true
+																	type:        "integer"
+																}
+															}
+															type: "object"
+														}
 													}
 													type: "object"
 												}
@@ -5750,6 +6799,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															nullable:    true
 															type:        "integer"
 														}
+														failurePercentageThreshold: {
+															description: "The failure percentage to use when determining failure percentage-based outlier detection."
+															maximum:     100
+															minimum:     0
+															nullable:    true
+															type:        "integer"
+														}
 														interval: {
 															description: "Time interval between ejection sweep analysis."
 															type:        "string"
@@ -5767,6 +6823,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 															format:      "int32"
 															type:        "integer"
+														}
+														outlierDetectionHttpErrorCodes: {
+															description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+															items: {
+																maximum: 599
+																minimum: 100
+																type:    "integer"
+															}
+															type: "array"
 														}
 														splitExternalLocalOriginErrors: {
 															description: "Determines whether to distinguish local origin failures from external errors."
@@ -5801,6 +6866,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																				description: "Maximum number of requests that will be queued while waiting for a ready connection pool connection."
 																				format:      "int32"
 																				type:        "integer"
+																			}
+																			http2KeepAlive: {
+																				description: "Configure HTTP/2 PING frames for upstream connections."
+																				properties: {
+																					interval: {
+																						description: "Send HTTP/2 PING frames at this interval."
+																						type:        "string"
+																						"x-kubernetes-validations": [{
+																							message: "must be a valid duration greater than 1ms"
+																							rule:    "duration(self) >= duration('1ms')"
+																						}]
+																					}
+																					timeout: {
+																						description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																						type:        "string"
+																						"x-kubernetes-validations": [{
+																							message: "must be a valid duration greater than 1ms"
+																							rule:    "duration(self) >= duration('1ms')"
+																						}]
+																					}
+																				}
+																				type: "object"
 																			}
 																			http2MaxRequests: {
 																				description: "Maximum number of active requests to a destination."
@@ -5906,13 +6993,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		required: ["simple"]
 																	}, {
 																		required: ["consistentHash"]
+																	}, {
+																		required: ["backendUtilization"]
 																	}]
 																}, {
 																	required: ["simple"]
 																}, {
 																	required: ["consistentHash"]
+																}, {
+																	required: ["backendUtilization"]
 																}]
 																properties: {
+																	backendUtilization: {
+																		description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+																		properties: {
+																			errorUtilizationPenaltyPercent: {
+																				description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+																				maximum:     4294967295
+																				minimum:     0
+																				type:        "integer"
+																			}
+																			metricNamesForComputingUtilization: {
+																				description: "Custom ORCA metric names used to compute utilization."
+																				items: type: "string"
+																				type: "array"
+																			}
+																			weightExpirationPeriod: {
+																				description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+																				type:        "string"
+																			}
+																			weightStabilizationPeriod: {
+																				description: "Duration after an endpoint first reports metrics before its weight is trusted."
+																				type:        "string"
+																			}
+																			weightUpdatePeriod: {
+																				description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+																				type:        "string"
+																			}
+																		}
+																		type: "object"
+																	}
 																	consistentHash: {
 																		allOf: [{
 																			oneOf: [{
@@ -5947,6 +7067,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																				required: ["maglev"]
 																			}]
 																		}]
+																		description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 																		properties: {
 																			httpCookie: {
 																				description: "Hash based on HTTP cookie."
@@ -6024,6 +7145,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		type: "object"
 																	}
 																	localityLbSetting: {
+																		description: "Locality load balancer settings."
 																		properties: {
 																			distribute: {
 																				description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -6079,7 +7201,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	}
 																	simple: {
 																		description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -6129,6 +7251,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																			rule:    "duration(self) >= duration('1ms')"
 																		}]
 																	}
+																	zoneAwareLbSetting: {
+																		description: "Zone Aware load balancer settings."
+																		properties: {
+																			enabled: {
+																				description: "Enable zone aware load balancing."
+																				nullable:    true
+																				type:        "boolean"
+																			}
+																			failover: {
+																				description: "Optional."
+																				items: {
+																					properties: {
+																						from: {
+																							description: "Originating region."
+																							type:        "string"
+																						}
+																						to: {
+																							description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																							type:        "string"
+																						}
+																					}
+																					type: "object"
+																				}
+																				type: "array"
+																			}
+																			failoverPriority: {
+																				description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+																				items: type: "string"
+																				type: "array"
+																			}
+																			minClusterSize: {
+																				description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+																				maximum:     4294967295
+																				minimum:     1
+																				nullable:    true
+																				type:        "integer"
+																			}
+																		}
+																		type: "object"
+																	}
 																}
 																type: "object"
 															}
@@ -6167,6 +7329,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		nullable:    true
 																		type:        "integer"
 																	}
+																	failurePercentageThreshold: {
+																		description: "The failure percentage to use when determining failure percentage-based outlier detection."
+																		maximum:     100
+																		minimum:     0
+																		nullable:    true
+																		type:        "integer"
+																	}
 																	interval: {
 																		description: "Time interval between ejection sweep analysis."
 																		type:        "string"
@@ -6184,6 +7353,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																		description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 																		format:      "int32"
 																		type:        "integer"
+																	}
+																	outlierDetectionHttpErrorCodes: {
+																		description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+																		items: {
+																			maximum: 599
+																			minimum: 100
+																			type:    "integer"
+																		}
+																		type: "array"
 																	}
 																	splitExternalLocalOriginErrors: {
 																		description: "Determines whether to distinguish local origin failures from external errors."
@@ -6204,6 +7382,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															tls: {
 																description: "TLS related settings for connections to the upstream service."
 																properties: {
+																	caCertCredentialName: {
+																		description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+																		type:        "string"
+																	}
 																	caCertificates: {
 																		description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 																		type:        "string"
@@ -6280,6 +7462,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												retryBudget: {
 													description: "Specifies a limit on concurrent retries in relation to the number of active requests."
 													properties: {
+														budgetInterval: {
+															description: "Specifies the duration in which requests will be considered when calculating the budget for retries."
+															type:        "string"
+														}
 														minRetryConcurrency: {
 															description: "Specifies the minimum retry concurrency allowed for the retry budget."
 															maximum:     4294967295
@@ -6300,6 +7486,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												tls: {
 													description: "TLS related settings for connections to the upstream service."
 													properties: {
+														caCertCredentialName: {
+															description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+															type:        "string"
+														}
 														caCertificates: {
 															description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 															type:        "string"
@@ -6410,6 +7600,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														format:      "int32"
 														type:        "integer"
 													}
+													http2KeepAlive: {
+														description: "Configure HTTP/2 PING frames for upstream connections."
+														properties: {
+															interval: {
+																description: "Send HTTP/2 PING frames at this interval."
+																type:        "string"
+																"x-kubernetes-validations": [{
+																	message: "must be a valid duration greater than 1ms"
+																	rule:    "duration(self) >= duration('1ms')"
+																}]
+															}
+															timeout: {
+																description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																type:        "string"
+																"x-kubernetes-validations": [{
+																	message: "must be a valid duration greater than 1ms"
+																	rule:    "duration(self) >= duration('1ms')"
+																}]
+															}
+														}
+														type: "object"
+													}
 													http2MaxRequests: {
 														description: "Maximum number of active requests to a destination."
 														format:      "int32"
@@ -6514,13 +7726,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												required: ["simple"]
 											}, {
 												required: ["consistentHash"]
+											}, {
+												required: ["backendUtilization"]
 											}]
 										}, {
 											required: ["simple"]
 										}, {
 											required: ["consistentHash"]
+										}, {
+											required: ["backendUtilization"]
 										}]
 										properties: {
+											backendUtilization: {
+												description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+												properties: {
+													errorUtilizationPenaltyPercent: {
+														description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+														maximum:     4294967295
+														minimum:     0
+														type:        "integer"
+													}
+													metricNamesForComputingUtilization: {
+														description: "Custom ORCA metric names used to compute utilization."
+														items: type: "string"
+														type: "array"
+													}
+													weightExpirationPeriod: {
+														description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+														type:        "string"
+													}
+													weightStabilizationPeriod: {
+														description: "Duration after an endpoint first reports metrics before its weight is trusted."
+														type:        "string"
+													}
+													weightUpdatePeriod: {
+														description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+														type:        "string"
+													}
+												}
+												type: "object"
+											}
 											consistentHash: {
 												allOf: [{
 													oneOf: [{
@@ -6555,6 +7800,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														required: ["maglev"]
 													}]
 												}]
+												description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 												properties: {
 													httpCookie: {
 														description: "Hash based on HTTP cookie."
@@ -6632,6 +7878,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												type: "object"
 											}
 											localityLbSetting: {
+												description: "Locality load balancer settings."
 												properties: {
 													distribute: {
 														description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -6687,7 +7934,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 											}
 											simple: {
 												description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -6737,6 +7984,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 													rule:    "duration(self) >= duration('1ms')"
 												}]
 											}
+											zoneAwareLbSetting: {
+												description: "Zone Aware load balancer settings."
+												properties: {
+													enabled: {
+														description: "Enable zone aware load balancing."
+														nullable:    true
+														type:        "boolean"
+													}
+													failover: {
+														description: "Optional."
+														items: {
+															properties: {
+																from: {
+																	description: "Originating region."
+																	type:        "string"
+																}
+																to: {
+																	description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																	type:        "string"
+																}
+															}
+															type: "object"
+														}
+														type: "array"
+													}
+													failoverPriority: {
+														description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+														items: type: "string"
+														type: "array"
+													}
+													minClusterSize: {
+														description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+														maximum:     4294967295
+														minimum:     1
+														nullable:    true
+														type:        "integer"
+													}
+												}
+												type: "object"
+											}
 										}
 										type: "object"
 									}
@@ -6775,6 +8062,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												nullable:    true
 												type:        "integer"
 											}
+											failurePercentageThreshold: {
+												description: "The failure percentage to use when determining failure percentage-based outlier detection."
+												maximum:     100
+												minimum:     0
+												nullable:    true
+												type:        "integer"
+											}
 											interval: {
 												description: "Time interval between ejection sweep analysis."
 												type:        "string"
@@ -6792,6 +8086,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 												format:      "int32"
 												type:        "integer"
+											}
+											outlierDetectionHttpErrorCodes: {
+												description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+												items: {
+													maximum: 599
+													minimum: 100
+													type:    "integer"
+												}
+												type: "array"
 											}
 											splitExternalLocalOriginErrors: {
 												description: "Determines whether to distinguish local origin failures from external errors."
@@ -6826,6 +8129,28 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	description: "Maximum number of requests that will be queued while waiting for a ready connection pool connection."
 																	format:      "int32"
 																	type:        "integer"
+																}
+																http2KeepAlive: {
+																	description: "Configure HTTP/2 PING frames for upstream connections."
+																	properties: {
+																		interval: {
+																			description: "Send HTTP/2 PING frames at this interval."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																		timeout: {
+																			description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																			type:        "string"
+																			"x-kubernetes-validations": [{
+																				message: "must be a valid duration greater than 1ms"
+																				rule:    "duration(self) >= duration('1ms')"
+																			}]
+																		}
+																	}
+																	type: "object"
 																}
 																http2MaxRequests: {
 																	description: "Maximum number of active requests to a destination."
@@ -6931,13 +8256,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															required: ["simple"]
 														}, {
 															required: ["consistentHash"]
+														}, {
+															required: ["backendUtilization"]
 														}]
 													}, {
 														required: ["simple"]
 													}, {
 														required: ["consistentHash"]
+													}, {
+														required: ["backendUtilization"]
 													}]
 													properties: {
+														backendUtilization: {
+															description: "Utilization-based load balancing that uses backend-reported ORCA metrics to weight endpoints by their current load."
+															properties: {
+																errorUtilizationPenaltyPercent: {
+																	description: "Additional penalty applied to endpoints that return errors, expressed as a percentage of the utilization."
+																	maximum:     4294967295
+																	minimum:     0
+																	type:        "integer"
+																}
+																metricNamesForComputingUtilization: {
+																	description: "Custom ORCA metric names used to compute utilization."
+																	items: type: "string"
+																	type: "array"
+																}
+																weightExpirationPeriod: {
+																	description: "If an endpoint stops reporting utilization metrics for this long, its reported weight is discarded and it reverts to the default (equal) weight."
+																	type:        "string"
+																}
+																weightStabilizationPeriod: {
+																	description: "Duration after an endpoint first reports metrics before its weight is trusted."
+																	type:        "string"
+																}
+																weightUpdatePeriod: {
+																	description: "How often the load balancer recomputes endpoint weights from the latest reported utilization data."
+																	type:        "string"
+																}
+															}
+															type: "object"
+														}
 														consistentHash: {
 															allOf: [{
 																oneOf: [{
@@ -6972,6 +8330,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																	required: ["maglev"]
 																}]
 															}]
+															description: "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties."
 															properties: {
 																httpCookie: {
 																	description: "Hash based on HTTP cookie."
@@ -7049,6 +8408,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															type: "object"
 														}
 														localityLbSetting: {
+															description: "Locality load balancer settings."
 															properties: {
 																distribute: {
 																	description: "Optional: only one of distribute, failover or failoverPriority can be set."
@@ -7104,7 +8464,7 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 														}
 														simple: {
 															description: """
-
+	Standard load balancing algorithms that require no tuning.
 
 	Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
 	"""
@@ -7154,6 +8514,46 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 																rule:    "duration(self) >= duration('1ms')"
 															}]
 														}
+														zoneAwareLbSetting: {
+															description: "Zone Aware load balancer settings."
+															properties: {
+																enabled: {
+																	description: "Enable zone aware load balancing."
+																	nullable:    true
+																	type:        "boolean"
+																}
+																failover: {
+																	description: "Optional."
+																	items: {
+																		properties: {
+																			from: {
+																				description: "Originating region."
+																				type:        "string"
+																			}
+																			to: {
+																				description: "Destination region the traffic will fail over to when endpoints in the 'from' region becomes unhealthy."
+																				type:        "string"
+																			}
+																		}
+																		type: "object"
+																	}
+																	type: "array"
+																}
+																failoverPriority: {
+																	description: "failoverPriority is an ordered list of labels used to sort endpoints for priority-based load balancing."
+																	items: type: "string"
+																	type: "array"
+																}
+																minClusterSize: {
+																	description: "Minimum number of hosts in the upstream cluster's local region required for zone-aware load balancing to be enabled."
+																	maximum:     4294967295
+																	minimum:     1
+																	nullable:    true
+																	type:        "integer"
+																}
+															}
+															type: "object"
+														}
 													}
 													type: "object"
 												}
@@ -7192,6 +8592,13 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															nullable:    true
 															type:        "integer"
 														}
+														failurePercentageThreshold: {
+															description: "The failure percentage to use when determining failure percentage-based outlier detection."
+															maximum:     100
+															minimum:     0
+															nullable:    true
+															type:        "integer"
+														}
 														interval: {
 															description: "Time interval between ejection sweep analysis."
 															type:        "string"
@@ -7209,6 +8616,15 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 															description: "Outlier detection will be enabled as long as the associated load balancing pool has at least `minHealthPercent` hosts in healthy mode."
 															format:      "int32"
 															type:        "integer"
+														}
+														outlierDetectionHttpErrorCodes: {
+															description: "Specifies the HTTP response status codes that are treated as outlier detection errors."
+															items: {
+																maximum: 599
+																minimum: 100
+																type:    "integer"
+															}
+															type: "array"
 														}
 														splitExternalLocalOriginErrors: {
 															description: "Determines whether to distinguish local origin failures from external errors."
@@ -7229,6 +8645,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 												tls: {
 													description: "TLS related settings for connections to the upstream service."
 													properties: {
+														caCertCredentialName: {
+															description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+															type:        "string"
+														}
 														caCertificates: {
 															description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 															type:        "string"
@@ -7305,6 +8725,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 									retryBudget: {
 										description: "Specifies a limit on concurrent retries in relation to the number of active requests."
 										properties: {
+											budgetInterval: {
+												description: "Specifies the duration in which requests will be considered when calculating the budget for retries."
+												type:        "string"
+											}
 											minRetryConcurrency: {
 												description: "Specifies the minimum retry concurrency allowed for the retry budget."
 												maximum:     4294967295
@@ -7325,6 +8749,10 @@ _istioCRDs: "destinationrules.networking.istio.io": {
 									tls: {
 										description: "TLS related settings for connections to the upstream service."
 										properties: {
+											caCertCredentialName: {
+												description: "The name of the secret or the configmap that holds CA certificates used to verify the server's certificate."
+												type:        "string"
+											}
 											caCertificates: {
 												description: "OPTIONAL: The path to the file containing certificate authority certificates to use in verifying a presented server certificate."
 												type:        "string"
@@ -7704,6 +9132,10 @@ _istioCRDs: "envoyfilters.networking.istio.io": {
 																	description: "Applies only to `SIDECAR_INBOUND` context."
 																	type:        "string"
 																}
+																transportSocket: {
+																	description: "If non-empty, the name of the transport socket the filter chain is configured with."
+																	type:        "string"
+																}
 															}
 															type: "object"
 														}
@@ -7871,7 +9303,7 @@ _istioCRDs: "envoyfilters.networking.istio.io": {
 													description: """
 	Determines how the patch should be applied.
 
-	Valid Options: MERGE, ADD, REMOVE, INSERT_BEFORE, INSERT_AFTER, INSERT_FIRST, REPLACE
+	Valid Options: MERGE, ADD, REMOVE, INSERT_BEFORE, INSERT_AFTER, INSERT_FIRST, REPLACE, MERGE_AND_REPLACE_LIST
 	"""
 													enum: [
 														"INVALID",
@@ -7882,6 +9314,7 @@ _istioCRDs: "envoyfilters.networking.istio.io": {
 														"INSERT_AFTER",
 														"INSERT_FIRST",
 														"REPLACE",
+														"MERGE_AND_REPLACE_LIST",
 													]
 													type: "string"
 												}
@@ -8165,6 +9598,11 @@ _istioCRDs: "gateways.networking.istio.io": {
 										tls: {
 											description: "Set of TLS related options that govern the server's behavior."
 											properties: {
+												alpnProtocols: {
+													description: "Optional: If specified, the ALPN protocols advertised by the proxy during the TLS handshake are overridden with this list."
+													items: type: "string"
+													type: "array"
+												}
 												caCertCredentialName: {
 													description: "For mutual TLS, the name of the secret or the configmap that holds CA certificates."
 													type:        "string"
@@ -8193,8 +9631,18 @@ _istioCRDs: "gateways.networking.istio.io": {
 													minItems: 1
 													type:     "array"
 												}
+												ecdhCurves: {
+													description: "Optional: If specified, only support the specified ecdh curves."
+													items: type: "string"
+													type: "array"
+												}
 												httpsRedirect: {
 													description: "If set to true, the load balancer will send a 301 redirect for all http connections, asking the clients to use HTTPS."
+													type:        "boolean"
+												}
+												insecureSkipVerify: {
+													description: "Optional: If set to true, the proxy will try to validate the certificate, but even if the validation fails, it will allow the connection through."
+													nullable:    true
 													type:        "boolean"
 												}
 												maxProtocolVersion: {
@@ -8478,6 +9926,11 @@ _istioCRDs: "gateways.networking.istio.io": {
 										tls: {
 											description: "Set of TLS related options that govern the server's behavior."
 											properties: {
+												alpnProtocols: {
+													description: "Optional: If specified, the ALPN protocols advertised by the proxy during the TLS handshake are overridden with this list."
+													items: type: "string"
+													type: "array"
+												}
 												caCertCredentialName: {
 													description: "For mutual TLS, the name of the secret or the configmap that holds CA certificates."
 													type:        "string"
@@ -8506,8 +9959,18 @@ _istioCRDs: "gateways.networking.istio.io": {
 													minItems: 1
 													type:     "array"
 												}
+												ecdhCurves: {
+													description: "Optional: If specified, only support the specified ecdh curves."
+													items: type: "string"
+													type: "array"
+												}
 												httpsRedirect: {
 													description: "If set to true, the load balancer will send a 301 redirect for all http connections, asking the clients to use HTTPS."
+													type:        "boolean"
+												}
+												insecureSkipVerify: {
+													description: "Optional: If set to true, the proxy will try to validate the certificate, but even if the validation fails, it will allow the connection through."
+													nullable:    true
 													type:        "boolean"
 												}
 												maxProtocolVersion: {
@@ -8791,6 +10254,11 @@ _istioCRDs: "gateways.networking.istio.io": {
 										tls: {
 											description: "Set of TLS related options that govern the server's behavior."
 											properties: {
+												alpnProtocols: {
+													description: "Optional: If specified, the ALPN protocols advertised by the proxy during the TLS handshake are overridden with this list."
+													items: type: "string"
+													type: "array"
+												}
 												caCertCredentialName: {
 													description: "For mutual TLS, the name of the secret or the configmap that holds CA certificates."
 													type:        "string"
@@ -8819,8 +10287,18 @@ _istioCRDs: "gateways.networking.istio.io": {
 													minItems: 1
 													type:     "array"
 												}
+												ecdhCurves: {
+													description: "Optional: If specified, only support the specified ecdh curves."
+													items: type: "string"
+													type: "array"
+												}
 												httpsRedirect: {
 													description: "If set to true, the load balancer will send a 301 redirect for all http connections, asking the clients to use HTTPS."
+													type:        "boolean"
+												}
+												insecureSkipVerify: {
+													description: "Optional: If set to true, the proxy will try to validate the certificate, but even if the validation fails, it will allow the connection through."
+													nullable:    true
 													type:        "boolean"
 												}
 												maxProtocolVersion: {
@@ -10428,6 +11906,28 @@ _istioCRDs: "sidecars.networking.istio.io": {
 												format:      "int32"
 												type:        "integer"
 											}
+											http2KeepAlive: {
+												description: "Configure HTTP/2 PING frames for upstream connections."
+												properties: {
+													interval: {
+														description: "Send HTTP/2 PING frames at this interval."
+														type:        "string"
+														"x-kubernetes-validations": [{
+															message: "must be a valid duration greater than 1ms"
+															rule:    "duration(self) >= duration('1ms')"
+														}]
+													}
+													timeout: {
+														description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+														type:        "string"
+														"x-kubernetes-validations": [{
+															message: "must be a valid duration greater than 1ms"
+															rule:    "duration(self) >= duration('1ms')"
+														}]
+													}
+												}
+												type: "object"
+											}
 											http2MaxRequests: {
 												description: "Maximum number of active requests to a destination."
 												format:      "int32"
@@ -10570,6 +12070,28 @@ _istioCRDs: "sidecars.networking.istio.io": {
 															format:      "int32"
 															type:        "integer"
 														}
+														http2KeepAlive: {
+															description: "Configure HTTP/2 PING frames for upstream connections."
+															properties: {
+																interval: {
+																	description: "Send HTTP/2 PING frames at this interval."
+																	type:        "string"
+																	"x-kubernetes-validations": [{
+																		message: "must be a valid duration greater than 1ms"
+																		rule:    "duration(self) >= duration('1ms')"
+																	}]
+																}
+																timeout: {
+																	description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																	type:        "string"
+																	"x-kubernetes-validations": [{
+																		message: "must be a valid duration greater than 1ms"
+																		rule:    "duration(self) >= duration('1ms')"
+																	}]
+																}
+															}
+															type: "object"
+														}
 														http2MaxRequests: {
 															description: "Maximum number of active requests to a destination."
 															format:      "int32"
@@ -10699,6 +12221,11 @@ _istioCRDs: "sidecars.networking.istio.io": {
 										tls: {
 											description: "Set of TLS related options that will enable TLS termination on the sidecar for requests originating from outside the mesh."
 											properties: {
+												alpnProtocols: {
+													description: "Optional: If specified, the ALPN protocols advertised by the proxy during the TLS handshake are overridden with this list."
+													items: type: "string"
+													type: "array"
+												}
 												caCertCredentialName: {
 													description: "For mutual TLS, the name of the secret or the configmap that holds CA certificates."
 													type:        "string"
@@ -10727,8 +12254,18 @@ _istioCRDs: "sidecars.networking.istio.io": {
 													minItems: 1
 													type:     "array"
 												}
+												ecdhCurves: {
+													description: "Optional: If specified, only support the specified ecdh curves."
+													items: type: "string"
+													type: "array"
+												}
 												httpsRedirect: {
 													description: "If set to true, the load balancer will send a 301 redirect for all http connections, asking the clients to use HTTPS."
+													type:        "boolean"
+												}
+												insecureSkipVerify: {
+													description: "Optional: If set to true, the proxy will try to validate the certificate, but even if the validation fails, it will allow the connection through."
+													nullable:    true
 													type:        "boolean"
 												}
 												maxProtocolVersion: {
@@ -11092,6 +12629,28 @@ _istioCRDs: "sidecars.networking.istio.io": {
 												format:      "int32"
 												type:        "integer"
 											}
+											http2KeepAlive: {
+												description: "Configure HTTP/2 PING frames for upstream connections."
+												properties: {
+													interval: {
+														description: "Send HTTP/2 PING frames at this interval."
+														type:        "string"
+														"x-kubernetes-validations": [{
+															message: "must be a valid duration greater than 1ms"
+															rule:    "duration(self) >= duration('1ms')"
+														}]
+													}
+													timeout: {
+														description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+														type:        "string"
+														"x-kubernetes-validations": [{
+															message: "must be a valid duration greater than 1ms"
+															rule:    "duration(self) >= duration('1ms')"
+														}]
+													}
+												}
+												type: "object"
+											}
 											http2MaxRequests: {
 												description: "Maximum number of active requests to a destination."
 												format:      "int32"
@@ -11234,6 +12793,28 @@ _istioCRDs: "sidecars.networking.istio.io": {
 															format:      "int32"
 															type:        "integer"
 														}
+														http2KeepAlive: {
+															description: "Configure HTTP/2 PING frames for upstream connections."
+															properties: {
+																interval: {
+																	description: "Send HTTP/2 PING frames at this interval."
+																	type:        "string"
+																	"x-kubernetes-validations": [{
+																		message: "must be a valid duration greater than 1ms"
+																		rule:    "duration(self) >= duration('1ms')"
+																	}]
+																}
+																timeout: {
+																	description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																	type:        "string"
+																	"x-kubernetes-validations": [{
+																		message: "must be a valid duration greater than 1ms"
+																		rule:    "duration(self) >= duration('1ms')"
+																	}]
+																}
+															}
+															type: "object"
+														}
 														http2MaxRequests: {
 															description: "Maximum number of active requests to a destination."
 															format:      "int32"
@@ -11363,6 +12944,11 @@ _istioCRDs: "sidecars.networking.istio.io": {
 										tls: {
 											description: "Set of TLS related options that will enable TLS termination on the sidecar for requests originating from outside the mesh."
 											properties: {
+												alpnProtocols: {
+													description: "Optional: If specified, the ALPN protocols advertised by the proxy during the TLS handshake are overridden with this list."
+													items: type: "string"
+													type: "array"
+												}
 												caCertCredentialName: {
 													description: "For mutual TLS, the name of the secret or the configmap that holds CA certificates."
 													type:        "string"
@@ -11391,8 +12977,18 @@ _istioCRDs: "sidecars.networking.istio.io": {
 													minItems: 1
 													type:     "array"
 												}
+												ecdhCurves: {
+													description: "Optional: If specified, only support the specified ecdh curves."
+													items: type: "string"
+													type: "array"
+												}
 												httpsRedirect: {
 													description: "If set to true, the load balancer will send a 301 redirect for all http connections, asking the clients to use HTTPS."
+													type:        "boolean"
+												}
+												insecureSkipVerify: {
+													description: "Optional: If set to true, the proxy will try to validate the certificate, but even if the validation fails, it will allow the connection through."
+													nullable:    true
 													type:        "boolean"
 												}
 												maxProtocolVersion: {
@@ -11756,6 +13352,28 @@ _istioCRDs: "sidecars.networking.istio.io": {
 												format:      "int32"
 												type:        "integer"
 											}
+											http2KeepAlive: {
+												description: "Configure HTTP/2 PING frames for upstream connections."
+												properties: {
+													interval: {
+														description: "Send HTTP/2 PING frames at this interval."
+														type:        "string"
+														"x-kubernetes-validations": [{
+															message: "must be a valid duration greater than 1ms"
+															rule:    "duration(self) >= duration('1ms')"
+														}]
+													}
+													timeout: {
+														description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+														type:        "string"
+														"x-kubernetes-validations": [{
+															message: "must be a valid duration greater than 1ms"
+															rule:    "duration(self) >= duration('1ms')"
+														}]
+													}
+												}
+												type: "object"
+											}
 											http2MaxRequests: {
 												description: "Maximum number of active requests to a destination."
 												format:      "int32"
@@ -11898,6 +13516,28 @@ _istioCRDs: "sidecars.networking.istio.io": {
 															format:      "int32"
 															type:        "integer"
 														}
+														http2KeepAlive: {
+															description: "Configure HTTP/2 PING frames for upstream connections."
+															properties: {
+																interval: {
+																	description: "Send HTTP/2 PING frames at this interval."
+																	type:        "string"
+																	"x-kubernetes-validations": [{
+																		message: "must be a valid duration greater than 1ms"
+																		rule:    "duration(self) >= duration('1ms')"
+																	}]
+																}
+																timeout: {
+																	description: "How long to wait for a response to an HTTP/2 PING frame before closing the connection."
+																	type:        "string"
+																	"x-kubernetes-validations": [{
+																		message: "must be a valid duration greater than 1ms"
+																		rule:    "duration(self) >= duration('1ms')"
+																	}]
+																}
+															}
+															type: "object"
+														}
 														http2MaxRequests: {
 															description: "Maximum number of active requests to a destination."
 															format:      "int32"
@@ -12027,6 +13667,11 @@ _istioCRDs: "sidecars.networking.istio.io": {
 										tls: {
 											description: "Set of TLS related options that will enable TLS termination on the sidecar for requests originating from outside the mesh."
 											properties: {
+												alpnProtocols: {
+													description: "Optional: If specified, the ALPN protocols advertised by the proxy during the TLS handshake are overridden with this list."
+													items: type: "string"
+													type: "array"
+												}
 												caCertCredentialName: {
 													description: "For mutual TLS, the name of the secret or the configmap that holds CA certificates."
 													type:        "string"
@@ -12055,8 +13700,18 @@ _istioCRDs: "sidecars.networking.istio.io": {
 													minItems: 1
 													type:     "array"
 												}
+												ecdhCurves: {
+													description: "Optional: If specified, only support the specified ecdh curves."
+													items: type: "string"
+													type: "array"
+												}
 												httpsRedirect: {
 													description: "If set to true, the load balancer will send a 301 redirect for all http connections, asking the clients to use HTTPS."
+													type:        "boolean"
+												}
+												insecureSkipVerify: {
+													description: "Optional: If set to true, the proxy will try to validate the certificate, but even if the validation fails, it will allow the connection through."
+													nullable:    true
 													type:        "boolean"
 												}
 												maxProtocolVersion: {
@@ -13029,6 +14684,10 @@ _istioCRDs: "virtualservices.networking.istio.io": {
 													minimum:     0
 													type:        "integer"
 												}
+												prefixRewrite: {
+													description: "On a redirect, replace the matched prefix with this value."
+													type:        "string"
+												}
 												redirectCode: {
 													description: "On a redirect, Specifies the HTTP status code to use in the redirect response."
 													maximum:     4294967295
@@ -14152,6 +15811,10 @@ _istioCRDs: "virtualservices.networking.istio.io": {
 													minimum:     0
 													type:        "integer"
 												}
+												prefixRewrite: {
+													description: "On a redirect, replace the matched prefix with this value."
+													type:        "string"
+												}
 												redirectCode: {
 													description: "On a redirect, Specifies the HTTP status code to use in the redirect response."
 													maximum:     4294967295
@@ -15274,6 +16937,10 @@ _istioCRDs: "virtualservices.networking.istio.io": {
 													maximum:     4294967295
 													minimum:     0
 													type:        "integer"
+												}
+												prefixRewrite: {
+													description: "On a redirect, replace the matched prefix with this value."
+													type:        "string"
 												}
 												redirectCode: {
 													description: "On a redirect, Specifies the HTTP status code to use in the redirect response."
@@ -18912,6 +20579,18 @@ _istioCRDs: "requestauthentications.security.istio.io": {
 											description: "This field specifies the header name to output a successfully verified JWT payload to the backend."
 											type:        "string"
 										}
+										presence: {
+											description: """
+	Configures whether the JWT token must be present in the request.
+
+	Valid Options: OPTIONAL, REQUIRED
+	"""
+											enum: [
+												"OPTIONAL",
+												"REQUIRED",
+											]
+											type: "string"
+										}
 										spaceDelimitedClaims: {
 											description: "List of JWT claim names that should be treated as space-delimited strings."
 											items: {
@@ -19265,6 +20944,18 @@ _istioCRDs: "requestauthentications.security.istio.io": {
 										outputPayloadToHeader: {
 											description: "This field specifies the header name to output a successfully verified JWT payload to the backend."
 											type:        "string"
+										}
+										presence: {
+											description: """
+	Configures whether the JWT token must be present in the request.
+
+	Valid Options: OPTIONAL, REQUIRED
+	"""
+											enum: [
+												"OPTIONAL",
+												"REQUIRED",
+											]
+											type: "string"
 										}
 										spaceDelimitedClaims: {
 											description: "List of JWT claim names that should be treated as space-delimited strings."

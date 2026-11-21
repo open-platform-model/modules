@@ -30,6 +30,7 @@ import (
 		tr.#ResourceName
 		tr.#PodMetadata
 		tr.#PodScheduling
+		tr.#GracefulShutdown
 
 		// PDB and NetworkPolicy attach conditionally. Attaching them
 		// unconditionally is not an option: #DisruptionBudgetSchema requires
@@ -135,10 +136,6 @@ import (
 						}
 						PILOT_ENABLE_ANALYSIS: {name: "PILOT_ENABLE_ANALYSIS", value: "false"}
 						CLUSTER_ID: {name: "CLUSTER_ID", value: #config.mesh.clusterName}
-						GOMAXPROCS: {
-							name: "GOMAXPROCS"
-							resourceFieldRef: {resource: "limits.cpu", divisor: "1"}
-						}
 						PLATFORM: {name: "PLATFORM", value: ""}
 
 						for k, v in #config.pilot.env {
@@ -302,6 +299,11 @@ import (
 				key:      "cni.istio.io/not-ready"
 				operator: "Exists"
 			}]
+
+			// Upstream renders this from 1.32 on. GOMAXPROCS was dropped at the
+			// same release: the Go runtime is container-aware, so the env that
+			// pinned it to limits.cpu is gone from every Istio chart.
+			gracefulShutdown: terminationGracePeriodSeconds: #config.pilot.terminationGracePeriodSeconds
 
 			if #config.networkPolicy.enabled {
 				networkPolicy: {

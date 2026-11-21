@@ -1,6 +1,8 @@
 package istio_ambient
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/yaml"
 
@@ -43,7 +45,7 @@ _meshConfig: {
 /////////////////////////////////////////////////////////////////
 //// CNI agent configuration
 ////
-//// At 1.30 this is a FLAT env-var map consumed by the agent via
+//// Since 1.30 this is a FLAT env-var map consumed by the agent via
 //// `envFrom: configMapRef`, not the chained-CNI JSON blob older charts used.
 /////////////////////////////////////////////////////////////////
 
@@ -82,6 +84,11 @@ _cniConfig: {
 	REPAIR_BROKEN_POD_LABEL_VALUE:          "true"
 	NATIVE_NFTABLES:                        "false"
 }
+
+// Pod-template annotation on istio-cni-node (checksum/cni-config). Upstream
+// hashes the rendered ConfigMap template; this hashes the data map the
+// ConfigMap carries, which changes exactly when the agent's env would.
+_cniConfigChecksum: hex.Encode(sha256.Sum256(json.Marshal(_cniConfig)))
 
 /////////////////////////////////////////////////////////////////
 //// Sidecar injector configuration

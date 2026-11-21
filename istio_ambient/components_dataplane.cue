@@ -80,7 +80,6 @@ _nodeAgentScheduling: {
 						ALLOW_SWITCH_TO_HOST_NS: {name: "ALLOW_SWITCH_TO_HOST_NS", value: "true"}
 						NODE_NAME: {name: "NODE_NAME", fieldRef: {apiVersion: "v1", fieldPath: "spec.nodeName"}}
 						GOMEMLIMIT: {name: "GOMEMLIMIT", resourceFieldRef: {resource: "limits.memory", divisor: "1"}}
-						GOMAXPROCS: {name: "GOMAXPROCS", resourceFieldRef: {resource: "limits.cpu", divisor: "1"}}
 						POD_NAME: {name: "POD_NAME", fieldRef: fieldPath: "metadata.name"}
 						POD_NAMESPACE: {name: "POD_NAMESPACE", fieldRef: fieldPath: "metadata.namespace"}
 					}
@@ -205,9 +204,14 @@ _nodeAgentScheduling: {
 					"prometheus.io/port":   "15014"
 					"prometheus.io/path":   "/metrics"
 					// AppArmor blocks some of the privileged operations the
-					// agent needs. Still the annotation form at 1.30.3 — the
+					// agent needs. Still the annotation form at 1.32.0 — the
 					// chart has not moved to securityContext.appArmorProfile.
 					"container.apparmor.security.beta.kubernetes.io/install-cni": "unconfined"
+					// Rolls the agent when istio-cni-config changes; the agent
+					// reads it via envFrom only at start. Added upstream in 1.31
+					// (helm hashes its rendered template, so the VALUE differs
+					// from Helm's; the trigger semantics are the same).
+					"checksum/cni-config": _cniConfigChecksum
 				}
 			}
 
@@ -287,6 +291,21 @@ _nodeAgentScheduling: {
 						SERVICE_ACCOUNT: {name: "SERVICE_ACCOUNT", fieldRef: fieldPath: "spec.serviceAccountName"}
 						ISTIO_META_ENABLE_HBONE: {name: "ISTIO_META_ENABLE_HBONE", value: "true"}
 						ZTUNNEL_CPU_LIMIT: {name: "ZTUNNEL_CPU_LIMIT", resourceFieldRef: {resource: "limits.cpu", divisor: "1"}}
+						// 1.31+: ztunnel sizes its worker threads from these.
+						// Upstream renders each only when the matching resource
+						// value is set, so they follow #config.ztunnel.resources.
+						if #config.ztunnel.resources != _|_ {
+							if #config.ztunnel.resources.limits != _|_ {
+								if #config.ztunnel.resources.limits.cpu != _|_ {
+									ZTUNNEL_RESOURCE_CPU_LIMIT: {name: "ZTUNNEL_RESOURCE_CPU_LIMIT", resourceFieldRef: {resource: "limits.cpu", divisor: "1"}}
+								}
+							}
+							if #config.ztunnel.resources.requests != _|_ {
+								if #config.ztunnel.resources.requests.cpu != _|_ {
+									ZTUNNEL_RESOURCE_CPU_REQUEST: {name: "ZTUNNEL_RESOURCE_CPU_REQUEST", resourceFieldRef: {resource: "requests.cpu", divisor: "1"}}
+								}
+							}
+						}
 					}
 
 					// Port 15021 is deliberately not a declared containerPort —

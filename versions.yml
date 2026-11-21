@@ -15,7 +15,7 @@ intel_gpu_device_plugin:
 intel_gpu_exporter:
   version: v1.0.1
 istio_ambient:
-  version: v1.1.1
+  version: v1.2.0
 jellyfin:
   version: v2.5.1
 jellystat:

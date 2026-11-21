@@ -14,7 +14,7 @@
 // - crds_*_data.cue:             vendored upstream CRDs (generated — do not hand-edit)
 // - injector_*_data.cue:         vendored sidecar-injector templates and values
 //
-// Transcribed from the official `ambient` umbrella chart at 1.30.3
+// Transcribed from the official `ambient` umbrella chart at 1.32.0
 // (https://artifacthub.io/packages/helm/istio-official/ambient). That chart is
 // `istio/istio` → manifests/sample-charts/ambient/, two files with no
 // templates; its output is provably identical to rendering base + cni + istiod +
@@ -46,7 +46,7 @@ m.#Module
 metadata: {
 	modulePath:  "opmodel.dev/modules"
 	name:        "istio-ambient"
-	version:     "1.1.0"
+	version:     "1.2.0"
 	description: "Istio ambient mesh control plane — istiod, istio-cni and ztunnel, with CRDs, admission configuration and RBAC"
 }
 
@@ -54,15 +54,16 @@ metadata: {
 	image: {
 		// Registry and namespace holding the Istio images. The per-component
 		// name (pilot, install-cni, ztunnel) is appended by the components.
-		// Upstream moved this from docker.io/istio to registry.istio.io/release
-		// in the 1.30 line.
-		hub: string | *"registry.istio.io/release"
+		// The 1.30 line defaulted to registry.istio.io/release; upstream stops
+		// publishing there from 1.31 (GCP hosting deprecation, final cut-off
+		// 2026-12-08) and the 1.32 charts default back to docker.io/istio.
+		hub: string | *"docker.io/istio"
 
 		// Istio release. crds/, the injector templates and the injector values
 		// dump are all vendored from this release's charts — re-vendor when
 		// bumping it, or istiod will serve injection templates from a different
 		// version than it runs.
-		tag: string | *"1.30.3"
+		tag: string | *"1.32.0"
 
 		// Locked. The ambient profile sets global.variant=distroless and the
 		// chart applies it to all three images; exposed only for visibility.
@@ -117,6 +118,11 @@ metadata: {
 		resources?: res.#ResourceRequirementsSchema
 
 		traceSampling: number | *1
+
+		// Rendered explicitly from 1.32 (pilot.terminationGracePeriodSeconds
+		// upstream). 30 is also the Kubernetes default, so this is a no-op on
+		// the live pod spec.
+		terminationGracePeriodSeconds: int & >=0 | *30
 
 		// Extra env for the discovery container. The ambient hard-locks
 		// (PILOT_ENABLE_AMBIENT, CA_TRUSTED_NODE_ACCOUNTS) live in the
@@ -186,8 +192,8 @@ metadata: {
 // is meaningful; the everything-on case lives in testdata/values-full.cue.
 debugValues: {
 	image: {
-		hub:        "registry.istio.io/release"
-		tag:        "1.30.3"
+		hub:        "docker.io/istio"
+		tag:        "1.32.0"
 		variant:    "distroless"
 		pullPolicy: "IfNotPresent"
 	}
@@ -217,7 +223,8 @@ debugValues: {
 			cpu:    "500m"
 			memory: "2048Mi"
 		}
-		traceSampling: 1
+		traceSampling:                 1
+		terminationGracePeriodSeconds: 30
 		env: {}
 	}
 	cni: {
