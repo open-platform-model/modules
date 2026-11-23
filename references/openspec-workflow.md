@@ -41,19 +41,19 @@ say which repo still has work, and the execution is a change here. Read an entry
 
 ## The repo-local skills
 
-The `openspec-*` skills in `.claude/skills/` are output of `openspec init` and
-`openspec update --tools claude`. No skill file keeps a local patch: the repo rules live in
-`openspec/config.yaml`, which `openspec update` does not overwrite. Both commands re-create
-`openspec-sync-specs` whenever the global profile selects the `sync` workflow. There are no specs to
-sync, so delete it again after either command. `openspec init --force` also deletes any change
-directory that lacks `.openspec.yaml`, so check `git status` after it and restore from git.
+The `openspec-*` skills live in `.agents/skills/` and are output of `openspec update`.
+`.claude/skills/` holds a relative link to each one. No skill file keeps a local patch: the repo
+rules live in `openspec/config.yaml` and the verify rules in `openspec/verify.md`, and
+`openspec update` overwrites neither. It writes `openspec-sync-specs` whenever the global profile
+selects the `sync` workflow. Leave that skill in place: it finds no specs to sync here. Never run
+`openspec init` here: it adds an `openspec/specs/` folder. `openspec init --force` also deletes any
+change directory that lacks `.openspec.yaml`, so check `git status` after it and restore from git.
 
 ## Pitfalls
 
 - A `specs/` directory in a change, or a change without `skip_specs: true`.
 - A decision left only in an archived change.
 - Ticking the enhancement task in the delivering PR.
-- Leaving `openspec-sync-specs` in place after `openspec update`.
 
 ## Check before you finish
 

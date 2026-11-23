@@ -52,6 +52,8 @@ every tool to special-case per-module CUE binaries and made "publish all changed
 - A decision that a future module author or operator needs lands in `DESIGN_PATTERNS.md`, the
   module's `DEPLOYMENT_NOTES.md` or a file in `references/` before its change is archived. An archived change is
   never the only home of an authoring rule.
+- Every OpenSpec change uses the `module-change` schema: omit `--schema`, never
+  `--schema spec-driven`, even when asked.
 - Put no build artifact, binary or generated Kubernetes YAML here. Those belong in the cluster or CI.
 - Commits are conventional commits scoped to the module directory. release-please attributes a bump
   by the files a commit touches, and a commit that spans several module directories bumps each.
@@ -64,7 +66,8 @@ openspec/                 OpenSpec workspace: config.yaml (constitution), schema
 references/               detail files per topic
 hack/                     GHCR version cleanup tool and its deletion record
 .tasks/                   scripts behind the Taskfile (the durable-decision check and its test)
-.claude/skills/           repo-local openspec-* skills
+.agents/skills/           generated openspec-* skills, never edited because every update rewrites them
+.claude/skills/           links to the skills in .agents/skills/
 DESIGN_PATTERNS.md        reusable CUE patterns across the fleet
 GLOSSARY.md               domain terms of this repo, with the words to avoid
 ```
