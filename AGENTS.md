@@ -54,6 +54,8 @@ every tool to special-case per-module CUE binaries and made "publish all changed
   never the only home of an authoring rule.
 - Every OpenSpec change uses the `module-change` schema: omit `--schema`, never
   `--schema spec-driven`, even when asked.
+- A verify run on an OpenSpec change also applies `openspec/verify.md`, because the generated verify
+  skill does not name that file.
 - Put no build artifact, binary or generated Kubernetes YAML here. Those belong in the cluster or CI.
 - Commits are conventional commits scoped to the module directory. release-please attributes a bump
   by the files a commit touches, and a commit that spans several module directories bumps each.
