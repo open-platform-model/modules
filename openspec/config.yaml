@@ -9,6 +9,9 @@ references:
     remote: https://github.com/open-platform-model/enhancements.git
 
 context: |
+  Verify: when you verify a change, also apply every rule in `openspec/verify.md`, in the same run
+  and the same report. OpenSpec never writes that file.
+
   # OPM Modules Development Constitution
 
   This repo holds the workspace's OPM module definitions, one CUE module per directory,
@@ -223,3 +226,6 @@ operations:
       - "Archive with `--skip-specs`: this workspace has no specs and the change declares skip_specs. Never let archive create an openspec/specs/ directory."
       - "Before archiving, read design.md's Durable decisions section. Every entry marked for promotion MUST already be landed in DESIGN_PATTERNS.md, the module's DEPLOYMENT_NOTES.md, AGENTS.md or a references/ file; if one is not, stop and land it first. An archived change must not be the only home of an authoring rule."
       - "If the change delivers a line of an enhancement's `tasks.md`, name it in the PR body; after the repo PR merges, a PR on `enhancements` ticks that line."
+
+# Keep the generated skills in this repo; stops openspec update from asking.
+skillsScope: project
