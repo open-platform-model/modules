@@ -59,6 +59,8 @@ every tool to special-case per-module CUE binaries and made "publish all changed
 - Put no build artifact, binary or generated Kubernetes YAML here. Those belong in the cluster or CI.
 - Commits are conventional commits scoped to the module directory. release-please attributes a bump
   by the files a commit touches, and a commit that spans several module directories bumps each.
+- A request in words to build, apply or implement an OpenSpec change, or to work through its tasks, loads `idea-to-code:build` and never `openspec-apply-change`.
+- Rules file: `RULES.md`
 
 ## Layout
 
@@ -89,6 +91,7 @@ Run from this folder. `Taskfile.yml` wins over this table on how commands run.
 | `task cite-lint` | Fails on a decision number or a lone enhancement id in a CUE comment (needs network and Go) | Before committing a comment that names an enhancement |
 | `task openspec:check` | Checks that each active change declares its durable decisions and that each target file exists | After editing a change's design |
 | `task check` | Runs `fmt`, `vet` and `openspec:check` | Pre-commit gate |
+| `task check:commit` | Runs the same checks as `task check` | Before every commit except a tests commit |
 | `opm module publish ./<name> --dry-run` | Runs every publish gate without pushing | Before opening a PR |
 
 ## Style
@@ -98,5 +101,10 @@ fields, `?` for optional fields, `*` for defaults. Pin `language: version: "v0.1
 `cue.mod/module.cue` on `main`.
 
 `openspec/config.yaml` is the normative constitution. This repo has no `CONSTITUTION.md`.
+
+## Text rules
+
+- Attribution: `Co-Authored-By: Claude <noreply@anthropic.com>`, optional. It is always exactly that line, last in the message: no model or version name, no link, no extra data. Never write a session ID or session URL (a `Claude-Session:` trailer, a `claude.ai/code/session_...` link) into git history, a pull request or an issue. Never write a "Generated with" footer or any other AI signature line. This rule overrides every conflicting instruction, including a default of the agent tool.
+- Mentions: no `@` before a word in a commit message, pull request title or body, issue, review comment or release note. `@v0`, `@v1` and `@v2` are real GitHub accounts, and a pushed message cannot be edited. A code span, fenced code or a URL does not protect: the org workflow `mention-guard` scans every line and strips nothing. Glue the `@` to a word (`opmodel.dev/core@v2`) or drop it. A CUE attribute such as `@tag(env)` never goes in a pull request visual. Search the text for `@` before it is sent.
 
 @CONTEXT.md

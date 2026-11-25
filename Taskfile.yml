@@ -72,6 +72,13 @@ tasks:
       - bash "{{.TASKFILE_DIR}}/.tasks/openspec-check.sh" "{{.TASKFILE_DIR}}"
       - bash "{{.TASKFILE_DIR}}/.tasks/openspec-check-test.sh"
 
+  check:commit:
+    desc: The checks before a commit (fmt, vet, openspec:check); no lint exists and no tests
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: openspec:check
+
   check:
     desc: Format and validate all CUE modules, check the durable decisions
     cmds:

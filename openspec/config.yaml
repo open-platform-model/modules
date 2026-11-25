@@ -12,6 +12,10 @@ context: |
   Verify: when you verify a change, also apply every rule in `openspec/verify.md`, in the same run
   and the same report. OpenSpec never writes that file.
 
+  Owner gates: apply them with the `idea-to-code:owner-gate` skill.
+
+  Checks before a commit: `task check:commit`. It runs before every commit except a tests commit.
+
   # OPM Modules Development Constitution
 
   This repo holds the workspace's OPM module definitions, one CUE module per directory,
@@ -171,11 +175,6 @@ rules:
   tasks:
     - "Focus: STEPS to take for implementation"
     - "Updates when: Tasks complete, new tasks discovered, blockers identified"
-    - "CRITICAL: Every `## N.` section MUST end green under the validation gates and MUST close
-      with a commit task: an ordinary `- [ ] N.M` checkbox whose text names the Conventional
-      Commit to make, e.g. `- [ ] 1.4 task check green, then commit feat(ntfy): expose the metrics port`
-      (types per AGENTS.md, scope is the module directory). The commit task is the pause point; nothing uncommitted is carried across
-      a section boundary."
     - "CRITICAL: Cut the change into at most about seven sections, each a coherent unit that
       leaves main releasable by itself. If it needs more, or a section cannot end green on its
       own, split into a new OpenSpec change. Section 1 is a spike whenever design.md carries an
@@ -204,11 +203,6 @@ rules:
 operations:
   apply:
     guidance:
-      - "Work section by section: every `## N.` block of tasks.md ends with a commit task. Before
-        checking that box, run the section's gates (`task check`, then `opm module publish ./<name> --dry-run` per touched module) on the whole tree and make
-        exactly the named Conventional Commit (types per AGENTS.md, scope is the module directory; optional plain Co-Authored-By: Claude
-        <noreply@anthropic.com> trailer only, never a session link, never a bare @name, and
-        no body line starting with word( because release-please parses every commit body). Do not start the next section with uncommitted work in the tree."
       - "The commit task is the only delivery operation apply performs: no push, no PR, no tag,
         no release. Commit on the working branch the run started on. If the run started on
         main, create the working branch before the first commit task; never commit to main."
