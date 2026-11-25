@@ -15,7 +15,7 @@ delivers a task of a cross-repo enhancement. The constitution is `openspec/confi
 - `openspec validate` still asks for spec deltas unless the change's `.openspec.yaml` says
   `skip_specs: true`. Write that marker when you create the change. If a change lacks it, add it.
 - Apply the mergeable-sections gate before you start. A section is one module, or one pattern applied
-  across modules, and each closes with its own commit. Split a request that does not cut into a
+  across modules, and each ends green. Split a request that does not cut into a
   handful of such sections, using the phrasing in `openspec/config.yaml`.
 
 ## Durable decisions
@@ -60,5 +60,4 @@ change directory that lacks `.openspec.yaml`, so check `git status` after it and
 - [ ] `.openspec.yaml` carries `skip_specs: true`.
 - [ ] The proposal says `Delivers NNNN, task X.Y.` or `None.`.
 - [ ] Every durable decision names a target that exists.
-- [ ] Each section of tasks ends with its commit task.
 - [ ] `task check` passes.
