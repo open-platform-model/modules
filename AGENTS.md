@@ -91,7 +91,7 @@ Run from this folder. `Taskfile.yml` wins over this table on how commands run.
 | `task cite-lint` | Fails on a decision number or a lone enhancement id in a CUE comment (needs network and Go) | Before committing a comment that names an enhancement |
 | `task openspec:check` | Checks that each active change declares its durable decisions and that each target file exists | After editing a change's design |
 | `task check` | Runs `fmt`, `vet` and `openspec:check` | Pre-commit gate |
-| `task check:commit` | Runs the same checks as `task check` | Before every commit except a tests commit |
+| `task check:commit` | Runs `fmt:check` (`cue fmt --check`, rewrites nothing), `vet` and `openspec:check` | Before every commit except a tests commit |
 | `opm module publish ./<name> --dry-run` | Runs every publish gate without pushing | Before opening a PR |
 
 ## Style

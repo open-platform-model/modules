@@ -31,6 +31,18 @@ tasks:
           (cd "$dir" && cue fmt ./...)
         done
 
+  fmt:check:
+    desc: Fail on CUE files that cue fmt would change; rewrites nothing
+    cmds:
+      - |
+        rc=0
+        for dir in "{{.TASKFILE_DIR}}"/*/; do
+          [ -d "$dir/cue.mod" ] || continue
+          echo "fmt:check: $(basename "$dir")"
+          (cd "$dir" && cue fmt --check ./...) || rc=1
+        done
+        exit $rc
+
   vet:
     desc: Validate all CUE modules
     vars:
@@ -73,9 +85,9 @@ tasks:
       - bash "{{.TASKFILE_DIR}}/.tasks/openspec-check-test.sh"
 
   check:commit:
-    desc: The checks before a commit (fmt, vet, openspec:check); no lint exists and no tests
+    desc: The checks before a commit (fmt:check, vet, openspec:check); no lint exists and no tests
     cmds:
-      - task: fmt
+      - task: fmt:check
       - task: vet
       - task: openspec:check
 
