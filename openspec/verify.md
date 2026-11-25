@@ -11,8 +11,8 @@ findings in the same report.
 
 ## Task Hygiene (part of Completeness)
 
-- Flag any task that is a delivery operation other than a section-closing commit: pushing, branching, opening/merging PRs, tagging, cutting releases, commit-message or PR-body hygiene checks.
-- Add WARNING: "Delivery-operation task: <description>: remove it rather than checking it off; delivery past the section commit happens under the repo's normal git workflow".
+- Flag any task that is a delivery operation: committing, pushing, branching, opening/merging PRs, tagging, cutting releases, commit-message or PR-body hygiene checks.
+- Add WARNING: "Delivery-operation task: <description>: remove it rather than checking it off; delivery happens under the repo's normal git workflow".
 - Exception: skip this check when the change's stated deliverable is itself a release or publishing operation; there those steps are the implementation.
 
 ## Issue ids

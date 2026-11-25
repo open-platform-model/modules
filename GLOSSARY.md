@@ -135,8 +135,8 @@ after as CUE.
 _Avoid_: spec change, feature, ticket
 
 **Section**:
-A `## N.` block of a change's `tasks.md`. It ends green under the validation gates, closes
-with a commit task, and leaves `main` releasable.
+A `## N.` block of a change's `tasks.md`. It ends green under the validation gates and leaves
+`main` releasable.
 _Avoid_: phase, milestone, step
 
 **Durable decision**:
